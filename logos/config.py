@@ -25,6 +25,9 @@ class Settings:
     end: str
     symbol: str
     log_level: str = "INFO"
+    asset_class: str = "equity"
+    commission_per_share: float = 0.0035
+    slippage_bps: float = 1.0
 
 def load_settings() -> Settings:
     """Load environment variables and return a Settings instance.
@@ -37,4 +40,7 @@ def load_settings() -> Settings:
         end=os.getenv("END_DATE", "2025-01-01"),
         symbol=os.getenv("SYMBOL", "MSFT"),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        asset_class=os.getenv("DEFAULT_ASSET_CLASS", "equity"),
+        commission_per_share=float(os.getenv("DEFAULT_COMMISSION_PER_SHARE", "0.0035")),
+        slippage_bps=float(os.getenv("DEFAULT_SLIPPAGE_BPS", "1.0")),
     )

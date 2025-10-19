@@ -7,7 +7,7 @@
 #
 # Summary:
 #   - Parses user arguments (symbol, dates, strategy)
-#   - NEW: Supports asset classes (equity, crypto, fx) and intervals (1d, 1h, 10m...)
+#   - NEW: Supports asset classes (equity, crypto, forex) and intervals (1d, 1h, 10m...)
 #   - Loads historical data via data_loader.get_prices()
 #   - Runs a strategy to generate signals
 #   - Calls backtest.engine.run_backtest() with asset-aware costs & annualization
@@ -22,10 +22,11 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from typing import Sequence
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from .config import load_settings
+from .config import load_settings, Settings
 from .utils import setup_logging, ensure_dirs, parse_params
 from .data_loader import get_prices
 from .strategies import STRATEGIES
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 # Annualization helpers for different asset classes and bar intervals
 # -----------------------------------------------------------------------------
 # Base "periods per year" for daily bars by asset class:
-BASE_PPY = {"equity": 252, "crypto": 365, "fx": 260}
+BASE_PPY = {"equity": 252, "crypto": 365, "forex": 260}
 
 # How many bars per day for common intraday intervals
 BARS_PER_DAY = {
@@ -53,6 +54,8 @@ BARS_PER_DAY = {
 def periods_per_year(asset_class: str, interval: str) -> int:
     """Return the appropriate annualization factor for Sharpe/CAGR."""
     asset = asset_class.lower()
+    if asset == "fx":
+        asset = "forex"
     ivl = interval.lower()
     base = BASE_PPY.get(asset, 252)
     mult = BARS_PER_DAY.get(ivl, 1)
@@ -63,14 +66,14 @@ def periods_per_year(asset_class: str, interval: str) -> int:
 # Plotting helper
 # -----------------------------------------------------------------------------
 def _plot_equity(equity: pd.Series, symbol: str, strat: str) -> str:
-    """Save the equity curve PNG into logs/ and return its path."""
+    """Save the equity curve PNG into runs/ and return its path."""
     ensure_dirs()
     fig, ax = plt.subplots(figsize=(10, 4))
     equity.plot(ax=ax, label="Equity Curve")
     ax.set_title(f"Equity Curve - {symbol} - {strat}")
     ax.set_xlabel("Date"); ax.set_ylabel("Equity")
     ax.legend(loc="best")
-    out = os.path.join("logs", f"equity_{symbol}_{strat}.png")
+    out = os.path.join("runs", f"equity_{symbol}_{strat}.png")
     fig.tight_layout(); fig.savefig(out); plt.close(fig)
     return out
 
@@ -78,9 +81,9 @@ def _plot_equity(equity: pd.Series, symbol: str, strat: str) -> str:
 # -----------------------------------------------------------------------------
 # Backtest command
 # -----------------------------------------------------------------------------
-def cmd_backtest(args: argparse.Namespace) -> None:
+def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> None:
     """Run a full backtest with asset-aware costs and interval-aware metrics."""
-    s = load_settings()
+    s = settings or load_settings()
     setup_logging(s.log_level)
     logger.info("Starting backtest via CLI")
 
@@ -88,9 +91,13 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     symbol = args.symbol or s.symbol
     start  = args.start or s.start
     end    = args.end or s.end
+    asset_class = (args.asset_class or s.asset_class).lower()
+
+    if args.paper:
+        logger.info("Paper trading mode enabled: no live broker interactions will be attempted")
 
     # Load data with requested interval (resampling if yfinance cannot natively)
-    df = get_prices(symbol, start, end, interval=args.interval)
+    df = get_prices(symbol, start, end, interval=args.interval, asset_class=asset_class)
 
     # Strategy function and params
     strat_func = STRATEGIES[args.strategy]
@@ -98,7 +105,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     signals = strat_func(df, **params) if params else strat_func(df)
 
     # Compute annualization for metrics (asset + interval)
-    ppy = periods_per_year(args.asset_class, args.interval)
+    ppy = periods_per_year(asset_class, args.interval)
 
     # Run the engine with asset-aware costs
     res = run_backtest(
@@ -109,7 +116,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         commission_per_share_rate=args.commission,  # equities
         fee_bps=args.fee_bps,                       # crypto %
         fx_pip_size=args.fx_pip_size,               # fx pip granularity
-        asset_class=args.asset_class,
+        asset_class=asset_class,
         periods_per_year=ppy,
     )
 
@@ -120,7 +127,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         print(f"{k:8s}: {val:.4f}" if isinstance(val, float) else f"{k:8s}: {val}")
 
     # Persist artifacts
-    trades_path = os.path.join("logs", f"trades_{symbol}_{args.strategy}.csv")
+    trades_path = os.path.join("runs", f"trades_{symbol}_{args.strategy}.csv")
     res["trades"].to_csv(trades_path, index=False)
     print(f"Saved trades -> {trades_path}")
 
@@ -131,8 +138,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
 # -----------------------------------------------------------------------------
 # CLI entrypoint
 # -----------------------------------------------------------------------------
-def main() -> None:
-    """Parse arguments and dispatch to subcommands."""
+def build_parser(settings: Settings) -> argparse.ArgumentParser:
+    """Construct the CLI parser so shim modules can reuse it."""
     parser = argparse.ArgumentParser(prog="Logos-Q1", description="Quant backtesting CLI")
     sub = parser.add_subparsers(dest="command")
 
@@ -144,22 +151,37 @@ def main() -> None:
     p.add_argument("--end", required=True, help="End date YYYY-MM-DD")
 
     # NEW: asset class and interval
-    p.add_argument("--asset-class", choices=["equity", "crypto", "fx"], default="equity",
+    p.add_argument("--asset-class", choices=["equity", "crypto", "forex"],
+                   default=settings.asset_class,
                    help="Affects costs and metric annualization")
     p.add_argument("--interval", default="1d",
                    help="Bar size: 1d, 1h/60m, 30m, 15m, 10m, 5m")
 
     # Costs & engine knobs
     p.add_argument("--dollar-per-trade", type=float, default=10_000.0, help="Sizing per trade")
-    p.add_argument("--slip-bps", type=float, default=1.0, help="Slippage in basis points per order")
-    p.add_argument("--commission", type=float, default=0.0035, help="Equity commission $/share")
+    p.add_argument("--slip-bps", type=float, default=settings.slippage_bps,
+                   help="Slippage in basis points per order")
+    p.add_argument("--commission", type=float, default=settings.commission_per_share,
+                   help="Equity commission $/share")
     p.add_argument("--fee-bps", type=float, default=5.0, help="Crypto maker/taker fee in bps (0.01% = 1 bps)")
     p.add_argument("--fx-pip-size", type=float, default=0.0001, help="FX pip size (0.0001 for EURUSD, 0.01 for USDJPY)")
     p.add_argument("--params", default=None, help="Comma list 'k=v,k=v' for strategy params")
+    p.add_argument("--paper", action="store_true", help="Enable paper trading simulation mode")
 
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Parse arguments and dispatch to subcommands."""
+    settings = load_settings()
+    parser = build_parser(settings)
+    args = parser.parse_args(argv)
+
     if args.command == "backtest":
-        cmd_backtest(args)
+        cmd_backtest(args, settings=settings)
+    elif args.command is None and argv is None:
+        # User invoked bare CLI with no subcommand; show help
+        parser.print_help()
     else:
         parser.print_help()
 

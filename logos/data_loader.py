@@ -18,12 +18,19 @@
 from __future__ import annotations
 import logging
 import os
+from typing import Callable
 import pandas as pd
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_NATIVE = {"1d", "60m", "1h", "30m", "15m", "10m", "5m"}
+
+
+def _cache_path(symbol: str, interval: str, asset_tag: str) -> str:
+    """Return a cache filename that encodes symbol/interval/asset_class."""
+    safe_symbol = symbol.replace("/", "_").replace("=", "_").replace("-", "_")
+    return os.path.join("data", f"{asset_tag}_{safe_symbol}_{interval}.csv")
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
@@ -55,10 +62,18 @@ def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     out = df.resample(rule).apply(ohlc).dropna(how="any")
     return out
 
-def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.DataFrame:
-    """Download or load cached OHLCV for 'symbol' in [start, end] at 'interval'."""
+def _load_from_yahoo(
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str,
+    asset_tag: str,
+    download_symbol: str | None = None,
+) -> pd.DataFrame:
+    """Shared Yahoo Finance downloader with caching and resampling."""
     os.makedirs("data", exist_ok=True)
-    cache = f"data/{symbol.replace('/', '_')}_{interval}.csv"
+    cache_symbol = download_symbol or symbol
+    cache = _cache_path(cache_symbol, interval, asset_tag)
 
     df = None
     if os.path.exists(cache):
@@ -67,16 +82,16 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
         except Exception as ex:
             logger.warning(f"Failed reading cache {cache}: {ex}")
 
-    # If cache is stale or missing, download
     need_download = True
     if df is not None and _covers_range(df, start, end):
         need_download = False
 
     if need_download:
-        logger.info(f"Downloading {symbol} [{interval}] from Yahoo Finance")
+        dl_symbol = download_symbol or symbol
+        logger.info(f"Downloading {dl_symbol} [{interval}] from Yahoo Finance")
         yf_ivl = interval if interval in SUPPORTED_NATIVE else "1d"
         new = yf.download(
-            symbol,
+            dl_symbol,
             start=start,
             end=end,
             interval=yf_ivl,
@@ -85,12 +100,11 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
             progress=False,
         )
         if new.empty:
-            raise RuntimeError(f"No data for {symbol} at interval {interval}")
+            raise RuntimeError(f"No data for {dl_symbol} at interval {interval}")
         new.index.name = "Date"
         new = _flatten_columns(new)
         new = _ensure_adj_close(new)
 
-        # If interval unsupported natively, resample from daily
         if interval not in SUPPORTED_NATIVE or yf_ivl != interval:
             new = _resample_ohlcv(new, interval)
 
@@ -100,8 +114,58 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
             logger.warning(f"Could not write cache: {ex}")
         df = new
 
-    # Clip to requested window and enforce canonical column order
     df = df.loc[pd.to_datetime(start): pd.to_datetime(end)]
     cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
     df = df[cols]
+    return df
+
+
+def _load_equity_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+    """Equity loader: direct Yahoo Finance pull."""
+    return _load_from_yahoo(symbol, start, end, interval, asset_tag="equity")
+
+
+def _load_crypto_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+    """Crypto loader: prefer Yahoo Finance symbols like BTC-USD."""
+    try:
+        return _load_from_yahoo(symbol, start, end, interval, asset_tag="crypto")
+    except RuntimeError as err:
+        logger.error(f"Crypto data fetch failed for {symbol}: {err}")
+        raise
+
+
+def _normalize_forex_symbol(symbol: str) -> tuple[str, str]:
+    """Return tuple(original_symbol, yahoo_symbol) with '=X' suffix enforced."""
+    if symbol.upper().endswith("=X"):
+        return symbol.upper(), symbol.upper()
+    yahoo_symbol = f"{symbol.upper()}=X"
+    return symbol.upper(), yahoo_symbol
+
+
+def _load_forex_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+    """Forex loader: map to Yahoo Finance '=X' tickers automatically."""
+    original, yahoo_symbol = _normalize_forex_symbol(symbol)
+    return _load_from_yahoo(original, start, end, interval, asset_tag="forex", download_symbol=yahoo_symbol)
+
+
+def get_prices(
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str = "1d",
+    asset_class: str = "equity",
+) -> pd.DataFrame:
+    """Download or load cached OHLCV for a symbol based on its asset class."""
+    loader_map: dict[str, Callable[[str, str, str, str], pd.DataFrame]] = {
+        "equity": _load_equity_prices,
+        "crypto": _load_crypto_prices,
+        "forex": _load_forex_prices,
+    }
+
+    asset = asset_class.lower()
+    if asset == "fx":
+        asset = "forex"
+
+    loader = loader_map.get(asset, _load_equity_prices)
+    df = loader(symbol, start, end, interval)
     return df

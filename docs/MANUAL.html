@@ -89,10 +89,11 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <h2>3) Running Backtests</h2>
 <div class="card">
 <p>Example command:</p>
-<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --start 2020-01-01 --end 2024-12-31</code></pre>
+<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --asset-class equity --start 2020-01-01 --end 2024-12-31 --paper</code></pre>
 <ul>
-  <li>Results stored in <code>runs/</code> directory.</li>
-  <li>Equity curve, metrics (CAGR, Sharpe, MDD) auto-generated as JSON + chart HTML.</li>
+  <li>Use <code>--asset-class</code> to switch between <code>equity</code>, <code>crypto</code>, or <code>forex</code>.</li>
+  <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
+  <li>Results stored in <code>runs/</code> (CSV trade log + PNG equity curve).</li>
 </ul>
 </div>
 
@@ -111,9 +112,9 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 
 <h2>5) Education Mode</h2>
 <div class="card">
-<p><b>Education mode</b> transforms Logos-Q1 into a self-teaching tool. It explains every step as it runs:</p>
-<pre><code>python -m logos.tutor --lesson mean_reversion</code></pre>
-<p>Outputs annotated charts, variable definitions, and example trades.</p>
+<p><b>Education mode</b> scaffolding is in place and will expand in upcoming releases:</p>
+<pre><code>python -m logos.tutor</code></pre>
+<p>The tutor module currently prints a friendly status message while lessons are being authored.</p>
 </div>
 
 <h2>6) Troubleshooting</h2>

@@ -359,6 +359,8 @@
       <li><strong>Score results</strong> using CAGR, Sharpe, MDD, WinRate, Exposure.</li>
       <li><strong>Iterate</strong>: change params, symbols, windows; record runs for comparison.</li>
     </ol>
+    <pre><code>python -m logos.backtest --symbol EURUSD --strategy momentum --asset-class forex --start 2023-01-01 --end 2024-01-01 --paper</code></pre>
+    <p class="note">The CLI now understands <code>--asset-class</code> (<code>equity</code>, <code>crypto</code>, <code>forex</code>) and a <code>--paper</code> flag for risk-free dry runs. Outputs land in <code>runs/</code> for easy comparisons.</p>
     <div class="note">The edge is rarely one trick — it’s the <em>system</em>: robust data + sensible signals + careful execution + strict risk.</div>
   </div>
 

@@ -1,0 +1,466 @@
+diff --git a/.env.example b/.env.example
+index 2e2331e..2d54fb6 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,6 +1,11 @@
+ # .env.example
+-# Copy to .env and adjust as needed. Read by src/config.py
++# Copy to .env and adjust as needed. Read by logos/config.py
+ START_DATE=2023-01-01
+ END_DATE=2025-01-01
+ SYMBOL=MSFT
+ LOG_LEVEL=INFO
++
++# Default execution knobs used by the CLI when flags are omitted
++DEFAULT_ASSET_CLASS=equity
++DEFAULT_COMMISSION_PER_SHARE=0.0035
++DEFAULT_SLIPPAGE_BPS=1.0
+diff --git a/docs/FINANCE.html b/docs/FINANCE.html
+index 6cf19b5..f6367dd 100644
+--- a/docs/FINANCE.html
++++ b/docs/FINANCE.html
+@@ -359,6 +359,8 @@
+       <li><strong>Score results</strong> using CAGR, Sharpe, MDD, WinRate, Exposure.</li>
+       <li><strong>Iterate</strong>: change params, symbols, windows; record runs for comparison.</li>
+     </ol>
++    <pre><code>python -m logos.backtest --symbol EURUSD --strategy momentum --asset-class forex --start 2023-01-01 --end 2024-01-01 --paper</code></pre>
++    <p class="note">The CLI now understands <code>--asset-class</code> (<code>equity</code>, <code>crypto</code>, <code>forex</code>) and a <code>--paper</code> flag for risk-free dry runs. Outputs land in <code>runs/</code> for easy comparisons.</p>
+     <div class="note">The edge is rarely one trick — it’s the <em>system</em>: robust data + sensible signals + careful execution + strict risk.</div>
+   </div>
+ 
+diff --git a/docs/MANUAL.html b/docs/MANUAL.html
+index 12768a4..d1c8e4b 100644
+--- a/docs/MANUAL.html
++++ b/docs/MANUAL.html
+@@ -89,10 +89,11 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled
+ <h2>3) Running Backtests</h2>
+ <div class="card">
+ <p>Example command:</p>
+-<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --start 2020-01-01 --end 2024-12-31</code></pre>
++<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --asset-class equity --start 2020-01-01 --end 2024-12-31 --paper</code></pre>
+ <ul>
+-  <li>Results stored in <code>runs/</code> directory.</li>
+-  <li>Equity curve, metrics (CAGR, Sharpe, MDD) auto-generated as JSON + chart HTML.</li>
++  <li>Use <code>--asset-class</code> to switch between <code>equity</code>, <code>crypto</code>, or <code>forex</code>.</li>
++  <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
++  <li>Results stored in <code>runs/</code> (CSV trade log + PNG equity curve).</li>
+ </ul>
+ </div>
+ 
+@@ -111,9 +112,9 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled
+ 
+ <h2>5) Education Mode</h2>
+ <div class="card">
+-<p><b>Education mode</b> transforms Logos-Q1 into a self-teaching tool. It explains every step as it runs:</p>
+-<pre><code>python -m logos.tutor --lesson mean_reversion</code></pre>
+-<p>Outputs annotated charts, variable definitions, and example trades.</p>
++<p><b>Education mode</b> scaffolding is in place and will expand in upcoming releases:</p>
++<pre><code>python -m logos.tutor</code></pre>
++<p>The tutor module currently prints a friendly status message while lessons are being authored.</p>
+ </div>
+ 
+ <h2>6) Troubleshooting</h2>
+diff --git a/logos/backtest/engine.py b/logos/backtest/engine.py
+index 640ce7d..4139cb1 100644
+--- a/logos/backtest/engine.py
++++ b/logos/backtest/engine.py
+@@ -54,6 +54,7 @@ def run_backtest(
+     cash = pd.Series(0.0, index=df.index)
+ 
+     # Process each order with asset-aware fill price and fees
++    asset = asset_class.lower()
+     for t, side, sh in zip(orders_idx, sides, shares):
+         if sh == 0:
+             continue
+@@ -61,18 +62,18 @@ def run_backtest(
+         px = float(close.loc[t])
+ 
+         # FX spread model (buy pays up, sell receives down)
+-        if asset_class.lower() == "fx":
++        if asset in {"fx", "forex"}:
+             px = fx_spread_price_bump(px, int(side), spread_pips=1.0, pip_size=fx_pip_size)
+ 
+         # Slippage on top
+         fill_p = slip_price(px, int(side), slip_bps=slip_bps)
+ 
+         # Fees/commissions by asset class
+-        if asset_class.lower() == "equity":
++        if asset == "equity":
+             fee = commission_per_share(int(sh), rate=commission_per_share_rate)
+-        elif asset_class.lower() == "crypto":
++        elif asset == "crypto":
+             fee = crypto_fee_usd(fill_p, int(sh), fee_bps=fee_bps)
+-        elif asset_class.lower() == "fx":
++        elif asset in {"fx", "forex"}:
+             # Keep it simple: apply no extra commission (many brokers embed in spread)
+             fee = 0.0
+         else:
+diff --git a/logos/cli.py b/logos/cli.py
+index 176fab6..ebb3f1d 100644
+--- a/logos/cli.py
++++ b/logos/cli.py
+@@ -7,7 +7,7 @@
+ #
+ # Summary:
+ #   - Parses user arguments (symbol, dates, strategy)
+-#   - NEW: Supports asset classes (equity, crypto, fx) and intervals (1d, 1h, 10m...)
++#   - NEW: Supports asset classes (equity, crypto, forex) and intervals (1d, 1h, 10m...)
+ #   - Loads historical data via data_loader.get_prices()
+ #   - Runs a strategy to generate signals
+ #   - Calls backtest.engine.run_backtest() with asset-aware costs & annualization
+@@ -22,10 +22,11 @@ from __future__ import annotations
+ import argparse
+ import logging
+ import os
++from typing import Sequence
+ import matplotlib.pyplot as plt
+ import pandas as pd
+ 
+-from .config import load_settings
++from .config import load_settings, Settings
+ from .utils import setup_logging, ensure_dirs, parse_params
+ from .data_loader import get_prices
+ from .strategies import STRATEGIES
+@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
+ # Annualization helpers for different asset classes and bar intervals
+ # -----------------------------------------------------------------------------
+ # Base "periods per year" for daily bars by asset class:
+-BASE_PPY = {"equity": 252, "crypto": 365, "fx": 260}
++BASE_PPY = {"equity": 252, "crypto": 365, "forex": 260}
+ 
+ # How many bars per day for common intraday intervals
+ BARS_PER_DAY = {
+@@ -53,6 +54,8 @@ BARS_PER_DAY = {
+ def periods_per_year(asset_class: str, interval: str) -> int:
+     """Return the appropriate annualization factor for Sharpe/CAGR."""
+     asset = asset_class.lower()
++    if asset == "fx":
++        asset = "forex"
+     ivl = interval.lower()
+     base = BASE_PPY.get(asset, 252)
+     mult = BARS_PER_DAY.get(ivl, 1)
+@@ -63,14 +66,14 @@ def periods_per_year(asset_class: str, interval: str) -> int:
+ # Plotting helper
+ # -----------------------------------------------------------------------------
+ def _plot_equity(equity: pd.Series, symbol: str, strat: str) -> str:
+-    """Save the equity curve PNG into logs/ and return its path."""
++    """Save the equity curve PNG into runs/ and return its path."""
+     ensure_dirs()
+     fig, ax = plt.subplots(figsize=(10, 4))
+     equity.plot(ax=ax, label="Equity Curve")
+     ax.set_title(f"Equity Curve - {symbol} - {strat}")
+     ax.set_xlabel("Date"); ax.set_ylabel("Equity")
+     ax.legend(loc="best")
+-    out = os.path.join("logs", f"equity_{symbol}_{strat}.png")
++    out = os.path.join("runs", f"equity_{symbol}_{strat}.png")
+     fig.tight_layout(); fig.savefig(out); plt.close(fig)
+     return out
+ 
+@@ -78,9 +81,9 @@ def _plot_equity(equity: pd.Series, symbol: str, strat: str) -> str:
+ # -----------------------------------------------------------------------------
+ # Backtest command
+ # -----------------------------------------------------------------------------
+-def cmd_backtest(args: argparse.Namespace) -> None:
++def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> None:
+     """Run a full backtest with asset-aware costs and interval-aware metrics."""
+-    s = load_settings()
++    s = settings or load_settings()
+     setup_logging(s.log_level)
+     logger.info("Starting backtest via CLI")
+ 
+@@ -88,9 +91,13 @@ def cmd_backtest(args: argparse.Namespace) -> None:
+     symbol = args.symbol or s.symbol
+     start  = args.start or s.start
+     end    = args.end or s.end
++    asset_class = (args.asset_class or s.asset_class).lower()
++
++    if args.paper:
++        logger.info("Paper trading mode enabled: no live broker interactions will be attempted")
+ 
+     # Load data with requested interval (resampling if yfinance cannot natively)
+-    df = get_prices(symbol, start, end, interval=args.interval)
++    df = get_prices(symbol, start, end, interval=args.interval, asset_class=asset_class)
+ 
+     # Strategy function and params
+     strat_func = STRATEGIES[args.strategy]
+@@ -98,7 +105,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
+     signals = strat_func(df, **params) if params else strat_func(df)
+ 
+     # Compute annualization for metrics (asset + interval)
+-    ppy = periods_per_year(args.asset_class, args.interval)
++    ppy = periods_per_year(asset_class, args.interval)
+ 
+     # Run the engine with asset-aware costs
+     res = run_backtest(
+@@ -109,7 +116,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
+         commission_per_share_rate=args.commission,  # equities
+         fee_bps=args.fee_bps,                       # crypto %
+         fx_pip_size=args.fx_pip_size,               # fx pip granularity
+-        asset_class=args.asset_class,
++        asset_class=asset_class,
+         periods_per_year=ppy,
+     )
+ 
+@@ -120,7 +127,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
+         print(f"{k:8s}: {val:.4f}" if isinstance(val, float) else f"{k:8s}: {val}")
+ 
+     # Persist artifacts
+-    trades_path = os.path.join("logs", f"trades_{symbol}_{args.strategy}.csv")
++    trades_path = os.path.join("runs", f"trades_{symbol}_{args.strategy}.csv")
+     res["trades"].to_csv(trades_path, index=False)
+     print(f"Saved trades -> {trades_path}")
+ 
+@@ -131,8 +138,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
+ # -----------------------------------------------------------------------------
+ # CLI entrypoint
+ # -----------------------------------------------------------------------------
+-def main() -> None:
+-    """Parse arguments and dispatch to subcommands."""
++def build_parser(settings: Settings) -> argparse.ArgumentParser:
++    """Construct the CLI parser so shim modules can reuse it."""
+     parser = argparse.ArgumentParser(prog="Logos-Q1", description="Quant backtesting CLI")
+     sub = parser.add_subparsers(dest="command")
+ 
+@@ -144,22 +151,37 @@ def main() -> None:
+     p.add_argument("--end", required=True, help="End date YYYY-MM-DD")
+ 
+     # NEW: asset class and interval
+-    p.add_argument("--asset-class", choices=["equity", "crypto", "fx"], default="equity",
++    p.add_argument("--asset-class", choices=["equity", "crypto", "forex"],
++                   default=settings.asset_class,
+                    help="Affects costs and metric annualization")
+     p.add_argument("--interval", default="1d",
+                    help="Bar size: 1d, 1h/60m, 30m, 15m, 10m, 5m")
+ 
+     # Costs & engine knobs
+     p.add_argument("--dollar-per-trade", type=float, default=10_000.0, help="Sizing per trade")
+-    p.add_argument("--slip-bps", type=float, default=1.0, help="Slippage in basis points per order")
+-    p.add_argument("--commission", type=float, default=0.0035, help="Equity commission $/share")
++    p.add_argument("--slip-bps", type=float, default=settings.slippage_bps,
++                   help="Slippage in basis points per order")
++    p.add_argument("--commission", type=float, default=settings.commission_per_share,
++                   help="Equity commission $/share")
+     p.add_argument("--fee-bps", type=float, default=5.0, help="Crypto maker/taker fee in bps (0.01% = 1 bps)")
+     p.add_argument("--fx-pip-size", type=float, default=0.0001, help="FX pip size (0.0001 for EURUSD, 0.01 for USDJPY)")
+     p.add_argument("--params", default=None, help="Comma list 'k=v,k=v' for strategy params")
++    p.add_argument("--paper", action="store_true", help="Enable paper trading simulation mode")
++
++    return parser
++
++
++def main(argv: Sequence[str] | None = None) -> None:
++    """Parse arguments and dispatch to subcommands."""
++    settings = load_settings()
++    parser = build_parser(settings)
++    args = parser.parse_args(argv)
+ 
+-    args = parser.parse_args()
+     if args.command == "backtest":
+-        cmd_backtest(args)
++        cmd_backtest(args, settings=settings)
++    elif args.command is None and argv is None:
++        # User invoked bare CLI with no subcommand; show help
++        parser.print_help()
+     else:
+         parser.print_help()
+ 
+diff --git a/logos/config.py b/logos/config.py
+index 8bfb0a9..b0fb603 100644
+--- a/logos/config.py
++++ b/logos/config.py
+@@ -25,6 +25,9 @@ class Settings:
+     end: str
+     symbol: str
+     log_level: str = "INFO"
++    asset_class: str = "equity"
++    commission_per_share: float = 0.0035
++    slippage_bps: float = 1.0
+ 
+ def load_settings() -> Settings:
+     """Load environment variables and return a Settings instance.
+@@ -37,4 +40,7 @@ def load_settings() -> Settings:
+         end=os.getenv("END_DATE", "2025-01-01"),
+         symbol=os.getenv("SYMBOL", "MSFT"),
+         log_level=os.getenv("LOG_LEVEL", "INFO"),
++        asset_class=os.getenv("DEFAULT_ASSET_CLASS", "equity"),
++        commission_per_share=float(os.getenv("DEFAULT_COMMISSION_PER_SHARE", "0.0035")),
++        slippage_bps=float(os.getenv("DEFAULT_SLIPPAGE_BPS", "1.0")),
+     )
+diff --git a/logos/data_loader.py b/logos/data_loader.py
+index b8f2f32..76bfc2f 100644
+--- a/logos/data_loader.py
++++ b/logos/data_loader.py
+@@ -18,6 +18,7 @@
+ from __future__ import annotations
+ import logging
+ import os
++from typing import Callable
+ import pandas as pd
+ import yfinance as yf
+ 
+@@ -25,6 +26,12 @@ logger = logging.getLogger(__name__)
+ 
+ SUPPORTED_NATIVE = {"1d", "60m", "1h", "30m", "15m", "10m", "5m"}
+ 
++
++def _cache_path(symbol: str, interval: str, asset_tag: str) -> str:
++    """Return a cache filename that encodes symbol/interval/asset_class."""
++    safe_symbol = symbol.replace("/", "_").replace("=", "_").replace("-", "_")
++    return os.path.join("data", f"{asset_tag}_{safe_symbol}_{interval}.csv")
++
+ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
+     if isinstance(df.columns, pd.MultiIndex):
+         df.columns = df.columns.get_level_values(0)
+@@ -55,10 +62,18 @@ def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
+     out = df.resample(rule).apply(ohlc).dropna(how="any")
+     return out
+ 
+-def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.DataFrame:
+-    """Download or load cached OHLCV for 'symbol' in [start, end] at 'interval'."""
++def _load_from_yahoo(
++    symbol: str,
++    start: str,
++    end: str,
++    interval: str,
++    asset_tag: str,
++    download_symbol: str | None = None,
++) -> pd.DataFrame:
++    """Shared Yahoo Finance downloader with caching and resampling."""
+     os.makedirs("data", exist_ok=True)
+-    cache = f"data/{symbol.replace('/', '_')}_{interval}.csv"
++    cache_symbol = download_symbol or symbol
++    cache = _cache_path(cache_symbol, interval, asset_tag)
+ 
+     df = None
+     if os.path.exists(cache):
+@@ -67,16 +82,16 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
+         except Exception as ex:
+             logger.warning(f"Failed reading cache {cache}: {ex}")
+ 
+-    # If cache is stale or missing, download
+     need_download = True
+     if df is not None and _covers_range(df, start, end):
+         need_download = False
+ 
+     if need_download:
+-        logger.info(f"Downloading {symbol} [{interval}] from Yahoo Finance")
++        dl_symbol = download_symbol or symbol
++        logger.info(f"Downloading {dl_symbol} [{interval}] from Yahoo Finance")
+         yf_ivl = interval if interval in SUPPORTED_NATIVE else "1d"
+         new = yf.download(
+-            symbol,
++            dl_symbol,
+             start=start,
+             end=end,
+             interval=yf_ivl,
+@@ -85,12 +100,11 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
+             progress=False,
+         )
+         if new.empty:
+-            raise RuntimeError(f"No data for {symbol} at interval {interval}")
++            raise RuntimeError(f"No data for {dl_symbol} at interval {interval}")
+         new.index.name = "Date"
+         new = _flatten_columns(new)
+         new = _ensure_adj_close(new)
+ 
+-        # If interval unsupported natively, resample from daily
+         if interval not in SUPPORTED_NATIVE or yf_ivl != interval:
+             new = _resample_ohlcv(new, interval)
+ 
+@@ -100,8 +114,58 @@ def get_prices(symbol: str, start: str, end: str, interval: str = "1d") -> pd.Da
+             logger.warning(f"Could not write cache: {ex}")
+         df = new
+ 
+-    # Clip to requested window and enforce canonical column order
+     df = df.loc[pd.to_datetime(start): pd.to_datetime(end)]
+     cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+     df = df[cols]
+     return df
++
++
++def _load_equity_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
++    """Equity loader: direct Yahoo Finance pull."""
++    return _load_from_yahoo(symbol, start, end, interval, asset_tag="equity")
++
++
++def _load_crypto_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
++    """Crypto loader: prefer Yahoo Finance symbols like BTC-USD."""
++    try:
++        return _load_from_yahoo(symbol, start, end, interval, asset_tag="crypto")
++    except RuntimeError as err:
++        logger.error(f"Crypto data fetch failed for {symbol}: {err}")
++        raise
++
++
++def _normalize_forex_symbol(symbol: str) -> tuple[str, str]:
++    """Return tuple(original_symbol, yahoo_symbol) with '=X' suffix enforced."""
++    if symbol.upper().endswith("=X"):
++        return symbol.upper(), symbol.upper()
++    yahoo_symbol = f"{symbol.upper()}=X"
++    return symbol.upper(), yahoo_symbol
++
++
++def _load_forex_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
++    """Forex loader: map to Yahoo Finance '=X' tickers automatically."""
++    original, yahoo_symbol = _normalize_forex_symbol(symbol)
++    return _load_from_yahoo(original, start, end, interval, asset_tag="forex", download_symbol=yahoo_symbol)
++
++
++def get_prices(
++    symbol: str,
++    start: str,
++    end: str,
++    interval: str = "1d",
++    asset_class: str = "equity",
++) -> pd.DataFrame:
++    """Download or load cached OHLCV for a symbol based on its asset class."""
++    loader_map: dict[str, Callable[[str, str, str, str], pd.DataFrame]] = {
++        "equity": _load_equity_prices,
++        "crypto": _load_crypto_prices,
++        "forex": _load_forex_prices,
++    }
++
++    asset = asset_class.lower()
++    if asset == "fx":
++        asset = "forex"
++
++    loader = loader_map.get(asset, _load_equity_prices)
++    df = loader(symbol, start, end, interval)
++    return df
+diff --git a/logos/utils.py b/logos/utils.py
+index eaf5db2..21ba710 100644
+--- a/logos/utils.py
++++ b/logos/utils.py
+@@ -4,7 +4,7 @@
+ #   Small utilities used across the project.
+ #
+ # Summary:
+-#   - ensure_dirs(): idempotently create data/logs/notebooks directories
++#   - ensure_dirs(): idempotently create data/runs/notebooks directories
+ #   - setup_logging(): configure console+file logging
+ #   - parse_params(): convert "k=v,k=v" strings to a dict with basic typing
+ #
+@@ -19,7 +19,8 @@ from typing import Dict
+ def ensure_dirs() -> None:
+     """Create project directories for data and outputs if they don't exist."""
+     os.makedirs("data", exist_ok=True)
+-    os.makedirs("logs", exist_ok=True)
++    os.makedirs("runs", exist_ok=True)
++    os.makedirs(os.path.join("runs", "logs"), exist_ok=True)
+     os.makedirs("notebooks", exist_ok=True)
+ 
+ def setup_logging(level: str = "INFO") -> None:
+@@ -28,11 +29,12 @@ def setup_logging(level: str = "INFO") -> None:
+     File logs help with debugging and historical record of runs.
+     """
+     ensure_dirs()
++    log_file = os.path.join("runs", "logs", "app.log")
+     logging.basicConfig(
+         level=getattr(logging, level.upper(), logging.INFO),
+         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+         handlers=[
+-            logging.FileHandler("logs/app.log", mode="a"),
++            logging.FileHandler(log_file, mode="a"),
+             logging.StreamHandler(),
+         ],
+     )

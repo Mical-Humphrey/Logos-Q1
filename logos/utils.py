@@ -4,7 +4,7 @@
 #   Small utilities used across the project.
 #
 # Summary:
-#   - ensure_dirs(): idempotently create data/logs/notebooks directories
+#   - ensure_dirs(): idempotently create data/runs/notebooks directories
 #   - setup_logging(): configure console+file logging
 #   - parse_params(): convert "k=v,k=v" strings to a dict with basic typing
 #
@@ -19,7 +19,8 @@ from typing import Dict
 def ensure_dirs() -> None:
     """Create project directories for data and outputs if they don't exist."""
     os.makedirs("data", exist_ok=True)
-    os.makedirs("logs", exist_ok=True)
+    os.makedirs("runs", exist_ok=True)
+    os.makedirs(os.path.join("runs", "logs"), exist_ok=True)
     os.makedirs("notebooks", exist_ok=True)
 
 def setup_logging(level: str = "INFO") -> None:
@@ -28,11 +29,12 @@ def setup_logging(level: str = "INFO") -> None:
     File logs help with debugging and historical record of runs.
     """
     ensure_dirs()
+    log_file = os.path.join("runs", "logs", "app.log")
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         handlers=[
-            logging.FileHandler("logs/app.log", mode="a"),
+            logging.FileHandler(log_file, mode="a"),
             logging.StreamHandler(),
         ],
     )

@@ -54,6 +54,7 @@ def run_backtest(
     cash = pd.Series(0.0, index=df.index)
 
     # Process each order with asset-aware fill price and fees
+    asset = asset_class.lower()
     for t, side, sh in zip(orders_idx, sides, shares):
         if sh == 0:
             continue
@@ -61,18 +62,18 @@ def run_backtest(
         px = float(close.loc[t])
 
         # FX spread model (buy pays up, sell receives down)
-        if asset_class.lower() == "fx":
+        if asset in {"fx", "forex"}:
             px = fx_spread_price_bump(px, int(side), spread_pips=1.0, pip_size=fx_pip_size)
 
         # Slippage on top
         fill_p = slip_price(px, int(side), slip_bps=slip_bps)
 
         # Fees/commissions by asset class
-        if asset_class.lower() == "equity":
+        if asset == "equity":
             fee = commission_per_share(int(sh), rate=commission_per_share_rate)
-        elif asset_class.lower() == "crypto":
+        elif asset == "crypto":
             fee = crypto_fee_usd(fill_p, int(sh), fee_bps=fee_bps)
-        elif asset_class.lower() == "fx":
+        elif asset in {"fx", "forex"}:
             # Keep it simple: apply no extra commission (many brokers embed in spread)
             fee = 0.0
         else:
