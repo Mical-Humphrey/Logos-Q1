@@ -34,12 +34,12 @@ def _safe_symbol(symbol: str) -> str:
 def _cache_path(symbol: str, interval: str, asset_tag: str) -> str:
     """Return a cache filename that encodes symbol/interval/asset_class."""
     safe = _safe_symbol(symbol)
-    return os.path.join("data", "cache", asset_tag, f"{safe}_{interval}.csv")
+    return os.path.join("input_data", "cache", asset_tag, f"{safe}_{interval}.csv")
 
 
 def _raw_fixture_path(symbol: str) -> str:
     """Return the path for a committed raw fixture if one exists."""
-    return os.path.join("data", "raw", f"{_safe_symbol(symbol)}.csv")
+    return os.path.join("input_data", "raw", f"{_safe_symbol(symbol)}.csv")
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
