@@ -1,0 +1,8 @@
+# requirements.txt
+# Only core scientific/plotting stack. Keep lean so users can install quickly in a clean venv.
+pandas>=2.2
+numpy>=1.26
+python-dotenv>=1.0
+yfinance>=0.2
+matplotlib>=3.9
+scipy>=1.13

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logos-Q1 — Math, Explained with Examples (Equities, Crypto, Forex)</title>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --fg: #e5e7eb;
+    --accent: #93c5fd;
+    --muted: #94a3b8;
+    --card: #111827;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 40px 24px 80px 24px;
+  }
+  h1, h2, h3 { color: var(--accent); }
+  p { line-height: 1.65; }
+  .muted { color: var(--muted); }
+  hr { border: none; border-top: 1px solid #1f2937; margin: 28px 0; }
+  .context-nav { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 12px;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    background: #0b1220;
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .btn.active { background: #1f2937; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card {
+    background: var(--card);
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  code { background: #0b1220; padding: 2px 6px; border-radius: 6px; }
+  a { color: #93c5fd; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Logos-Q1 — Math Explained with Real Trading Examples</h1>
+<p class="muted">Generated on 2025-10-19 01:57:28. This version teaches each formula with plain-English intuition and worked examples in three contexts: <strong>Equities</strong>, <strong>Crypto</strong>, and <strong>Forex</strong>.</p>
+
+<div class="context-nav">
+  <button class="btn active" onclick="showPanel('equities', this)">Equities</button>
+  <button class="btn" onclick="showPanel('crypto', this)">Crypto</button>
+  <button class="btn" onclick="showPanel('forex', this)">Forex</button>
+</div>
+
+<div id="equities" class="panel">
+  <p class="muted">Context: US equities (e.g., MSFT, AAPL). Daily bars, trading hours, corporate actions.</p>
+  <h2>1) Simple Moving Average (SMA)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ SMA_t = \frac{1}{N} \sum_{i=0}^{N-1} Price_{t-i} $$</p>
+    <p><strong>Intuition</strong>: SMA smooths noisy prices to reveal trend.</p>
+    <p><strong>Example (Equities)</strong>: Over the last N=5 days, prices were [100, 101, 99, 100, 102].<br/>
+    The average is 100.4. If today's price 102 is far above SMA, the short-term trend is up.</p>
+    <p><strong>In Logos-Q1</strong>: Momentum uses SMAs to create crossover signals.</p>
+    </div>
+    
+<hr/>
+
+<h2>2) Standard Deviation (Volatility)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}(Price_{t-i} - SMA_t)^2} $$</p>
+    <p><strong>Intuition</strong>: Measures typical distance from mean; higher σ = choppier market.</p>
+    <p><strong>Example (Equities)</strong>: If σ ≈ 1.1, a ±2σ move is about 2.2 in price terms.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion uses σ to compute z-scores and thresholds.</p>
+    </div>
+    
+<hr/>
+
+<h2>3) Z-Score (How Extreme is Price?)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ z_t = \frac{Price_t - SMA_t}{\sigma_t} $$</p>
+    <p><strong>Intuition</strong>: Number of standard deviations current price is from its mean.</p>
+    <p><strong>Example (Equities)</strong>: If current price = 102, SMA = 100.4, σ = 1.1, then
+    $$ z = \frac{102 - 100.4}{1.1} \approx 1.45. $$
+    z &lt; -2 ⇒ statistically cheap; z &gt; +2 ⇒ statistically rich.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion enters when z crosses ±z_entry.</p>
+    </div>
+    
+<hr/>
+
+<h2>4) Correlation & Pairs Trading</h2>
+
+    <div class="card">
+    <p><strong>Correlation</strong>: $$ \rho_{A,B} = \frac{Cov(A,B)}{\sigma_A \sigma_B} $$</p>
+    <p><strong>Hedge Ratio (β)</strong> via regression: $$ A = \alpha + \beta B + \epsilon $$</p>
+    <p><strong>Example (Equities)</strong>: If MSFT and AAPL move together (ρ ≈ 0.9), estimate β and trade the spread:
+    $$ Spread = Price_{MSFT} - \beta\,Price_{AAPL}. $$
+    When z-score of spread ≤ -2 ⇒ long MSFT / short AAPL. Reverse when ≥ +2.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/strategies/pairs_trading.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>5) Sharpe Ratio (Risk-Adjusted Return)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ Sharpe = \frac{E[R - R_f]}{\sigma_R} $$</p>
+    <p><strong>Example (Equities)</strong>: If daily mean return is 0.08% and daily σ is 1%, annualized Sharpe ≈
+    $$ \frac{0.0008}{0.01} \times \sqrt{252} \approx 1.27. $$</p>
+    <p><strong>In Logos-Q1</strong>: Computed from equity curve daily returns.</p>
+    </div>
+    
+<hr/>
+
+<h2>6) CAGR, Drawdown, Exposure</h2>
+
+    <div class="card">
+    <p><strong>CAGR</strong>: $$ CAGR = \left(\frac{V_{end}}{V_{start}}\right)^{1/T} - 1 $$</p>
+    <p><strong>Max Drawdown</strong>: $$ MDD = \min_t\left(\frac{Equity_t}{\max_{s\le t} Equity_s} - 1\right) $$</p>
+    <p><strong>Exposure</strong>: $$ \frac{Time\ in\ Market}{Total\ Time} $$</p>
+    <p><strong>Example (Equities)</strong>: If equity went from 100k → 121k over 2 years, CAGR = (1.21)^(1/2)-1 ≈ 10%.
+    If deepest drop from peak was -12%, MaxDD = -0.12. If the system held positions 70% of days, Exposure = 0.70.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/metrics.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>7) Slippage & Position Sizing</h2>
+
+    <div class="card">
+    <p><strong>Slippage</strong> (bps): $$ Price_{fill} = Price_{signal}\,\left(1 + Side\,\tfrac{bps}{10,000}\right) $$</p>
+    <p><strong>Sizing</strong>: $$ Shares = \left\lfloor \tfrac{DollarPerTrade}{Price} \right\rfloor $$</p>
+    <p><strong>Example (Equities)</strong>: With $10,000 per trade at price 102, you trade
+    $$ \left\lfloor \tfrac{10000}{102} \right\rfloor = 98 \text{ shares}. $$
+    With 1 bps slippage on a buy, fill ≈ 102.0102.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/slippage.py</code> and <code>engine.py</code>.</p>
+    </div>
+    
+<hr/>
+
+</div>
+
+<div id="crypto" class="panel">
+  <p class="muted">Context: Crypto (e.g., BTC-USD, ETH-USD). 24/7 trading, higher volatility, larger gaps.</p>
+  <h2>1) Simple Moving Average (SMA)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ SMA_t = \frac{1}{N} \sum_{i=0}^{N-1} Price_{t-i} $$</p>
+    <p><strong>Intuition</strong>: SMA smooths noisy prices to reveal trend.</p>
+    <p><strong>Example (Crypto)</strong>: Over the last N=5 days, prices were [30000, 30100, 29800, 30200, 30500].<br/>
+    The average is 30120. If today's price 30500 is far above SMA, the short-term trend is up.</p>
+    <p><strong>In Logos-Q1</strong>: Momentum uses SMAs to create crossover signals.</p>
+    </div>
+    
+<hr/>
+
+<h2>2) Standard Deviation (Volatility)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}(Price_{t-i} - SMA_t)^2} $$</p>
+    <p><strong>Intuition</strong>: Measures typical distance from mean; higher σ = choppier market.</p>
+    <p><strong>Example (Crypto)</strong>: If σ ≈ 270, a ±2σ move is about 540 in price terms.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion uses σ to compute z-scores and thresholds.</p>
+    </div>
+    
+<hr/>
+
+<h2>3) Z-Score (How Extreme is Price?)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ z_t = \frac{Price_t - SMA_t}{\sigma_t} $$</p>
+    <p><strong>Intuition</strong>: Number of standard deviations current price is from its mean.</p>
+    <p><strong>Example (Crypto)</strong>: If current price = 30500, SMA = 30120, σ = 270, then
+    $$ z = \frac{30500 - 30120}{270} \approx 1.41. $$
+    z &lt; -2 ⇒ statistically cheap; z &gt; +2 ⇒ statistically rich.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion enters when z crosses ±z_entry.</p>
+    </div>
+    
+<hr/>
+
+<h2>4) Correlation & Pairs Trading</h2>
+
+    <div class="card">
+    <p><strong>Correlation</strong>: $$ \rho_{A,B} = \frac{Cov(A,B)}{\sigma_A \sigma_B} $$</p>
+    <p><strong>Hedge Ratio (β)</strong> via regression: $$ A = \alpha + \beta B + \epsilon $$</p>
+    <p><strong>Example (Crypto)</strong>: If BTC-USD and ETH-USD move together (ρ ≈ 0.9), estimate β and trade the spread:
+    $$ Spread = Price_{BTC-USD} - \beta\,Price_{ETH-USD}. $$
+    When z-score of spread ≤ -2 ⇒ long BTC-USD / short ETH-USD. Reverse when ≥ +2.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/strategies/pairs_trading.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>5) Sharpe Ratio (Risk-Adjusted Return)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ Sharpe = \frac{E[R - R_f]}{\sigma_R} $$</p>
+    <p><strong>Example (Crypto)</strong>: If daily mean return is 0.08% and daily σ is 1%, annualized Sharpe ≈
+    $$ \frac{0.0008}{0.01} \times \sqrt{252} \approx 1.27. $$</p>
+    <p><strong>In Logos-Q1</strong>: Computed from equity curve daily returns.</p>
+    </div>
+    
+<hr/>
+
+<h2>6) CAGR, Drawdown, Exposure</h2>
+
+    <div class="card">
+    <p><strong>CAGR</strong>: $$ CAGR = \left(\frac{V_{end}}{V_{start}}\right)^{1/T} - 1 $$</p>
+    <p><strong>Max Drawdown</strong>: $$ MDD = \min_t\left(\frac{Equity_t}{\max_{s\le t} Equity_s} - 1\right) $$</p>
+    <p><strong>Exposure</strong>: $$ \frac{Time\ in\ Market}{Total\ Time} $$</p>
+    <p><strong>Example (Crypto)</strong>: If equity went from 100k → 121k over 2 years, CAGR = (1.21)^(1/2)-1 ≈ 10%.
+    If deepest drop from peak was -12%, MaxDD = -0.12. If the system held positions 70% of days, Exposure = 0.70.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/metrics.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>7) Slippage & Position Sizing</h2>
+
+    <div class="card">
+    <p><strong>Slippage</strong> (bps): $$ Price_{fill} = Price_{signal}\,\left(1 + Side\,\tfrac{bps}{10,000}\right) $$</p>
+    <p><strong>Sizing</strong>: $$ Shares = \left\lfloor \tfrac{DollarPerTrade}{Price} \right\rfloor $$</p>
+    <p><strong>Example (Crypto)</strong>: With $10,000 per trade at price 30500, you trade
+    $$ \left\lfloor \tfrac{10000}{30500} \right\rfloor = 0 \text{ shares}. $$
+    With 1 bps slippage on a buy, fill ≈ 30503.05.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/slippage.py</code> and <code>engine.py</code>.</p>
+    </div>
+    
+<hr/>
+
+</div>
+
+<div id="forex" class="panel">
+  <p class="muted">Context: Forex (e.g., EUR/USD, USD/JPY). Very tight spreads, high liquidity, session dynamics.</p>
+  <h2>1) Simple Moving Average (SMA)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ SMA_t = \frac{1}{N} \sum_{i=0}^{N-1} Price_{t-i} $$</p>
+    <p><strong>Intuition</strong>: SMA smooths noisy prices to reveal trend.</p>
+    <p><strong>Example (Forex)</strong>: Over the last N=5 days, prices were [1.095, 1.0975, 1.094, 1.096, 1.098].<br/>
+    The average is 1.0961. If today's price 1.098 is far above SMA, the short-term trend is up.</p>
+    <p><strong>In Logos-Q1</strong>: Momentum uses SMAs to create crossover signals.</p>
+    </div>
+    
+<hr/>
+
+<h2>2) Standard Deviation (Volatility)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}(Price_{t-i} - SMA_t)^2} $$</p>
+    <p><strong>Intuition</strong>: Measures typical distance from mean; higher σ = choppier market.</p>
+    <p><strong>Example (Forex)</strong>: If σ ≈ 0.0018, a ±2σ move is about 0.0 in price terms.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion uses σ to compute z-scores and thresholds.</p>
+    </div>
+    
+<hr/>
+
+<h2>3) Z-Score (How Extreme is Price?)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ z_t = \frac{Price_t - SMA_t}{\sigma_t} $$</p>
+    <p><strong>Intuition</strong>: Number of standard deviations current price is from its mean.</p>
+    <p><strong>Example (Forex)</strong>: If current price = 1.098, SMA = 1.0961, σ = 0.0018, then
+    $$ z = \frac{1.098 - 1.0961}{0.0018} \approx 1.06. $$
+    z &lt; -2 ⇒ statistically cheap; z &gt; +2 ⇒ statistically rich.</p>
+    <p><strong>In Logos-Q1</strong>: Mean reversion enters when z crosses ±z_entry.</p>
+    </div>
+    
+<hr/>
+
+<h2>4) Correlation & Pairs Trading</h2>
+
+    <div class="card">
+    <p><strong>Correlation</strong>: $$ \rho_{A,B} = \frac{Cov(A,B)}{\sigma_A \sigma_B} $$</p>
+    <p><strong>Hedge Ratio (β)</strong> via regression: $$ A = \alpha + \beta B + \epsilon $$</p>
+    <p><strong>Example (Forex)</strong>: If EUR/USD and GBP/USD move together (ρ ≈ 0.9), estimate β and trade the spread:
+    $$ Spread = Price_{EUR/USD} - \beta\,Price_{GBP/USD}. $$
+    When z-score of spread ≤ -2 ⇒ long EUR/USD / short GBP/USD. Reverse when ≥ +2.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/strategies/pairs_trading.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>5) Sharpe Ratio (Risk-Adjusted Return)</h2>
+
+    <div class="card">
+    <p><strong>Formula</strong></p>
+    <p>$$ Sharpe = \frac{E[R - R_f]}{\sigma_R} $$</p>
+    <p><strong>Example (Forex)</strong>: If daily mean return is 0.08% and daily σ is 1%, annualized Sharpe ≈
+    $$ \frac{0.0008}{0.01} \times \sqrt{252} \approx 1.27. $$</p>
+    <p><strong>In Logos-Q1</strong>: Computed from equity curve daily returns.</p>
+    </div>
+    
+<hr/>
+
+<h2>6) CAGR, Drawdown, Exposure</h2>
+
+    <div class="card">
+    <p><strong>CAGR</strong>: $$ CAGR = \left(\frac{V_{end}}{V_{start}}\right)^{1/T} - 1 $$</p>
+    <p><strong>Max Drawdown</strong>: $$ MDD = \min_t\left(\frac{Equity_t}{\max_{s\le t} Equity_s} - 1\right) $$</p>
+    <p><strong>Exposure</strong>: $$ \frac{Time\ in\ Market}{Total\ Time} $$</p>
+    <p><strong>Example (Forex)</strong>: If equity went from 100k → 121k over 2 years, CAGR = (1.21)^(1/2)-1 ≈ 10%.
+    If deepest drop from peak was -12%, MaxDD = -0.12. If the system held positions 70% of days, Exposure = 0.70.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/metrics.py</code>.</p>
+    </div>
+    
+<hr/>
+
+<h2>7) Slippage & Position Sizing</h2>
+
+    <div class="card">
+    <p><strong>Slippage</strong> (bps): $$ Price_{fill} = Price_{signal}\,\left(1 + Side\,\tfrac{bps}{10,000}\right) $$</p>
+    <p><strong>Sizing</strong>: $$ Shares = \left\lfloor \tfrac{DollarPerTrade}{Price} \right\rfloor $$</p>
+    <p><strong>Example (Forex)</strong>: With $10,000 per trade at price 1.098, you trade
+    $$ \left\lfloor \tfrac{10000}{1.098} \right\rfloor = 9107 \text{ shares}. $$
+    With 1 bps slippage on a buy, fill ≈ 1.0981.</p>
+    <p><strong>In Logos-Q1</strong>: See <code>src/backtest/slippage.py</code> and <code>engine.py</code>.</p>
+    </div>
+    
+<hr/>
+
+</div>
+
+<p class="muted">© 2025 Logos-Q1 — Educational Appendix</p>
+</div>
+
+<script>
+function showPanel(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+// default
+document.addEventListener('DOMContentLoaded', () => showPanel('equities', document.querySelector('.btn')));
+</script>
+
+</body>
+</html>
