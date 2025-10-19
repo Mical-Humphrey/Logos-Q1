@@ -1,0 +1,9 @@
+2025-10-19 16:58:19,881 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 16:58:19,882 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 16:58:19,882 | INFO | logos.data_loader | Downloading BTC-USD [1d] from Yahoo Finance
+2025-10-19 16:58:29,919 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 16:58:29,919 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 16:58:29,920 | INFO | logos.data_loader | Downloading EURUSD=X [1d] from Yahoo Finance
+2025-10-19 17:04:35,581 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 17:04:35,581 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 17:04:35,593 | INFO | logos.data_loader | Downloading BTC-USD [1d] from Yahoo Finance

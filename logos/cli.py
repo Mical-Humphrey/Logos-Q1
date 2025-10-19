@@ -147,8 +147,8 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     p = sub.add_parser("backtest", help="Run a single-symbol backtest")
     p.add_argument("--symbol", required=True, help="Ticker (e.g., MSFT, BTC-USD, EURUSD=X)")
     p.add_argument("--strategy", required=True, choices=list(STRATEGIES), help="Strategy name")
-    p.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
-    p.add_argument("--end", required=True, help="End date YYYY-MM-DD")
+    p.add_argument("--start", default=None, help="Start date YYYY-MM-DD (defaults to .env START_DATE)")
+    p.add_argument("--end", default=None, help="End date YYYY-MM-DD (defaults to .env END_DATE)")
 
     # NEW: asset class and interval
     p.add_argument("--asset-class", choices=["equity", "crypto", "forex"],

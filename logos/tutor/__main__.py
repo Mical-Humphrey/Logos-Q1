@@ -4,7 +4,7 @@ from __future__ import annotations
 
 def main() -> None:
     """Present a friendly placeholder while the tutor experience is in development."""
-    print("Logos Tutor coming soon — run `logos cli` for backtests or check the docs in docs/MANUAL.html!")
+    print("Tutor mode under development — check back soon for interactive lessons!")
 
 
 if __name__ == "__main__":
