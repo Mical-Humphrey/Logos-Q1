@@ -112,9 +112,9 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 
 <h2>5) Education Mode</h2>
 <div class="card">
-<p><b>Education mode</b> scaffolding is in place and will expand in upcoming releases:</p>
-<pre><code>python -m logos.tutor</code></pre>
-<p>The tutor module currently prints a friendly status message while lessons are being authored.</p>
+<p><b>Education mode</b> now walks you through real trading lessons using the live engine:</p>
+<pre><code>python -m logos.tutor --lesson mean_reversion --plot</code></pre>
+<p>This narrates each step (SMA, z-score, entries/exits, Sharpe, drawdown) and saves a transcript in <code>runs/lessons/</code>. Swap <code>--lesson</code> for <code>momentum</code> or <code>pairs_trading</code> to explore other playbooks.</p>
 </div>
 
 <h2>6) Troubleshooting</h2>

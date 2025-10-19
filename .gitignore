@@ -8,3 +8,7 @@ logs/*.png
 logs/*.csv
 logs/*.log
 .env
+copilot_changes.patch
+data/*.csv
+runs/**
+!runs/.gitkeep
