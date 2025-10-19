@@ -38,3 +38,7 @@
 2025-10-19 18:49:46,252 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance
 2025-10-19 18:50:13,216 | INFO | __main__ | Starting backtest via CLI
 2025-10-19 18:50:13,228 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance
+2025-10-19 18:56:21,522 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 18:56:21,534 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance
+2025-10-19 18:56:52,087 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 18:56:52,089 | INFO | logos.data_loader | Downloading TSLA [1d] from Yahoo Finance
