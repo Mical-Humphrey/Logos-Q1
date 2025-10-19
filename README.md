@@ -1,12 +1,8 @@
 # For Resume
-Name it:
 “Quantitative Trading Backtesting System (python3, Pandas, Yahoo Finance API)”
-That’s the most accurate and professional phrasing.
 
 What it is:
 A quantitative trading research environment — specifically, a backtesting engine that simulates trading strategies on historical price data (like MSFT or AAPL). It lets you test “what if” scenarios — what would have happened if you traded using a given rule (like mean reversion or momentum).
-
-You’re not executing live trades yet — you’re testing and analyzing strategy behavior using historical data.
 
 # Logos-Q1
 Quantitative Trader backtesting 
