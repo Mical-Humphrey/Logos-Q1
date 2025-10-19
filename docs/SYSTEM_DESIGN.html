@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Logos-Q1 System Design</title>
+<style>
+:root{--bg:#0f172a;--fg:#e5e7eb;--accent:#93c5fd;--muted:#94a3b8;--card:#111827;--border:#1f2937}
+body{background:var(--bg);color:var(--fg);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0}
+.shell{max-width:960px;margin:auto;padding:40px 24px}
+h1,h2,h3{color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin:14px 0}
+code{background:#0b1220;padding:2px 6px;border-radius:6px;color:#e5e7eb}
+pre{background:#0b1220;padding:12px;border-radius:10px;overflow:auto}
+svg{width:100%;height:auto;margin-top:10px}
+hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+.note{border-left:3px solid var(--accent);padding:6px 10px;background:#0b1220;border-radius:8px}
+</style>
+</head>
+<body>
+<!-- 🧭 Global Navbar -->
+<nav class="nav">
+  <div class="nav-left">
+    <a href="index.html" class="brand">Logos-Q1</a>
+  </div>
+  <div class="nav-links">
+    <a href="MATH.html">Math</a>
+    <a href="FINANCE.html">Finance</a>
+    <a href="MANUAL.html">Manual</a>
+    <a href="SYSTEM_DESIGN.html">System</a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0b1220;
+    border-bottom: 1px solid #1f2937;
+    padding: 10px 20px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    margin-right: 18px;
+    font-size: 15px;
+  }
+  .nav a:hover { color: #93c5fd; }
+  .brand {
+    font-weight: 700;
+    color: #93c5fd !important;
+    letter-spacing: 0.4px;
+    font-size: 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+
+<div class="shell">
+<h1>⚙️ Logos-Q1 System Design</h1>
+<p class="note">A modular architecture that scales from educational backtests to live trading infrastructure.</p>
+
+<hr/>
+<h2>1) Overview Diagram</h2>
+<div class="card">
+<svg viewBox="0 0 600 340">
+<rect x="20" y="20" width="560" height="300" fill="#111827" stroke="#1f2937" rx="10"/>
+<rect x="50" y="50" width="160" height="80" fill="#1e293b" stroke="#3b82f6" rx="8"/>
+<text x="80" y="95" fill="#93c5fd">Data</text>
+<text x="60" y="115" fill="#93c5fd" font-size="12">Fetch / Clean / Store</text>
+
+<rect x="240" y="50" width="160" height="80" fill="#1e293b" stroke="#3b82f6" rx="8"/>
+<text x="265" y="95" fill="#93c5fd">Strategy Engine</text>
+
+<rect x="430" y="50" width="120" height="80" fill="#1e293b" stroke="#3b82f6" rx="8"/>
+<text x="450" y="95" fill="#93c5fd">Execution</text>
+
+<rect x="120" y="180" width="160" height="80" fill="#1e293b" stroke="#3b82f6" rx="8"/>
+<text x="145" y="225" fill="#93c5fd">Backtest Simulator</text>
+
+<rect x="320" y="180" width="160" height="80" fill="#1e293b" stroke="#3b82f6" rx="8"/>
+<text x="340" y="225" fill="#93c5fd">Metrics & Reports</text>
+
+<line x1="210" y1="90" x2="240" y2="90" stroke="#93c5fd" marker-end="url(#arrow)"/>
+<line x1="400" y1="90" x2="430" y2="90" stroke="#93c5fd" marker-end="url(#arrow)"/>
+<line x1="130" y1="130" x2="180" y2="180" stroke="#93c5fd" marker-end="url(#arrow)"/>
+<line x1="300" y1="130" x2="350" y2="180" stroke="#93c5fd" marker-end="url(#arrow)"/>
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L0,6 L9,3 z" fill="#93c5fd"/>
+</marker>
+</defs>
+</svg>
+<p class="muted">Flow: <b>Data → Strategy → Execution → Backtest → Reports</b></p>
+</div>
+
+<h2>2) Modules</h2>
+<div class="card">
+<ul>
+<li><b>Data</b>: adapters for yfinance, ccxt (crypto), and forex APIs.</li>
+<li><b>Strategies</b>: mean_reversion, momentum, pairs_trading — each returns signal vector.</li>
+<li><b>Execution</b>: simulates fills, commissions, slippage, latency.</li>
+<li><b>Backtest</b>: runs vectorized loop, logs trades, computes metrics.</li>
+<li><b>Reports</b>: renders charts + JSON metrics; feeds to docs visualizer.</li>
+</ul>
+</div>
+
+<h2>3) Technology Stack</h2>
+<div class="card">
+<ul>
+<li><b>Python</b>: core logic (NumPy, pandas, Plotly)</li>
+<li><b>FastAPI</b> (future): web endpoints for live services</li>
+<li><b>SQLite</b>: local data cache</li>
+<li><b>Docs</b>: pure HTML/CSS + MathJax for portability</li>
+</ul>
+</div>
+
+<h2>4) Extensibility Plan</h2>
+<div class="card">
+<ul>
+<li>Live trading adapter: Alpaca (equities), Binance (crypto), Oanda (FX)</li>
+<li>Notebook-to-dashboard export: teach & trade from one UI</li>
+<li>AI tutor mode: explains every signal and its math step by step</li>
+<li>Cloud execution: run backtests on AWS batch or GCP functions</li>
+</ul>
+</div>
+
+<hr/>
+<p>Return to <a href="index.html">🏠 Home</a> or open <a href="FINANCE.html">💰 Finance</a> for theory context.</p>
+</div>
+</body>
+
+<script>
+  const links = document.querySelectorAll('.nav a');
+  links.forEach(link => {
+    if (link.href === window.location.href) link.style.color = '#60a5fa';
+  });
+</script>
+
+</html>

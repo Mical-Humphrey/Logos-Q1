@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Logos-Q1 — Math, Explained with Examples (Equities • Crypto • Forex)</title>
+
+<!-- MathJax for LaTeX -->
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<style>
+  :root {
+    --bg: #0f172a;
+    --fg: #e5e7eb;
+    --accent: #93c5fd;
+    --muted: #94a3b8;
+    --card: #111827;
+    --border: #1f2937;
+    --chip: #0b1220;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .shell {
+    max-width: 1100px;
+    margin: auto;
+    padding: 24px 24px 80px 24px;
+  }
+  /* Top Navbar */
+  .topbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #0b1220;
+    padding: 10px 12px;
+    position: sticky;
+    top: 12px;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+  }
+  .brand {
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .3px;
+  }
+  .spacer { flex: 1; }
+  .tab {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: var(--chip);
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .tab.active { background: #1f2937; }
+  /* Page Header */
+  h1 { color: var(--accent); margin-bottom: 6px; }
+  .muted { color: var(--muted); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  .lead { line-height: 1.65; }
+  /* Variable legend */
+  .legend {
+    margin: 16px 0 10px 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    padding: 12px 14px;
+  }
+  .legend h3 { margin: 0 0 8px 0; color: var(--accent); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    background: var(--chip);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  /* Cards & Sections */
+  .section { margin: 22px 0; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  .vars { font-size: 0.95em; color: var(--muted); }
+  code { background: var(--chip); padding: 2px 6px; border-radius: 6px; }
+  ul { margin: 8px 0 0 20px; }
+  /* Context Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+  /* Section nav (optional) */
+  .toc {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin: 12px 0 24px 0;
+  }
+  .toc a {
+    display: block;
+    text-decoration: none;
+    color: var(--fg);
+    font-size: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .toc a:hover { background: #0b1220; }
+  .foot {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 28px;
+  }
+</style>
+</head>
+<body>
+<!-- 🧭 Global Navbar -->
+<nav class="nav">
+  <div class="nav-left">
+    <a href="index.html" class="brand">Logos-Q1</a>
+  </div>
+  <div class="nav-links">
+    <a href="MATH.html">Math</a>
+    <a href="FINANCE.html">Finance</a>
+    <a href="MANUAL.html">Manual</a>
+    <a href="SYSTEM_DESIGN.html">System</a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0b1220;
+    border-bottom: 1px solid #1f2937;
+    padding: 10px 20px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    margin-right: 18px;
+    font-size: 15px;
+  }
+  .nav a:hover { color: #93c5fd; }
+  .brand {
+    font-weight: 700;
+    color: #93c5fd !important;
+    letter-spacing: 0.4px;
+    font-size: 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+
+<div class="shell">
+
+  <!-- Navbar -->
+  <div class="topbar">
+    <div class="brand">Logos-Q1 • Math Guide</div>
+    <div class="spacer"></div>
+    <button class="tab active" onclick="showCtx('equities', this)">Equities</button>
+    <button class="tab" onclick="showCtx('crypto', this)">Crypto</button>
+    <button class="tab" onclick="showCtx('forex', this)">Forex</button>
+  </div>
+
+  <!-- Page intro -->
+  <h1>Quant Math Explained with Real Trading Examples</h1>
+  <p class="muted">Switch contexts with the tabs above — the examples and conventions change instantly.</p>
+  <p class="lead">This guide teaches the core mathematics used by <strong>Logos-Q1</strong>. 
+  Each formula block includes: a LaTeX formula, a <em>Variables</em> list so \(N\), \(P_t\), \(\sigma_t\), etc. are obvious, 
+  a plain-English intuition, and <strong>three worked examples</strong> tuned to the active context.</p>
+
+  <!-- Common variable legend -->
+  <div class="legend">
+    <h3>Common Variables</h3>
+    <div class="chips">
+      <span class="chip"><strong>\(t\)</strong>: current bar index (time)</span>
+      <span class="chip"><strong>\(N\)</strong>: lookback window length (bars)</span>
+      <span class="chip"><strong>\(P_t\)</strong>: price at time \(t\) (close or mid)</span>
+      <span class="chip"><strong>\(\overline{P}_t\)</strong>: moving average at \(t\)</span>
+      <span class="chip"><strong>\(\sigma_t\)</strong>: standard deviation at \(t\)</span>
+      <span class="chip"><strong>\(s_t\)</strong>: trading signal \(\in\{-1,0,+1\}\)</span>
+      <span class="chip"><strong>\(V_t\)</strong>: volume at \(t\)</span>
+      <span class="chip"><strong>\(E_t\)</strong>: equity (portfolio value) at \(t\)</span>
+      <span class="chip"><strong>\(R_t\)</strong>: portfolio return at \(t\)</span>
+      <span class="chip"><strong>\(R_f\)</strong>: risk-free return (periodic)</span>
+      <span class="chip"><strong>\(T\)</strong>: years elapsed</span>
+      <span class="chip"><strong>bps</strong>: basis points (1 bps = 0.01%)</span>
+    </div>
+  </div>
+
+  <!-- Quick Table of Contents -->
+  <div class="toc">
+    <a href="#sma">1) SMA</a>
+    <a href="#ema">2) EMA</a>
+    <a href="#std">3) Standard Deviation</a>
+    <a href="#z">4) Z-Score</a>
+    <a href="#xover">5) Momentum: Crossovers</a>
+    <a href="#vwap">6) VWAP</a>
+    <a href="#sharpe">7) Sharpe</a>
+    <a href="#cagr">8) CAGR</a>
+    <a href="#mdd">9) Max Drawdown</a>
+    <a href="#size">10) Slippage & Sizing</a>
+  </div>
+
+  <!-- ======================== EQUITIES PANEL ======================== -->
+  <div id="equities" class="panel active">
+    <p class="muted">Context: US equities (e.g., MSFT, AAPL, TSLA). Daily bars, standard hours, splits/dividends possible.</p>
+
+    <div class="section" id="sma">
+      <h2>1) Simple Moving Average (SMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{SMA}_t = \frac{1}{N}\sum_{i=0}^{N-1} P_{t-i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_t\) price at time \(t\); \(N\) window length (e.g., 20 days).</p>
+        <p><strong>Intuition:</strong> Smooths noise to reveal trend.</p>
+        <ul>
+          <li><b>MSFT:</b> Price closes above rising 20-day SMA after pullback → bullish continuation.</li>
+          <li><b>AAPL:</b> 50d and 200d SMAs — the “Golden Cross” is 50 over 200.</li>
+          <li><b>TSLA:</b> 5d vs 20d SMA helps time volatile swings; size down if volatility is high.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="ema">
+      <h2>2) Exponential Moving Average (EMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{EMA}_t = \alpha P_t + (1-\alpha)\,\mathrm{EMA}_{t-1}, \quad \alpha=\frac{2}{N+1} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\alpha\) smoothing factor; \(N\) EMA span; \(P_t\) price.</p>
+        <p><strong>Intuition:</strong> Reacts faster than SMA.</p>
+        <ul>
+          <li><b>MSFT:</b> 12–26 EMA pair catches post-earnings drift.</li>
+          <li><b>AAPL:</b> 9–21 EMA cross for swing entries.</li>
+          <li><b>TSLA:</b> 10 EMA “rides” strong trends; beware whipsaws.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="std">
+      <h2>3) Standard Deviation (Volatility)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}\left(P_{t-i}-\overline{P}_t\right)^2} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\overline{P}_t\) = SMA at \(t\); \(N\) bars.</p>
+        <p><strong>Intuition:</strong> Typical distance from mean; higher \(\sigma\) = choppier market.</p>
+        <ul>
+          <li><b>MSFT:</b> \(\sigma\approx 1\%\) → calm conditions; wider stops unnecessary.</li>
+          <li><b>AAPL:</b> \(\sigma\approx 2\%\) → moderate chop; adjust risk.</li>
+          <li><b>TSLA:</b> \(\sigma\approx 4\%-5\%\) → very volatile; smaller positions.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="z">
+      <h2>4) Z-Score (How Extreme is Price?)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ Z_t = \frac{P_t - \overline{P}_t}{\sigma_t} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_t\) price; \(\overline{P}_t\) SMA; \(\sigma_t\) std dev.</p>
+        <p><strong>Intuition:</strong> Standardized deviation from the mean; thresholds like \(|Z|\ge 2\) are common.</p>
+        <ul>
+          <li><b>MSFT:</b> \(Z=+2.1\) → extended; mean reversion likely.</li>
+          <li><b>AAPL:</b> \(Z=-1.8\) → near oversold zone.</li>
+          <li><b>TSLA:</b> \(Z=+3\) → extreme; caution on momentum chasing.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="xover">
+      <h2>5) Momentum: SMA Crossover Signal</h2>
+      <div class="card">
+        <p><strong>Signal</strong></p>
+        <p>$$ s_t = \mathrm{sign}\!\left(\mathrm{SMA}^{\text{fast}}_t - \mathrm{SMA}^{\text{slow}}_t\right)\in\{-1,0,+1\} $$</p>
+        <p class="vars"><strong>Variables:</strong> Fast vs slow SMA windows; \(s_t\) signal.</p>
+        <p><strong>Intuition:</strong> Fast above slow → long bias; below → short bias.</p>
+        <ul>
+          <li><b>MSFT:</b> 20/50 cross reduces noise, gives steadier trends.</li>
+          <li><b>AAPL:</b> 10/30 for responsive swing trades.</li>
+          <li><b>TSLA:</b> 5/20 is aggressive; pair with tighter stops.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="vwap">
+      <h2>6) VWAP (Volume-Weighted Average Price)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{VWAP} = \frac{\sum_i P_i V_i}{\sum_i V_i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_i\) trade/bar price; \(V_i\) volume.</p>
+        <p><strong>Intuition:</strong> Execution benchmark; “fair” average price weighted by volume.</p>
+        <ul>
+          <li><b>MSFT:</b> Price above VWAP = demand; below = supply.</li>
+          <li><b>AAPL:</b> Measuring slippage vs daily VWAP is common.</li>
+          <li><b>TSLA:</b> Trend days often ride above VWAP all session.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="sharpe">
+      <h2>7) Sharpe Ratio (Risk-Adjusted Return)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{Sharpe} = \frac{\mathbb{E}[R_p - R_f]}{\sigma_p} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(R_p\) periodic portfolio returns; \(R_f\) risk-free; \(\sigma_p\) std dev of \(R_p\). Annualize with \(\sqrt{252}\) for daily.</p>
+        <ul>
+          <li><b>MSFT strat:</b> mean 0.08% daily, \(\sigma=1\%\) → Sharpe \(\approx 1.26\).</li>
+          <li><b>AAPL strat:</b> mean 0.10%, \(\sigma=1.2\%\) → \(\approx 1.32\).</li>
+          <li><b>TSLA strat:</b> mean 0.15%, \(\sigma=2.5\%\) → \(\approx 0.95\).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="cagr">
+      <h2>8) CAGR (Compound Annual Growth Rate)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{CAGR} = \left(\frac{E_{\text{end}}}{E_{\text{start}}}\right)^{1/T} - 1 $$</p>
+        <p class="vars"><strong>Variables:</strong> Equity start/end; \(T\) years.</p>
+        <ul>
+          <li><b>MSFT:</b> 100k → 120k in 2y → 9.5%.</li>
+          <li><b>AAPL:</b> 100k → 140k in 3y → 11.9%.</li>
+          <li><b>TSLA:</b> 100k → 250k in 3y → 35.7%.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="mdd">
+      <h2>9) Max Drawdown (Peak-to-Trough Loss)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{MDD} = \min_t\left(\frac{E_t}{\max_{s\le t} E_s} - 1\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> \(E_t\) equity, running peak \(\max_{s\le t} E_s\).</p>
+        <ul>
+          <li><b>MSFT:</b> –15% during rotation.</li>
+          <li><b>AAPL:</b> –22% post-earnings drift.</li>
+          <li><b>TSLA:</b> –50% in 2022 — manage size.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="size">
+      <h2>10) Slippage & Position Sizing</h2>
+      <div class="card">
+        <p><strong>Fill model</strong></p>
+        <p>$$ P_{\text{fill}} = P_{\text{signal}}\left(1 + \mathrm{side}\cdot\frac{\mathrm{bps}}{10{,}000}\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\mathrm{side}\in\{+1,-1\}\); bps = basis points.</p>
+        <p><strong>Shares</strong></p>
+        <p>$$ \mathrm{Shares}=\left\lfloor \frac{\$\,\text{per trade}}{P_{\text{fill}}} \right\rfloor $$</p>
+        <ul>
+          <li><b>MSFT:</b> $10k at $320, 1 bps → $320.032 → 31 sh.</li>
+          <li><b>AAPL:</b> $10k at $170, 3 bps → $170.051 → 58 sh.</li>
+          <li><b>TSLA:</b> $10k at $250, 10 bps → $250.25 → 39 sh.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== CRYPTO PANEL ======================== -->
+  <div id="crypto" class="panel">
+    <p class="muted">Context: Crypto (BTC-USD, ETH-USD, DOGE-USD). 24/7 trading, higher volatility, exchange fees & variable depth.</p>
+
+    <!-- Same section IDs so TOC links work across contexts; text differs per context -->
+    <div class="section" id="sma-crypto">
+      <h2>1) Simple Moving Average (SMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{SMA}_t = \frac{1}{N}\sum_{i=0}^{N-1} P_{t-i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_t\) bar close; \(N\) window (e.g., 20 hours or 20 days).</p>
+        <p><strong>Intuition:</strong> Smooths 24/7 price; useful for intraday regimes.</p>
+        <ul>
+          <li><b>BTC:</b> 20h SMA rising; buy pullbacks into SMA.</li>
+          <li><b>ETH:</b> 50h/200h captures trend regime shifts.</li>
+          <li><b>DOGE:</b> Prefer longer windows to reduce meme spikes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="ema-crypto">
+      <h2>2) Exponential Moving Average (EMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{EMA}_t = \alpha P_t + (1-\alpha)\,\mathrm{EMA}_{t-1}, \quad \alpha=\frac{2}{N+1} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\alpha\) smoothing; \(N\) span.</p>
+        <p><strong>Intuition:</strong> Captures bursts; reacts faster than SMA.</p>
+        <ul>
+          <li><b>BTC:</b> 9–21 EMA wave riding.</li>
+          <li><b>ETH:</b> 12–26 EMA (MACD-style responsiveness).</li>
+          <li><b>DOGE:</b> 10–30 EMA to avoid micro-whipsaw.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="std-crypto">
+      <h2>3) Standard Deviation (Volatility)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}\left(P_{t-i}-\overline{P}_t\right)^2} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\overline{P}_t\) SMA; \(N\) bars.</p>
+        <p><strong>Intuition:</strong> Crypto \(\sigma\) >> equities; scale positions accordingly.</p>
+        <ul>
+          <li><b>BTC:</b> Hourly \(\sigma\sim 1\%-2\%\) is common.</li>
+          <li><b>ETH:</b> Hourly \(\sigma\sim 1.5\%-3\%\).</li>
+          <li><b>DOGE:</b> Spikes can exceed 10% intraday.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="z-crypto">
+      <h2>4) Z-Score (Deviations from Mean)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ Z_t = \frac{P_t - \overline{P}_t}{\sigma_t} $$</p>
+        <p class="vars"><strong>Variables:</strong> price, SMA, volatility as above.</p>
+        <p><strong>Intuition:</strong> Use thresholds like \(|Z|\ge 2\) for reversion; confirm with orderbook/liquidity.</p>
+        <ul>
+          <li><b>BTC:</b> \(Z=+2.5\) after news pump → fade carefully.</li>
+          <li><b>ETH:</b> \(Z=-2.2\) into support → bounce candidate.</li>
+          <li><b>DOGE:</b> \(Z=+4\) → avoid chasing; risk of sharp snap-back.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="xover-crypto">
+      <h2>5) Momentum: MA Crossovers</h2>
+      <div class="card">
+        <p><strong>Signal</strong></p>
+        <p>$$ s_t = \mathrm{sign}\!\left(\mathrm{MA}^{\text{fast}}_t - \mathrm{MA}^{\text{slow}}_t\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> MA can be SMA or EMA; define fast & slow windows.</p>
+        <p><strong>Intuition:</strong> Favor sustained moves; suppress noise.</p>
+        <ul>
+          <li><b>BTC:</b> 20h/50h avoids micro churn.</li>
+          <li><b>ETH:</b> 10h/30h for responsiveness.</li>
+          <li><b>DOGE:</b> 50h/200h for regime identification.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="vwap-crypto">
+      <h2>6) VWAP (Execution Benchmark)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{VWAP} = \frac{\sum_i P_i V_i}{\sum_i V_i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_i\) price; \(V_i\) volume.</p>
+        <p><strong>Intuition:</strong> Aim to buy below and sell above VWAP on range days.</p>
+        <ul>
+          <li><b>BTC:</b> Oscillates around hourly VWAP in ranges.</li>
+          <li><b>ETH:</b> Persistent premium above VWAP indicates strong demand.</li>
+          <li><b>DOGE:</b> VWAP can prevent late-stage chasing.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="sharpe-crypto">
+      <h2>7) Sharpe (24/7 Annualization)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{Sharpe} = \frac{\mathbb{E}[R]}{\sigma_R}\sqrt{\text{periods/year}} $$</p>
+        <p class="vars"><strong>Variables:</strong> For hourly bars, \(\sqrt{365\cdot 24}\); for daily, \(\sqrt{365}\).</p>
+        <ul>
+          <li><b>BTC:</b> Hourly Sharpe uses \(\sqrt{8760}\).</li>
+          <li><b>ETH:</b> Daily Sharpe uses \(\sqrt{365}\).</li>
+          <li><b>DOGE:</b> Use longer windows to stabilize \(\sigma_R\).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="cagr-crypto">
+      <h2>8) CAGR</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{CAGR} = \left(\frac{E_{\text{end}}}{E_{\text{start}}}\right)^{1/T} - 1 $$</p>
+        <p class="vars"><strong>Variables:</strong> Equity start/end; \(T\) in years (crypto runs 365 days/yr).</p>
+        <ul>
+          <li><b>BTC:</b> 10k → 15k in 1y → 50%.</li>
+          <li><b>ETH:</b> 10k → 13k in 2y → 14%.</li>
+          <li><b>DOGE:</b> 10k → 9k in 1y → −10%.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="mdd-crypto">
+      <h2>9) Max Drawdown</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{MDD} = \min_t\left(\frac{E_t}{\max_{s\le t}E_s} - 1\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> \(E_t\) equity; running peak.</p>
+        <ul>
+          <li><b>BTC:</b> −50% drawdowns possible — risk management is essential.</li>
+          <li><b>ETH:</b> −60% in bear phases — size carefully.</li>
+          <li><b>DOGE:</b> −80% not unusual — treat as high-risk.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="size-crypto">
+      <h2>10) Fees, Slippage & Sizing</h2>
+      <div class="card">
+        <p><strong>Fee</strong></p>
+        <p>$$ \mathrm{Fee}_{\$} = \mathrm{Notional}\times\frac{\mathrm{bps}}{10{,}000} $$</p>
+        <p><strong>Slippage Fill</strong></p>
+        <p>$$ P_{\text{fill}} = P_{\text{signal}}\left(1+\mathrm{side}\cdot\frac{\mathrm{slip\_bps}}{10{,}000}\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> Notional = \(|q|\cdot P_{\text{fill}}\); side ±1; bps.</p>
+        <p><strong>Units</strong></p>
+        <p>$$ \text{Units}=\left\lfloor \frac{\$\,\text{per trade}}{P_{\text{fill}}} \right\rfloor $$</p>
+        <ul>
+          <li><b>BTC:</b> 5 bps fee on $10k notional → $5 cost; consider fractional sizing.</li>
+          <li><b>ETH:</b> 2 bps maker → $4 cost on $20k; slippage still applies.</li>
+          <li><b>DOGE:</b> Depth varies — slippage can dominate costs.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== FOREX PANEL ======================== -->
+  <div id="forex" class="panel">
+    <p class="muted">Context: Major FX pairs (EUR/USD, USD/JPY). 24/5 sessions, tight spreads, leverage via margin, pip conventions.</p>
+
+    <div class="section" id="sma-fx">
+      <h2>1) Simple Moving Average (SMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{SMA}_t = \frac{1}{N}\sum_{i=0}^{N-1} P_{t-i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_t\) mid or close; \(N\) bars (e.g., 50 hours).</p>
+        <p><strong>Intuition:</strong> Smooths session noise; guides directional bias.</p>
+        <ul>
+          <li><b>EUR/USD:</b> 50h SMA for trend filter.</li>
+          <li><b>USD/JPY:</b> 20h SMA for short-term bias shifts.</li>
+          <li><b>GBP/USD:</b> 100h SMA for regime transitions.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="ema-fx">
+      <h2>2) Exponential Moving Average (EMA)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{EMA}_t = \alpha P_t + (1-\alpha)\,\mathrm{EMA}_{t-1}, \quad \alpha=\frac{2}{N+1} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\alpha\) smoothing; \(N\) span.</p>
+        <p><strong>Intuition:</strong> Adapts quickly around London/NY handovers.</p>
+        <ul>
+          <li><b>EUR/USD:</b> 10/30 EMA captures breakouts.</li>
+          <li><b>USD/JPY:</b> 12/26 EMA momentum entries.</li>
+          <li><b>AUD/USD:</b> 20/50 EMA reduces false flips.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="std-fx">
+      <h2>3) Standard Deviation (Volatility)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \sigma_t = \sqrt{\frac{1}{N}\sum_{i=0}^{N-1}\left(P_{t-i}-\overline{P}_t\right)^2} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(\overline{P}_t\) SMA; \(N\) bars.</p>
+        <p><strong>Intuition:</strong> FX \(\sigma\) is smaller in % terms, but leverage magnifies PnL.</p>
+        <ul>
+          <li><b>EUR/USD:</b> daily \(\sigma\sim 0.5\%\).</li>
+          <li><b>USD/JPY:</b> daily \(\sigma\sim 0.6\%\).</li>
+          <li><b>GBP/USD:</b> daily \(\sigma\sim 0.8\%\).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="z-fx">
+      <h2>4) Z-Score</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ Z_t = \frac{P_t - \overline{P}_t}{\sigma_t} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_t\) price; \(\overline{P}_t\) SMA; \(\sigma_t\) std dev.</p>
+        <p><strong>Intuition:</strong> Standardized mispricing; useful for mean reversion thresholds.</p>
+        <ul>
+          <li><b>EUR/USD:</b> \(Z=-2\) near London close → bounce odds rise.</li>
+          <li><b>USD/JPY:</b> \(Z=+2\) in US session → profit-take area.</li>
+          <li><b>GBP/USD:</b> \(|Z|\le 1\) → normal oscillation.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="xover-fx">
+      <h2>5) Momentum: Crossovers</h2>
+      <div class="card">
+        <p><strong>Signal</strong></p>
+        <p>$$ s_t = \mathrm{sign}\!\left(\mathrm{MA}^{\text{fast}}_t - \mathrm{MA}^{\text{slow}}_t\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> fast/slow MA windows; \(s_t\in\{-1,0,+1\}\).</p>
+        <ul>
+          <li><b>EUR/USD:</b> 10h/50h for clean session trends.</li>
+          <li><b>USD/JPY:</b> 20h/50h steadier momentum.</li>
+          <li><b>EUR/JPY:</b> 15h/60h around Tokyo hours.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="vwap-fx">
+      <h2>6) VWAP (Bar Approximation)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{VWAP} = \frac{\sum_i P_i V_i}{\sum_i V_i} $$</p>
+        <p class="vars"><strong>Variables:</strong> \(P_i\) price per sub-interval; \(V_i\) volume proxy (tick volume when real volume not available).</p>
+        <ul>
+          <li><b>EUR/USD:</b> London/NY VWAP bands guide entries.</li>
+          <li><b>USD/JPY:</b> Tokyo VWAP helps Asia-session tactics.</li>
+          <li><b>EUR/GBP:</b> VWAP neutrality indicates balanced flows.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="sharpe-fx">
+      <h2>7) Sharpe (FX Annualization)</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{Sharpe} = \frac{\mathbb{E}[R]}{\sigma_R}\sqrt{\text{periods/year}} $$</p>
+        <p class="vars"><strong>Variables:</strong> Hourly returns → \(\sqrt{260\times 24}\) or \(\sqrt{365\times 24}\) depending on convention; daily → \(\sqrt{260}\).</p>
+        <ul>
+          <li><b>EUR/USD:</b> Hourly Sharpe with \(\sqrt{6240}\) or \(\sqrt{8760}\).</li>
+          <li><b>USD/JPY:</b> Daily Sharpe with \(\sqrt{260}\).</li>
+          <li><b>GBP/USD:</b> Be consistent with chosen convention.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="cagr-fx">
+      <h2>8) CAGR</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{CAGR} = \left(\frac{E_{\text{end}}}{E_{\text{start}}}\right)^{1/T} - 1 $$</p>
+        <p class="vars"><strong>Variables:</strong> Equity start/end; \(T\) years elapsed.</p>
+        <ul>
+          <li><b>EUR/USD:</b> 20k → 22k in 2y → 4.9%.</li>
+          <li><b>USD/JPY:</b> 20k → 21k in 1y → 5%.</li>
+          <li><b>GBP/USD:</b> 20k → 19k in 1y → −5%.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="mdd-fx">
+      <h2>9) Max Drawdown</h2>
+      <div class="card">
+        <p><strong>Formula</strong></p>
+        <p>$$ \mathrm{MDD} = \min_t\left(\frac{E_t}{\max_{s\le t}E_s} - 1\right) $$</p>
+        <p class="vars"><strong>Variables:</strong> \(E_t\) equity; running peak.</p>
+        <ul>
+          <li><b>EUR/USD:</b> −8% is typical for conservative systems.</li>
+          <li><b>USD/JPY:</b> −10% during high-vol weeks.</li>
+          <li><b>GBP/USD:</b> −15% if trading breakout regimes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section" id="size-fx">
+      <h2>10) Pip, Spread, and Effective Fill & Sizing</h2>
+      <div class="card">
+        <p><strong>Pip size</strong>: most pairs \(=0.0001\); JPY pairs \(=0.01\).</p>
+        <p><strong>Effective fill</strong></p>
+        <p>$$ P_{\text{eff}} = P_{\text{mid}} + \mathrm{side}\times \text{spread\_pips}\times \text{pip\_size} $$</p>
+        <p class="vars"><strong>Variables:</strong> mid price; side ±1; spread in pips; pip_size.</p>
+        <p><strong>Units</strong></p>
+        <p>$$ \text{Units}=\left\lfloor \frac{\$\,\text{per trade}}{P_{\text{eff}}} \right\rfloor \qquad \text{Lots}=\frac{\text{Units}}{100{,}000} $$</p>
+        <ul>
+          <li><b>EUR/USD:</b> mid 1.0950, spread 1 pip → buy eff 1.0951; $10k budget → ~9,132 units (≈0.091 lots).</li>
+          <li><b>USD/JPY:</b> mid 155.20, spread 0.5 pip → buy eff 155.205; sizing often via broker’s margin calc.</li>
+          <li><b>GBP/USD:</b> mid 1.2700, spread 2 pips → sell eff 1.2698; adjust for leverage and risk per trade.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">All formulas map directly to <code>src/strategies/</code> and <code>src/backtest/</code> in Logos-Q1. This page is self-contained and uses MathJax for LaTeX.</div>
+</div>
+
+<script>
+  function showCtx(id, btn) {
+    // Switch panel visibility
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    // Update tabs
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    // Re-render MathJax (if needed after display change)
+    if (window.MathJax && MathJax.typesetPromise) {
+      MathJax.typesetPromise();
+    }
+  }
+</script>
+</body>
+
+<script>
+  const links = document.querySelectorAll('.nav a');
+  links.forEach(link => {
+    if (link.href === window.location.href) link.style.color = '#60a5fa';
+  });
+</script>
+
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Logos-Q1 Manual</title>
+<style>
+:root{--bg:#0f172a;--fg:#e5e7eb;--accent:#93c5fd;--muted:#94a3b8;--card:#111827;--border:#1f2937}
+body{background:var(--bg);color:var(--fg);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0}
+.shell{max-width:960px;margin:auto;padding:40px 24px}
+h1,h2,h3{color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin:14px 0}
+code{background:#0b1220;padding:2px 6px;border-radius:6px;color:#e5e7eb}
+details{background:#0b1220;border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:10px}
+details summary{cursor:pointer;color:var(--accent);font-weight:600}
+.note{border-left:3px solid var(--accent);padding:6px 10px;background:#0b1220;border-radius:8px}
+hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+</style>
+</head>
+<body>
+<!-- 🧭 Global Navbar -->
+<nav class="nav">
+  <div class="nav-left">
+    <a href="index.html" class="brand">Logos-Q1</a>
+  </div>
+  <div class="nav-links">
+    <a href="MATH.html">Math</a>
+    <a href="FINANCE.html">Finance</a>
+    <a href="MANUAL.html">Manual</a>
+    <a href="SYSTEM_DESIGN.html">System</a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0b1220;
+    border-bottom: 1px solid #1f2937;
+    padding: 10px 20px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    margin-right: 18px;
+    font-size: 15px;
+  }
+  .nav a:hover { color: #93c5fd; }
+  .brand {
+    font-weight: 700;
+    color: #93c5fd !important;
+    letter-spacing: 0.4px;
+    font-size: 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+
+<div class="shell">
+<h1>🧭 Logos-Q1 Manual</h1>
+<p class="note">This guide explains how to install, configure, run, and interpret Logos-Q1 — both as an <b>education lab</b> and a <b>professional backtesting system</b>.</p>
+
+<hr/>
+<h2>1) Installation & Setup</h2>
+<div class="card">
+<p><b>Requirements:</b> Python ≥3.11, pip, Git, modern browser.</p>
+<pre><code>git clone https://github.com/Mical-Humphrey/Logos-Q1
+cd Logos-Q1
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+</code></pre>
+<p>Run tests: <code>pytest</code> — ensures math & finance modules pass baseline checks.</p>
+</div>
+
+<h2>2) Launching the Web Docs</h2>
+<div class="card">
+<p>Simply open <code>docs/index.html</code> in any browser to view your documentation suite.
+Each module (Math, Finance, Manual, System Design) is self-contained and styled consistently.</p>
+</div>
+
+<h2>3) Running Backtests</h2>
+<div class="card">
+<p>Example command:</p>
+<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --start 2020-01-01 --end 2024-12-31</code></pre>
+<ul>
+  <li>Results stored in <code>runs/</code> directory.</li>
+  <li>Equity curve, metrics (CAGR, Sharpe, MDD) auto-generated as JSON + chart HTML.</li>
+</ul>
+</div>
+
+<h2>4) Exploring Results</h2>
+<div class="card">
+<ul>
+<li><b>Equity curve</b>: visualizes growth of simulated portfolio.</li>
+<li><b>Metrics</b>: summarized in <code>runs/summary.json</code>.</li>
+<li><b>Trade log</b>: CSV with timestamps, prices, position sizes, PnL.</li>
+</ul>
+<details>
+<summary>Pro tip</summary>
+<p>Pair Logos-Q1 backtests with <code>docs/MATH.html</code> to understand why each signal behaves differently in equities, crypto, or FX context.</p>
+</details>
+</div>
+
+<h2>5) Education Mode</h2>
+<div class="card">
+<p><b>Education mode</b> transforms Logos-Q1 into a self-teaching tool. It explains every step as it runs:</p>
+<pre><code>python -m logos.tutor --lesson mean_reversion</code></pre>
+<p>Outputs annotated charts, variable definitions, and example trades.</p>
+</div>
+
+<h2>6) Troubleshooting</h2>
+<div class="card">
+<ul>
+<li><b>RuntimeWarning</b>: NaN in subtract — often due to incomplete data window. Solution: ensure enough bars before indicators initialize.</li>
+<li><b>Empty backtest</b>: verify <code>--start</code> / <code>--end</code> within dataset range.</li>
+<li><b>Import errors</b>: re-activate venv or reinstall requirements.</li>
+</ul>
+</div>
+
+<hr/>
+<p>Return to <a href="index.html">🏠 Home</a> or explore <a href="SYSTEM_DESIGN.html">⚙️ System Design</a>.</p>
+</div>
+</body>
+
+<script>
+  const links = document.querySelectorAll('.nav a');
+  links.forEach(link => {
+    if (link.href === window.location.href) link.style.color = '#60a5fa';
+  });
+</script>
+
+
+</html>

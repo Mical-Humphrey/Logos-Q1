@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Logos-Q1 — Finance, Explained for Builders</title>
+
+<!-- MathJax for LaTeX -->
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+<style>
+  :root{
+    --bg:#0f172a; --fg:#e5e7eb; --muted:#94a3b8; --accent:#93c5fd;
+    --card:#111827; --border:#1f2937; --chip:#0b1220; --good:#10b981; --bad:#ef4444;
+  }
+  html,body{background:var(--bg);color:var(--fg);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin:0;padding:0}
+  .shell{max-width:1100px;margin:auto;padding:24px 24px 80px 24px}
+  .topbar{display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;background:#0b1220;padding:10px 12px;position:sticky;top:12px;z-index:10;backdrop-filter:blur(10px)}
+  .brand{font-weight:700;color:var(--accent);letter-spacing:.3px}
+  .spacer{flex:1}
+  .btn{border:1px solid var(--border);background:var(--chip);color:var(--fg);border-radius:10px;padding:8px 12px;font-size:14px;cursor:pointer}
+  .btn:hover{background:#152036}
+  h1{color:var(--accent);margin:14px 0 6px}
+  h2,h3{color:var(--accent)}
+  .muted{color:var(--muted)}
+  hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 18px;margin:14px 0}
+  .inline{display:inline-block}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .chip{background:var(--chip);border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+  code{background:var(--chip);padding:2px 6px;border-radius:6px}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0}
+  .k{border:1px solid var(--border);border-radius:12px;background:#0b1220;padding:12px}
+  .k .label{font-size:12px;color:var(--muted)}
+  .k .value{font-size:20px;font-weight:700}
+  details{border:1px solid var(--border);border-radius:10px;background:#0b1220;padding:10px 12px}
+  details summary{cursor:pointer;color:var(--accent);font-weight:600}
+  .note{border-left:3px solid var(--accent);padding:6px 10px;background:#0b1220;border-radius:8px}
+  .eq{color:#a7f3d0}.cr{color:#fcd34d}.fx{color:#c4b5fd}
+  .minichart{width:100%;height:60px;border:1px solid var(--border);border-radius:8px;background:linear-gradient(180deg,#0b1220,#0b1220)}
+  .row{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+  .foot{color:var(--muted);font-size:13px;margin-top:28px}
+  .tag{font-size:11px;padding:3px 7px;border-radius:7px;border:1px solid var(--border);background:var(--chip);color:var(--muted)}
+  .ok{color:var(--good)} .ng{color:var(--bad)}
+</style>
+</head>
+<body>
+<!-- 🧭 Global Navbar -->
+<nav class="nav">
+  <div class="nav-left">
+    <a href="index.html" class="brand">Logos-Q1</a>
+  </div>
+  <div class="nav-links">
+    <a href="MATH.html">Math</a>
+    <a href="FINANCE.html">Finance</a>
+    <a href="MANUAL.html">Manual</a>
+    <a href="SYSTEM_DESIGN.html">System</a>
+  </div>
+</nav>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0b1220;
+    border-bottom: 1px solid #1f2937;
+    padding: 10px 20px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    margin-right: 18px;
+    font-size: 15px;
+  }
+  .nav a:hover { color: #93c5fd; }
+  .brand {
+    font-weight: 700;
+    color: #93c5fd !important;
+    letter-spacing: 0.4px;
+    font-size: 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+  }
+</style>
+
+<div class="shell">
+
+  <!-- Navbar -->
+  <div class="topbar">
+    <div class="brand">Logos-Q1 • Finance Guide</div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="toggleAll(true)">Expand all</button>
+    <button class="btn" onclick="toggleAll(false)">Collapse all</button>
+  </div>
+
+  <h1>Finance for Builders: A Practical Primer</h1>
+  <p class="muted">This guide explains the <em>financial</em> layer under Logos-Q1 so a software developer can reason about markets, strategies, execution, and risk like a systematic trader.</p>
+
+  <hr/>
+
+  <!-- 1. Market Data -->
+  <h2>1) Market Data: What you’re looking at</h2>
+  <div class="card">
+    <div class="row">
+      <div>
+        <h3>1.1 OHLCV</h3>
+        <p><strong>OHLCV</strong> stands for <em>Open, High, Low, Close, Volume</em>. Each bar aggregates all trades within a time bucket (minute, hour, day).</p>
+        <ul>
+          <li><span class="eq">Equities</span>: Daily bars for <b>MSFT</b>, <b>AAPL</b> reflect regular trading hours.</li>
+          <li><span class="cr">Crypto</span>: 24/7 — hourly bars for <b>BTC-USD</b>, <b>ETH-USD</b> include weekends.</li>
+          <li><span class="fx">Forex</span>: 24/5 — <b>EUR/USD</b>, <b>USD/JPY</b> track global sessions; volume may be proxy (“tick volume”).</li>
+        </ul>
+
+        <h3>1.2 VWAP (Volume-Weighted Average Price)</h3>
+        <p>Execution benchmark: $$ \mathrm{VWAP}=\frac{\sum_i P_i V_i}{\sum_i V_i} $$</p>
+        <p class="muted">Traders compare fills vs. VWAP. Beating VWAP implies efficient execution.</p>
+
+        <div class="chips">
+          <span class="chip">Corporate actions (splits, dividends) can shift price series</span>
+          <span class="chip">Adj Close adjusts for these to keep continuity</span>
+        </div>
+      </div>
+      <div>
+        <div class="muted">Mini-chart (conceptual)</div>
+        <svg class="minichart" viewBox="0 0 300 60">
+          <polyline points="0,40 40,35 80,37 120,30 160,28 200,32 240,26 300,24"
+            fill="none" stroke="#93c5fd" stroke-width="2"/>
+          <line x1="0" y1="30" x2="300" y2="30" stroke="#374151" stroke-dasharray="4 4"/>
+        </svg>
+        <p class="muted">Blue line: price drift; dashed: VWAP band idea.</p>
+      </div>
+    </div>
+
+    <details>
+      <summary>Why it matters</summary>
+      <p>Garbage in, garbage out. Understanding bar construction, session rules, and adjustments prevents false conclusions when backtesting.</p>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 2. Orders & Execution -->
+  <h2>2) Orders & Execution: How trades actually happen</h2>
+  <div class="card">
+    <h3>2.1 Order Types</h3>
+    <ul>
+      <li><strong>Market</strong>: Fill now at best available price. <span class="ng">Slippage risk ↑</span></li>
+      <li><strong>Limit</strong>: Fill only at your price or better. <span class="ok">Price control</span> but <span class="ng">no fill risk</span></li>
+      <li><strong>Stop / Stop-Limit</strong>: Trigger when price crosses a level; used for exits and breakouts.</li>
+    </ul>
+
+    <h3>2.2 Bid–Ask Spread</h3>
+    <p>Spread = Ask − Bid. Tighter spread = cheaper to trade.</p>
+    <ul>
+      <li><span class="eq">Equities</span>: MSFT often 1–2 cents wide.</li>
+      <li><span class="cr">Crypto</span>: BTC on top venues can be tight; small alts are wide.</li>
+      <li><span class="fx">Forex</span>: EUR/USD ~1 pip in liquid hours; widens on news.</li>
+    </ul>
+
+    <h3>2.3 Slippage Model (used by Logos-Q1)</h3>
+    <p>$$ P_{\text{fill}} = P_{\text{signal}}\left(1 + \mathrm{side}\cdot \frac{\mathrm{slip\_bps}}{10{,}000}\right), \quad \mathrm{side}\in\{+1,-1\} $$</p>
+    <p class="muted">Buy shifts price up by bps; sell shifts down. This simulates real-world execution friction.</p>
+
+    <details>
+      <summary>Examples</summary>
+      <ul>
+        <li><b>MSFT</b> buy at 320 with 2 bps → fill ≈ 320.064</li>
+        <li><b>BTC</b> buy at 30,500 with 5 bps → fill ≈ 30,515.25</li>
+        <li><b>EUR/USD</b> buy at 1.0950 with 1 pip spread → effective ≈ 1.0951</li>
+      </ul>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 3. Strategies -->
+  <h2>3) Trading Strategies: The “why” behind the signals</h2>
+
+  <div class="card">
+    <h3>3.1 Mean Reversion</h3>
+    <p><em>Markets overreact.</em> After a sharp move, price tends to snap back toward a local mean.</p>
+    <p>Z-score: $$ Z_t=\frac{P_t-\overline{P}_t}{\sigma_t} $$ Enter when \(|Z|\ge z_{\text{entry}}\).</p>
+    <div class="chips">
+      <span class="chip">Equities: earnings-day whips</span>
+      <span class="chip">Crypto: funding unwinds</span>
+      <span class="chip">FX: session fades</span>
+    </div>
+    <details>
+      <summary>Three concrete setups</summary>
+      <ul>
+        <li><b>MSFT</b> drops −2.5σ intraday without news → fade toward VWAP with tight stop.</li>
+        <li><b>BTC</b> spikes +3σ on thin weekend liquidity → fade partial mean, smaller size.</li>
+        <li><b>EUR/USD</b> overshoots into London close → mean reversion into quieter US afternoon.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3>3.2 Momentum (Trend Following)</h3>
+    <p><em>Moves persist.</em> When demand dominates, price trends; follow the flow until it breaks.</p>
+    <p>Signal: \( s_t=\mathrm{sign}(\mathrm{MA}^{\text{fast}}_t-\mathrm{MA}^{\text{slow}}_t) \)</p>
+    <details>
+      <summary>Three concrete setups</summary>
+      <ul>
+        <li><b>AAPL</b> 20/50 SMA cross after strong earnings → ride trend with trailing stop.</li>
+        <li><b>ETH</b> 10/30 EMA cross with rising funding and open interest → momentum confirmation.</li>
+        <li><b>USD/JPY</b> 20/50 cross on policy divergence → sustained directional bias.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3>3.3 Pairs Trading (Stat Arb)</h3>
+    <p>Trade the <em>relationship</em>, not the single price. Regress A on B: \(A=\alpha+\beta B+\epsilon\). Spread \(=A-\beta B\).</p>
+    <p>When spread Z-score is low → long undervalued leg / short overvalued leg; exit near mean.</p>
+    <details>
+      <summary>Three concrete setups</summary>
+      <ul>
+        <li><b>MSFT vs AAPL</b>: same sector; mean-reverting spread on calm regimes.</li>
+        <li><b>BTC vs ETH</b>: highly correlated; hedge ratio changes in risk-on/off cycles.</li>
+        <li><b>EUR/USD vs DXY</b>: inverse relationship; careful with macro news.</li>
+      </ul>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 4. Performance Metrics -->
+  <h2>4) Performance Metrics: Score your strategy the right way</h2>
+  <div class="card">
+    <div class="kpi">
+      <div class="k"><div class="label">CAGR</div><div class="value">Geometric growth</div></div>
+      <div class="k"><div class="label">Sharpe</div><div class="value">Return / Volatility</div></div>
+      <div class="k"><div class="label">Max Drawdown</div><div class="value">Worst peak→trough</div></div>
+      <div class="k"><div class="label">Win Rate</div><div class="value">% profitable trades</div></div>
+      <div class="k"><div class="label">Exposure</div><div class="value">Time in market</div></div>
+    </div>
+
+    <h3>4.1 CAGR</h3>
+    <p>$$ \mathrm{CAGR}=\left(\frac{E_{\text{end}}}{E_{\text{start}}}\right)^{1/T}-1 $$</p>
+    <details>
+      <summary>Examples</summary>
+      <ul>
+        <li><b>MSFT strat</b>: 100k→121k in 2y → 10%.</li>
+        <li><b>BTC strat</b>: 50k→75k in 1y → 50%.</li>
+        <li><b>EUR/USD strat</b>: 20k→21k in 1y → 5%.</li>
+      </ul>
+    </details>
+
+    <h3>4.2 Sharpe</h3>
+    <p>$$ \mathrm{Sharpe}=\frac{\mathbb{E}[R_p-R_f]}{\sigma_p} \times \sqrt{\text{periods/year}} $$</p>
+    <p class="muted">Use 252 for daily equities, 365 for daily crypto, 260 for daily FX (or consistent convention).</p>
+
+    <h3>4.3 Max Drawdown</h3>
+    <p>$$ \mathrm{MDD}=\min_t\left(\frac{E_t}{\max_{s\le t}E_s}-1\right) $$</p>
+    <details>
+      <summary>Examples</summary>
+      <ul>
+        <li><b>AAPL</b> momentum: −22% MDD → reduce leverage.</li>
+        <li><b>ETH</b> mean reversion: −45% MDD → widen exits, smaller size.</li>
+        <li><b>USD/JPY</b> trend: −10% MDD → robust risk rails.</li>
+      </ul>
+    </details>
+
+    <h3>4.4 Win Rate & Exposure</h3>
+    <p><strong>Win Rate</strong> = wins / total trades. <strong>Exposure</strong> = time invested / total time.</p>
+    <p class="note">High win rate ≠ good system. Many great trend systems win ~40–55% but make more on winners than they lose on losers.</p>
+  </div>
+
+  <hr/>
+
+  <!-- 5. Market Frictions -->
+  <h2>5) Market Frictions: The invisible tax</h2>
+  <div class="card">
+    <h3>5.1 Commission</h3>
+    <p>Per-share or notional fees. In Logos-Q1: \( \mathrm{commission} = \text{shares} \times \text{rate} \).</p>
+    <h3>5.2 Spread</h3>
+    <p>Buy at ask, sell at bid. Narrow spread saves PnL. <span class="muted">FX: pip convention; Crypto: depth varies by pair/exchange.</span></p>
+    <h3>5.3 Slippage</h3>
+    <p>Difference between intended price and actual fill from latency and liquidity (see model above).</p>
+    <h3>5.4 Funding / Borrow</h3>
+    <ul>
+      <li><span class="cr">Crypto</span> swaps: positive/negative funding every 8h affects carry.</li>
+      <li><span class="eq">Equities</span> shorts: borrow fees exist on hard-to-borrow stocks.</li>
+      <li><span class="fx">FX</span>: overnight rollover (swap) rates apply.</li>
+    </ul>
+
+    <details>
+      <summary>Mind-blowing analogy</summary>
+      <p>Imagine a racetrack where every lap you pay a tiny toll, the lanes change width randomly (spread), and the asphalt sometimes grabs your tires (slippage). The fastest car doesn’t always win — the one that manages the track best does.</p>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 6. Alpha, Beta, & Attribution -->
+  <h2>6) Alpha, Beta, & Factor Thinking</h2>
+  <div class="card">
+    <p><strong>Beta</strong> is exposure to market risk (e.g., SPY). <strong>Alpha</strong> is return beyond what beta explains.</p>
+    <p>Simple model: $$ R_{\text{strategy}}=\alpha+\beta\,R_{\text{market}}+\epsilon $$</p>
+    <ul>
+      <li><span class="eq">Equities</span>: Strategy returns explained 70% by SPY (β≈0.7) → reduce beta if you want purer alpha.</li>
+      <li><span class="cr">Crypto</span>: BTC beta often dominates alt returns → hedge with BTC to isolate idiosyncratic edge.</li>
+      <li><span class="fx">FX</span>: Macro factor betas (carry, value, momentum) explain a lot; alpha is residual.</li>
+    </ul>
+    <details>
+      <summary>Why it matters</summary>
+      <p>If your backtest “alpha” is actually just beta (market up), the edge may vanish when markets go sideways or down.</p>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 7. Risk Management -->
+  <h2>7) Risk Management: Survive first, then optimize</h2>
+  <div class="card">
+    <h3>7.1 Position Sizing</h3>
+    <p>Fixed-dollar (e.g., \$10k per trade) or volatility-scaled (risk parity). In Logos-Q1 default: $$ \text{shares}=\left\lfloor \frac{\$\,\text{per trade}}{P_{\text{fill}}} \right\rfloor $$</p>
+
+    <h3>7.2 Risk Rails</h3>
+    <ul>
+      <li>Max open risk per symbol (e.g., ≤ 2% of equity).</li>
+      <li>Max drawdown stop (e.g., halt at −15%).</li>
+      <li>Kill-switch on abnormal slippage or volatility spikes.</li>
+    </ul>
+
+    <h3>7.3 Correlation Control</h3>
+    <p>Don’t own 5 tech names as if they were 5 independent bets. Limit sector or factor overlap.</p>
+
+    <details>
+      <summary>Three “save your career” rules</summary>
+      <ol>
+        <li>Size for worst day, not average day.</li>
+        <li>Respect drawdown circuit breakers.</li>
+        <li>One big loss can erase months of good Sharpe.</li>
+      </ol>
+    </details>
+  </div>
+
+  <hr/>
+
+  <!-- 8. Putting It All Together -->
+  <h2>8) Putting It All Together in Logos-Q1</h2>
+  <div class="card">
+    <ol>
+      <li><strong>Get data</strong> via <code>yfinance</code> (equities/crypto proxy) or future connectors (ccxt, FX APIs).</li>
+      <li><strong>Generate signals</strong> with <code>mean_reversion</code>, <code>momentum</code>, or <code>pairs_trading</code>.</li>
+      <li><strong>Simulate execution</strong> with slippage and commissions (cost modules).</li>
+      <li><strong>Score results</strong> using CAGR, Sharpe, MDD, WinRate, Exposure.</li>
+      <li><strong>Iterate</strong>: change params, symbols, windows; record runs for comparison.</li>
+    </ol>
+    <div class="note">The edge is rarely one trick — it’s the <em>system</em>: robust data + sensible signals + careful execution + strict risk.</div>
+  </div>
+
+  <div class="foot">This page is standalone and safe to share. All concepts map directly to <code>src/strategies/</code>, <code>src/backtest/</code>, and <code>src/execution/</code> in Logos-Q1.</div>
+</div>
+
+<script>
+  function toggleAll(expand){
+    document.querySelectorAll('details').forEach(d => expand ? d.setAttribute('open','') : d.removeAttribute('open'));
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
+  }
+</script>
+
+<script>
+  const links = document.querySelectorAll('.nav a');
+  links.forEach(link => {
+    if (link.href === window.location.href) link.style.color = '#60a5fa';
+  });
+</script>
+
+</body>
+</html>
