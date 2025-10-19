@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 from typing import Sequence
 
-from .engine import available_lessons, run_lesson
+from .engine import available_lessons, lesson_catalog, run_lesson
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -32,21 +32,31 @@ def main(argv: Sequence[str] | None = None) -> None:
         help="Which lesson to run (omit to list available options)",
     )
     parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List tutor lessons with a short description and exit",
+    )
+    parser.add_argument(
         "--plot",
         action="store_true",
         help="Render a price chart with entry/exit markers for visual learners",
     )
+    parser.add_argument(
+        "--explain-math",
+        action="store_true",
+        help="Print formula derivations and save explain.md alongside the transcript",
+    )
     args = parser.parse_args(argv)
 
-    # If no lesson was provided, print the catalog and exit gracefully.
-    if not args.lesson:
+    if args.list or not args.lesson:
+        # Present a short catalog table so learners can pick a lesson quickly.
         print("Available lessons:")
-        for name in lessons:
-            print(f"  - {name}")
+        for name, description in lesson_catalog():
+            print(f"  - {name:<15} {description}")
         return
 
     # Otherwise, hand off to the tutor engine for the full narrated experience.
-    run_lesson(args.lesson, plot=args.plot)
+    run_lesson(args.lesson, plot=args.plot, explain_math=args.explain_math)
 
 
 if __name__ == "__main__":
