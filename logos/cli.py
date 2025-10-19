@@ -19,15 +19,20 @@
 # =============================================================================
 
 from __future__ import annotations
+
 import argparse
+import json
 import logging
 import os
+import shutil
+from datetime import datetime, timezone
 from typing import Sequence
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from .config import load_settings, Settings
-from .utils import setup_logging, ensure_dirs, parse_params
+from .config import Settings, load_settings
+from .utils import ensure_dirs, parse_params, setup_logging
 from .data_loader import get_prices
 from .strategies import STRATEGIES
 from .backtest.engine import run_backtest
@@ -65,17 +70,57 @@ def periods_per_year(asset_class: str, interval: str) -> int:
 # -----------------------------------------------------------------------------
 # Plotting helper
 # -----------------------------------------------------------------------------
-def _plot_equity(equity: pd.Series, symbol: str, strat: str) -> str:
-    """Save the equity curve PNG into runs/ and return its path."""
-    ensure_dirs()
+def _plot_equity(equity: pd.Series, output_path: str) -> str:
+    """Save the equity curve PNG into the provided run directory."""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig, ax = plt.subplots(figsize=(10, 4))
     equity.plot(ax=ax, label="Equity Curve")
-    ax.set_title(f"Equity Curve - {symbol} - {strat}")
+    ax.set_title("Equity Curve")
     ax.set_xlabel("Date"); ax.set_ylabel("Equity")
     ax.legend(loc="best")
-    out = os.path.join("runs", f"equity_{symbol}_{strat}.png")
-    fig.tight_layout(); fig.savefig(out); plt.close(fig)
-    return out
+    fig.tight_layout(); fig.savefig(output_path); plt.close(fig)
+    return output_path
+
+
+def _create_run_dir(symbol: str, strategy: str) -> str:
+    """Create a timestamped run directory and return its path."""
+    ensure_dirs()
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
+    safe_symbol = symbol.replace("/", "-").replace("=", "-")
+    dirname = f"{ts}_{safe_symbol}_{strategy}"
+    run_dir = os.path.join("runs", dirname)
+    os.makedirs(run_dir, exist_ok=True)
+    os.makedirs(os.path.join(run_dir, "logs"), exist_ok=True)
+
+    latest = os.path.join("runs", "latest")
+    if os.path.lexists(latest):
+        if os.path.islink(latest):
+            os.unlink(latest)
+        elif os.path.isdir(latest):
+            shutil.rmtree(latest)
+        else:
+            os.remove(latest)
+    try:
+        os.symlink(os.path.basename(run_dir), latest)
+    except OSError as err:
+        logger.warning("Could not update latest symlink: %s", err)
+
+    return run_dir
+
+
+def _write_config_yaml(path: str, config: dict[str, object]) -> None:
+    """Persist a minimal YAML representation of the effective configuration."""
+    lines = ["# Effective run configuration"]
+    for key, value in config.items():
+        lines.append(f"{key}: {value}")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+
+
+def _write_metrics_json(path: str, metrics: dict[str, object]) -> None:
+    serializable = {k: (float(v) if hasattr(v, "__float__") else v) for k, v in metrics.items()}
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(serializable, handle, indent=2)
 
 
 # -----------------------------------------------------------------------------
@@ -89,50 +134,80 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
 
     # Resolve CLI or .env defaults
     symbol = args.symbol or s.symbol
-    start  = args.start or s.start
-    end    = args.end or s.end
+    start = args.start or s.start
+    end = args.end or s.end
     asset_class = (args.asset_class or s.asset_class).lower()
 
-    if args.paper:
-        logger.info("Paper trading mode enabled: no live broker interactions will be attempted")
+    run_dir = _create_run_dir(symbol, args.strategy)
+    run_log_path = os.path.join(run_dir, "logs", "run.log")
+    run_handler = logging.FileHandler(run_log_path, mode="a")
+    run_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+    logging.getLogger().addHandler(run_handler)
 
-    # Load data with requested interval (resampling if yfinance cannot natively)
-    df = get_prices(symbol, start, end, interval=args.interval, asset_class=asset_class)
+    try:
+        if args.paper:
+            logger.info("Paper trading mode enabled: no live broker interactions will be attempted")
 
-    # Strategy function and params
-    strat_func = STRATEGIES[args.strategy]
-    params = parse_params(args.params)
-    signals = strat_func(df, **params) if params else strat_func(df)
+        # Load data with requested interval (resampling if yfinance cannot natively)
+        df = get_prices(symbol, start, end, interval=args.interval, asset_class=asset_class)
 
-    # Compute annualization for metrics (asset + interval)
-    ppy = periods_per_year(asset_class, args.interval)
+        # Strategy function and params
+        strat_func = STRATEGIES[args.strategy]
+        params = parse_params(args.params)
+        signals = strat_func(df, **params) if params else strat_func(df)
 
-    # Run the engine with asset-aware costs
-    res = run_backtest(
-        prices=df,
-        signals=signals,
-        dollar_per_trade=args.dollar_per_trade,
-        slip_bps=args.slip_bps,
-        commission_per_share_rate=args.commission,  # equities
-        fee_bps=args.fee_bps,                       # crypto %
-        fx_pip_size=args.fx_pip_size,               # fx pip granularity
-        asset_class=asset_class,
-        periods_per_year=ppy,
-    )
+        # Compute annualization for metrics (asset + interval)
+        ppy = periods_per_year(asset_class, args.interval)
 
-    # Console summary
-    print("\n=== Metrics ===")
-    for k in ["CAGR", "Sharpe", "MaxDD", "WinRate", "Exposure"]:
-        val = res["metrics"].get(k)
-        print(f"{k:8s}: {val:.4f}" if isinstance(val, float) else f"{k:8s}: {val}")
+        # Run the engine with asset-aware costs
+        res = run_backtest(
+            prices=df,
+            signals=signals,
+            dollar_per_trade=args.dollar_per_trade,
+            slip_bps=args.slip_bps,
+            commission_per_share_rate=args.commission,  # equities
+            fee_bps=args.fee_bps,  # crypto %
+            fx_pip_size=args.fx_pip_size,  # fx pip granularity
+            asset_class=asset_class,
+            periods_per_year=ppy,
+        )
 
-    # Persist artifacts
-    trades_path = os.path.join("runs", f"trades_{symbol}_{args.strategy}.csv")
-    res["trades"].to_csv(trades_path, index=False)
-    print(f"Saved trades -> {trades_path}")
+        # Console summary
+        print("\n=== Metrics ===")
+        for k in ["CAGR", "Sharpe", "MaxDD", "WinRate", "Exposure"]:
+            val = res["metrics"].get(k)
+            print(f"{k:8s}: {val:.4f}" if isinstance(val, float) else f"{k:8s}: {val}")
 
-    png = _plot_equity(res["equity_curve"], symbol, args.strategy)
-    print(f"Saved equity plot -> {png}")
+        config_payload = {
+            "symbol": symbol,
+            "strategy": args.strategy,
+            "start": start,
+            "end": end,
+            "asset_class": asset_class,
+            "interval": args.interval,
+            "dollar_per_trade": args.dollar_per_trade,
+            "slip_bps": args.slip_bps,
+            "commission_per_share": args.commission,
+            "fee_bps": args.fee_bps,
+            "fx_pip_size": args.fx_pip_size,
+            "params": params or {},
+            "paper_mode": bool(args.paper),
+        }
+        _write_config_yaml(os.path.join(run_dir, "config.yaml"), config_payload)
+        _write_metrics_json(os.path.join(run_dir, "metrics.json"), res["metrics"])
+
+        trades_path = os.path.join(run_dir, "trades.csv")
+        res["trades"].to_csv(trades_path, index=False)
+        print(f"Saved trades -> {trades_path}")
+
+        png_path = os.path.join(run_dir, "equity.png")
+        _plot_equity(res["equity_curve"], png_path)
+        print(f"Saved equity plot -> {png_path}")
+        print(f"Run artifacts -> {run_dir}")
+
+    finally:
+        logging.getLogger().removeHandler(run_handler)
+        run_handler.close()
 
 
 # -----------------------------------------------------------------------------

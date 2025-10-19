@@ -9,6 +9,7 @@ logs/*.csv
 logs/*.log
 .env
 copilot_changes.patch
-data/*.csv
+input_data/*.csv
+input_data/cache/*
 runs/**
 !runs/.gitkeep

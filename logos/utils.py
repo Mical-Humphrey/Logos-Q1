@@ -4,7 +4,7 @@
 #   Small utilities used across the project.
 #
 # Summary:
-#   - ensure_dirs(): idempotently create data/runs/notebooks directories
+#   - ensure_dirs(): idempotently create input_data/runs/notebooks directories
 #   - setup_logging(): configure console+file logging
 #   - parse_params(): convert "k=v,k=v" strings to a dict with basic typing
 #
@@ -12,24 +12,28 @@
 #   - Keep helpers minimal and dependency-free.
 # =============================================================================
 from __future__ import annotations
-import os
 import logging
+import os
 from typing import Dict
 
+
 def ensure_dirs() -> None:
-    """Create project directories for data and outputs if they don't exist."""
-    os.makedirs("data", exist_ok=True)
+    """Create core project directories following the new layout."""
+    os.makedirs("logos/logs", exist_ok=True)
+
+    os.makedirs("input_data/raw", exist_ok=True)
+    for asset in ("equity", "crypto", "forex"):
+        os.makedirs(os.path.join("input_data", "cache", asset), exist_ok=True)
+
     os.makedirs("runs", exist_ok=True)
-    os.makedirs(os.path.join("runs", "logs"), exist_ok=True)
+    os.makedirs(os.path.join("runs", "lessons"), exist_ok=True)
     os.makedirs("notebooks", exist_ok=True)
 
+
 def setup_logging(level: str = "INFO") -> None:
-    """Configure logging to both a file and the console.
-    
-    File logs help with debugging and historical record of runs.
-    """
+    """Configure logging to both a file and the console using shared app log."""
     ensure_dirs()
-    log_file = os.path.join("runs", "logs", "app.log")
+    log_file = os.path.join("logos", "logs", "app.log")
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",

@@ -27,10 +27,19 @@ logger = logging.getLogger(__name__)
 SUPPORTED_NATIVE = {"1d", "60m", "1h", "30m", "15m", "10m", "5m"}
 
 
+def _safe_symbol(symbol: str) -> str:
+    return symbol.replace("/", "_").replace("=", "_").replace("-", "_")
+
+
 def _cache_path(symbol: str, interval: str, asset_tag: str) -> str:
     """Return a cache filename that encodes symbol/interval/asset_class."""
-    safe_symbol = symbol.replace("/", "_").replace("=", "_").replace("-", "_")
-    return os.path.join("data", f"{asset_tag}_{safe_symbol}_{interval}.csv")
+    safe = _safe_symbol(symbol)
+    return os.path.join("data", "cache", asset_tag, f"{safe}_{interval}.csv")
+
+
+def _raw_fixture_path(symbol: str) -> str:
+    """Return the path for a committed raw fixture if one exists."""
+    return os.path.join("data", "raw", f"{_safe_symbol(symbol)}.csv")
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
@@ -71,12 +80,23 @@ def _load_from_yahoo(
     download_symbol: str | None = None,
 ) -> pd.DataFrame:
     """Shared Yahoo Finance downloader with caching and resampling."""
-    os.makedirs("data", exist_ok=True)
+    os.makedirs(os.path.join("input_data", "cache", asset_tag), exist_ok=True)
     cache_symbol = download_symbol or symbol
     cache = _cache_path(cache_symbol, interval, asset_tag)
 
     df = None
-    if os.path.exists(cache):
+    if interval == "1d":
+        raw_path = _raw_fixture_path(cache_symbol)
+        if os.path.exists(raw_path):
+            try:
+                fixture = pd.read_csv(raw_path, parse_dates=["Date"], index_col="Date").sort_index()
+                if _covers_range(fixture, start, end):
+                    logger.info(f"Loaded fixture data for {cache_symbol} from {raw_path}")
+                    df = fixture
+            except Exception as ex:
+                logger.warning(f"Failed reading fixture {raw_path}: {ex}")
+
+    if df is None and os.path.exists(cache):
         try:
             df = pd.read_csv(cache, parse_dates=["Date"], index_col="Date").sort_index()
         except Exception as ex:
@@ -108,7 +128,11 @@ def _load_from_yahoo(
         if interval not in SUPPORTED_NATIVE or yf_ivl != interval:
             new = _resample_ohlcv(new, interval)
 
+        if interval == "1d" and df is None:
+            # Only use fixtures when they already existed; new downloads populate cache.
+            pass
         try:
+            os.makedirs(os.path.dirname(cache), exist_ok=True)
             new.to_csv(cache)
         except Exception as ex:
             logger.warning(f"Could not write cache: {ex}")
