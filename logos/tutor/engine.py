@@ -878,19 +878,22 @@ def run_lesson(
             f"Unknown lesson '{lesson_name}'. Available: {', '.join(available_lessons())}"
         )
 
-    lesson_dir, run_dir, plots_dir, stamp = _prepare_run_dirs(lesson_key)
+    lesson_dir_raw, run_dir_raw, plots_dir_raw, stamp = _prepare_run_dirs(lesson_key)
+    lesson_dir = Path(lesson_dir_raw)
+    run_dir = Path(run_dir_raw)
+    plots_dir = Path(plots_dir_raw)
     settings = load_settings()
     setup_logging(settings.log_level)
 
     ctx = LessonContext(
-        lesson=lesson_key,
-        settings=settings,
-        plot=plot,
-        explain_math=explain_math,
-        lesson_dir=lesson_dir,
-        run_dir=run_dir,
-        plots_dir=plots_dir,
-        timestamp=stamp,
+    lesson=lesson_key,
+    settings=settings,
+    plot=plot,
+    explain_math=explain_math,
+    lesson_dir=lesson_dir,
+    run_dir=run_dir,
+    plots_dir=plots_dir,
+    timestamp=stamp,
     )
 
     LESSON_HANDLERS[lesson_key](ctx)
