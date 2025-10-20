@@ -82,7 +82,8 @@ def _plot_equity(equity: pd.Series) -> plt.Figure:
     fig, ax = plt.subplots(figsize=(10, 4))
     equity.plot(ax=ax, label="Equity Curve")
     ax.set_title("Equity Curve")
-    ax.set_xlabel("Date"); ax.set_ylabel("Equity")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Equity")
     ax.legend(loc="best")
     fig.tight_layout()
     return fig

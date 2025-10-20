@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
 
-from logos.live.regression import BASELINE_DIR, DEFAULT_FIXTURE_DIR, run_regression
+from logos.live import regression
+from logos.live.regression import BASELINE_DIR, DEFAULT_FIXTURE_DIR, DEFAULT_SYMBOL, METRIC_ABS_TOLERANCE, run_regression
 
 
 def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
@@ -80,3 +82,72 @@ def test_adapter_mode_emits_logs(tmp_path: Path) -> None:
     assert result_two.artifacts.adapter_logs is not None
     assert result_two.artifacts.adapter_logs.exists()
     assert _checksum(result_one.artifacts.adapter_logs) == _checksum(result_two.artifacts.adapter_logs)
+
+
+def test_compare_metrics_tolerance(tmp_path: Path) -> None:
+    baseline = tmp_path / "baseline.json"
+    output = tmp_path / "output.json"
+    baseline.write_text(json.dumps({"pnl": 1.0, "count": 5}))
+    output.write_text(json.dumps({"pnl": 1.0 + METRIC_ABS_TOLERANCE / 2, "count": 5}))
+
+    assert regression._compare_metrics(baseline, output, METRIC_ABS_TOLERANCE) is None
+
+    output.write_text(json.dumps({"pnl": 1.0 + METRIC_ABS_TOLERANCE * 5, "count": 6}))
+    diff = regression._compare_metrics(baseline, output, METRIC_ABS_TOLERANCE)
+    assert diff is not None and "pnl" in diff and "count" in diff
+
+
+def test_drain_adapter_logs_variants() -> None:
+    class WithDrain:
+        def __init__(self) -> None:
+            self._payload = [{"a": 1}]
+
+        def drain_logs(self) -> list[dict]:
+            data = self._payload
+            self._payload = []
+            return data
+
+    class WithLogs:
+        def __init__(self) -> None:
+            self.logs = [{"b": 2}]
+
+        def reset_logs(self) -> None:
+            self.logs = []
+
+    assert regression._drain_adapter_logs(WithDrain()) == [{"a": 1}]
+    assert regression._drain_adapter_logs(WithLogs()) == [{"b": 2}]
+
+
+def test_write_adapter_logs_handles_empty(tmp_path: Path) -> None:
+    paths = regression.prepare_seeded_run_paths(1, "log-test", base_dir=tmp_path)
+    empty_path = regression._write_adapter_logs(paths, [])
+    assert empty_path.read_text(encoding="utf-8").strip() == "[]"
+
+    payload_path = regression._write_adapter_logs(paths, [{"foo": "bar"}])
+    lines = payload_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1 and "foo" in lines[0]
+
+
+def test_regression_cli_cycle(tmp_path: Path) -> None:
+    output_dir = tmp_path / "out"
+    baseline_dir = tmp_path / "base"
+    args_refresh = [
+        "--output-dir",
+        str(output_dir),
+        "--baseline",
+        str(baseline_dir),
+        "--dataset",
+        str(DEFAULT_FIXTURE_DIR),
+        "--symbol",
+        DEFAULT_SYMBOL,
+        "--label",
+        "cli-cycle",
+        "--seed",
+        "515",
+        "--refresh-baseline",
+        "--confirm-refresh",
+    ]
+    assert regression.main(args_refresh) == 0
+
+    args_run = args_refresh[:-2]
+    assert regression.main(args_run) == 0

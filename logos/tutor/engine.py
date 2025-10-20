@@ -596,7 +596,7 @@ def _lesson_pairs(ctx: LessonContext) -> None:
     )
 
     sig_a = signals_df[f"signal_{sym_a}"]
-    exposure_ratio = _summarize_signals(ctx, sig_a)
+    _summarize_signals(ctx, sig_a)
 
     changes = sig_a.diff().fillna(sig_a)
     step = 4
