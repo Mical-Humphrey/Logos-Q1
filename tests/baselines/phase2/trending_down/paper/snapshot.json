@@ -1,0 +1,41 @@
+{
+  "account": {
+    "buying_power": 67119.6,
+    "cash": 67119.6,
+    "equity": 67991.6,
+    "realized_pnl": 0.0,
+    "unrealized_pnl": -8.399999999999977
+  },
+  "clock": "2024-03-05T09:34:00+00:00",
+  "config": {
+    "adapter_mode": "paper",
+    "adapter_name": null,
+    "clock_start": "2024-01-01T09:33:00+00:00",
+    "clock_timezone": "UTC",
+    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/trending_down",
+    "label": "phase2-trending_down-paper",
+    "seed": 424242,
+    "symbol": "TRENDDN"
+  },
+  "fills": [
+    {
+      "fees": 0.0,
+      "fill_id": "PB-FILL-000001",
+      "order_id": "PB-000001",
+      "price": 220.1,
+      "quantity": 4.0,
+      "side": "buy",
+      "ts": "2024-03-05T09:30:00+00:00"
+    }
+  ],
+  "open_orders": [],
+  "positions": {
+    "TRENDDN": {
+      "average_price": 220.1,
+      "quantity": 4.0,
+      "unrealized_pnl": -8.399999999999977
+    }
+  },
+  "run_id": "424242-phase2-trending_down-paper",
+  "seed": 424242
+}

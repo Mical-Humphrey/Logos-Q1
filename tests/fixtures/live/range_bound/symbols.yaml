@@ -1,0 +1,9 @@
+---
+RANGE:
+  venue_symbol: "RANGE"
+  price_precision: 2
+  quantity_precision: 0
+  lot_size: 1
+  min_notional: 10
+  max_notional: 500000
+  aliases: []

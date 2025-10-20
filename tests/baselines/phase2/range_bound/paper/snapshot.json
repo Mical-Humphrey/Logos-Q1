@@ -1,0 +1,41 @@
+{
+  "account": {
+    "buying_power": 51048.1,
+    "cash": 51048.1,
+    "equity": 51998.1,
+    "realized_pnl": 0.0,
+    "unrealized_pnl": -1.900000000000027
+  },
+  "clock": "2024-03-08T09:34:00+00:00",
+  "config": {
+    "adapter_mode": "paper",
+    "adapter_name": null,
+    "clock_start": "2024-01-01T09:33:00+00:00",
+    "clock_timezone": "UTC",
+    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/range_bound",
+    "label": "phase2-range_bound-paper",
+    "seed": 424242,
+    "symbol": "RANGE"
+  },
+  "fills": [
+    {
+      "fees": 0.0,
+      "fill_id": "PB-FILL-000001",
+      "order_id": "PB-000001",
+      "price": 50.1,
+      "quantity": 19.0,
+      "side": "buy",
+      "ts": "2024-03-08T09:30:00+00:00"
+    }
+  ],
+  "open_orders": [],
+  "positions": {
+    "RANGE": {
+      "average_price": 50.1,
+      "quantity": 19.0,
+      "unrealized_pnl": -1.900000000000027
+    }
+  },
+  "run_id": "424242-phase2-range_bound-paper",
+  "seed": 424242
+}

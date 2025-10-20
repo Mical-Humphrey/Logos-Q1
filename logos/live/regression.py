@@ -39,6 +39,8 @@ ADAPTER_LOG_FILENAME = "adapter_logs.jsonl"
 
 AdapterMode = str
 
+METRIC_ABS_TOLERANCE = 1e-9
+
 
 @dataclass(frozen=True)
 class RegressionArtifacts:
@@ -206,6 +208,7 @@ def _select_adapter(config: RegressionConfig, clock: MockTimeProvider) -> Tuple[
 
 def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> RegressionArtifacts:
     clock = MockTimeProvider(current=dt.datetime(2024, 1, 1, 9, 33, tzinfo=dt.timezone.utc))
+    clock_origin = clock.current
     account_path = config.dataset_dir / ACCOUNT_FILENAME
     bars_path = config.dataset_dir / BARS_FILENAME
     symbols_path = config.dataset_dir / SYMBOLS_FILENAME
@@ -340,6 +343,8 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
         "adapter_mode": adapter_mode_label,
         "adapter_name": adapter_name,
         "dataset": str(config.dataset_dir),
+        "clock_start": clock_origin.isoformat(),
+        "clock_timezone": "UTC",
     }
 
     write_snapshot(
@@ -368,6 +373,8 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
 def _compare(baseline: Path, output: Path) -> str | None:
     if not baseline.exists():
         return f"Baseline missing: {baseline}"
+    if output.name == "metrics.json":
+        return _compare_metrics(baseline, output, METRIC_ABS_TOLERANCE)
     if output.read_bytes() == baseline.read_bytes():
         return None
     diff = difflib.unified_diff(
@@ -378,6 +385,34 @@ def _compare(baseline: Path, output: Path) -> str | None:
         lineterm="",
     )
     return "\n".join(diff)
+
+
+def _compare_metrics(baseline: Path, output: Path, tolerance: float) -> str | None:
+    baseline_data = json.loads(baseline.read_text(encoding="utf-8"))
+    output_data = json.loads(output.read_text(encoding="utf-8"))
+
+    mismatches: List[str] = []
+    keys = sorted(set(baseline_data) | set(output_data))
+    for key in keys:
+        if key not in baseline_data:
+            mismatches.append(f"missing-in-baseline:{key}")
+            continue
+        if key not in output_data:
+            mismatches.append(f"missing-in-output:{key}")
+            continue
+        baseline_value = baseline_data[key]
+        output_value = output_data[key]
+        if isinstance(baseline_value, (int, float)) and isinstance(output_value, (int, float)):
+            if abs(float(baseline_value) - float(output_value)) > tolerance:
+                mismatches.append(
+                    f"{key} baseline={baseline_value} output={output_value} tol={tolerance}"
+                )
+        else:
+            if baseline_value != output_value:
+                mismatches.append(f"{key} baseline={baseline_value} output={output_value}")
+    if mismatches:
+        return "metrics mismatch: " + "; ".join(mismatches)
+    return None
 
 
 def run_regression(

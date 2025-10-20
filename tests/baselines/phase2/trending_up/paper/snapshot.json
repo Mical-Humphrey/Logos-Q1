@@ -1,0 +1,41 @@
+{
+  "account": {
+    "buying_power": 74096.4,
+    "cash": 74096.4,
+    "equity": 75013.95,
+    "realized_pnl": 0.0,
+    "unrealized_pnl": 13.949999999999974
+  },
+  "clock": "2024-03-01T09:34:00+00:00",
+  "config": {
+    "adapter_mode": "paper",
+    "adapter_name": null,
+    "clock_start": "2024-01-01T09:33:00+00:00",
+    "clock_timezone": "UTC",
+    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/trending_up",
+    "label": "phase2-trending_up-paper",
+    "seed": 424242,
+    "symbol": "TRENDUP"
+  },
+  "fills": [
+    {
+      "fees": 0.0,
+      "fill_id": "PB-FILL-000001",
+      "order_id": "PB-000001",
+      "price": 100.4,
+      "quantity": 9.0,
+      "side": "buy",
+      "ts": "2024-03-01T09:30:00+00:00"
+    }
+  ],
+  "open_orders": [],
+  "positions": {
+    "TRENDUP": {
+      "average_price": 100.4,
+      "quantity": 9.0,
+      "unrealized_pnl": 13.949999999999974
+    }
+  },
+  "run_id": "424242-phase2-trending_up-paper",
+  "seed": 424242
+}

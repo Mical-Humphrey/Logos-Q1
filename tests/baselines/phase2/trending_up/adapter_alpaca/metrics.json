@@ -1,0 +1,12 @@
+{
+  "end_equity": 75000.0,
+  "exposure": 0.0,
+  "hit_rate": 0.0,
+  "max_drawdown": 0.0,
+  "pnl": 0.0,
+  "run_id": "424242-phase2-trending_up-adapter_alpaca",
+  "seed": 424242,
+  "sharpe": 0.0,
+  "start_equity": 75000.0,
+  "turnover": 0.0
+}

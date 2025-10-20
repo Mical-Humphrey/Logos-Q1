@@ -1,0 +1,25 @@
+{
+  "account": {
+    "buying_power": 52000.0,
+    "cash": 52000.0,
+    "equity": 52000.0,
+    "realized_pnl": 0.0,
+    "unrealized_pnl": 0.0
+  },
+  "clock": "2024-03-08T09:34:00+00:00",
+  "config": {
+    "adapter_mode": "dry-run",
+    "adapter_name": "ccxt",
+    "clock_start": "2024-01-01T09:33:00+00:00",
+    "clock_timezone": "UTC",
+    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/range_bound",
+    "label": "phase2-range_bound-adapter_ccxt",
+    "seed": 424242,
+    "symbol": "RANGE"
+  },
+  "fills": [],
+  "open_orders": [],
+  "positions": {},
+  "run_id": "424242-phase2-range_bound-adapter_ccxt",
+  "seed": 424242
+}
