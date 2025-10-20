@@ -21,12 +21,14 @@ RUNS_DIR = PROJECT_ROOT / "runs"
 RUNS_LESSONS_DIR = RUNS_DIR / "lessons"
 RUNS_LATEST_LINK = RUNS_DIR / "latest"
 
+RUNS_BACKTESTS_DIR = RUNS_DIR  # Backtests stored directly in runs/
 RUNS_LIVE_DIR = RUNS_DIR / "live"
 RUNS_LIVE_SESSIONS_DIR = RUNS_LIVE_DIR / "sessions"
 RUNS_LIVE_TRADES_DIR = RUNS_LIVE_DIR / "trades"
 RUNS_LIVE_REPORTS_DIR = RUNS_LIVE_DIR / "reports"
 RUNS_LIVE_LATEST_LINK = RUNS_LIVE_DIR / "latest_session"
 
+LOGS_DIR = LOGOS_DIR / "logs"
 APP_LOGS_DIR = LOGOS_DIR / "logs"
 APP_LOG_FILE = APP_LOGS_DIR / "app.log"
 LIVE_LOG_FILE = APP_LOGS_DIR / "live.log"

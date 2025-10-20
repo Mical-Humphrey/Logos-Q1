@@ -31,6 +31,7 @@ def load_state(path: Path, session_id: str) -> LiveState:
     if not path.exists():
         return default_state(session_id)
     data = json.loads(path.read_text(encoding="utf-8"))
+    data.pop("session_id", None)
     return LiveState(session_id=session_id, **data)
 
 

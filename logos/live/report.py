@@ -20,16 +20,16 @@ def _append_row(path: Path, headers: Iterable[str], row: Dict[str, object]) -> N
 def append_trade(path: Path, *, ts: dt.datetime, **fields: object) -> None:
     headers = [
         "ts",
-        "id",
+        "session_id",
         "symbol",
+        "strategy",
+        "id",
         "side",
         "qty",
         "price",
         "fees",
         "slip_bps",
         "order_type",
-        "session_id",
-        "strategy",
     ]
     row = {"ts": ts.isoformat(timespec="seconds"), **fields}
     _append_row(path, headers, row)
@@ -38,9 +38,12 @@ def append_trade(path: Path, *, ts: dt.datetime, **fields: object) -> None:
 def append_order(path: Path, *, ts: dt.datetime, **fields: object) -> None:
     headers = [
         "ts",
-        "id",
+        "session_id",
         "symbol",
+        "strategy",
+        "id",
         "side",
+        "order_type",
         "qty",
         "limit_price",
         "state",
@@ -52,16 +55,25 @@ def append_order(path: Path, *, ts: dt.datetime, **fields: object) -> None:
 
 
 def append_position(path: Path, *, ts: dt.datetime, **fields: object) -> None:
-    headers = ["ts", "symbol", "qty", "avg_price", "unrealized_pnl"]
+    headers = ["ts", "session_id", "symbol", "strategy", "qty", "avg_price", "unrealized_pnl"]
     row = {"ts": ts.isoformat(timespec="seconds"), **fields}
     _append_row(path, headers, row)
 
 
 def append_account(path: Path, *, ts: dt.datetime, **fields: object) -> None:
-    headers = ["ts", "cash", "equity", "buying_power"]
+    headers = [
+        "ts",
+        "session_id",
+        "symbol",
+        "strategy",
+        "cash",
+        "equity",
+        "buying_power",
+        "currency",
+    ]
     row = {"ts": ts.isoformat(timespec="seconds"), **fields}
     _append_row(path, headers, row)
 
 
-def write_session_summary(path: Path, summary: str) -> None:
-    path.write_text(summary.strip() + "\n", encoding="utf-8")
+def write_session_summary(path: Path, lines: str) -> None:
+    path.write_text(lines.strip() + "\n", encoding="utf-8")

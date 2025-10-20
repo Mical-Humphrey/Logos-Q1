@@ -70,10 +70,22 @@ def create_session(symbol: str, strategy: str, when: dt.datetime | None = None) 
     session_report = base_dir / "session.md"
     latest_file = RUNS_LIVE_LATEST_LINK
 
-    _write_header(trades_file, "# v1 trades\nts,id,symbol,side,qty,price,fees,slip_bps,order_type,session_id,strategy")
-    _write_header(orders_file, "# v1 orders\nts,id,symbol,side,qty,limit_price,state,reject_reason,broker_order_id")
-    _write_header(positions_file, "# v1 positions\nts,symbol,qty,avg_price,unrealized_pnl")
-    _write_header(account_file, "# v1 account\nts,cash,equity,buying_power")
+    _write_header(
+        trades_file,
+        "# v1 trades\nts,session_id,symbol,strategy,id,side,qty,price,fees,slip_bps,order_type",
+    )
+    _write_header(
+        orders_file,
+        "# v1 orders\nts,session_id,symbol,strategy,id,side,order_type,qty,limit_price,state,reject_reason,broker_order_id",
+    )
+    _write_header(
+        positions_file,
+        "# v1 positions\nts,session_id,symbol,strategy,qty,avg_price,unrealized_pnl",
+    )
+    _write_header(
+        account_file,
+        "# v1 account\nts,session_id,symbol,strategy,cash,equity,buying_power,currency",
+    )
 
     _update_latest_pointer(base_dir)
     handler = attach_run_file_handler(logs_dir / "run.log")
