@@ -1,4 +1,5 @@
 """Lifecycle, inventory, and PnL tests for the deterministic paper broker."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -38,8 +39,12 @@ def account_state() -> Account:
 
 
 @pytest.fixture()
-def broker(metadata_registry: SymbolMetadataRegistry, account_state: Account) -> PaperBroker:
-    return PaperBroker(metadata_registry=metadata_registry, starting_account=account_state)
+def broker(
+    metadata_registry: SymbolMetadataRegistry, account_state: Account
+) -> PaperBroker:
+    return PaperBroker(
+        metadata_registry=metadata_registry, starting_account=account_state
+    )
 
 
 def _intent(
@@ -65,8 +70,12 @@ def test_fifo_inventory_tracks_remaining_quantity(
     broker: PaperBroker,
     metadata_registry: SymbolMetadataRegistry,
 ) -> None:
-    buy_intent = _intent("BTC-USD", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("30000"))
-    sell_intent = _intent("BTC-USD", OrderSide.SELL, metadata_registry, Decimal("0.6"), Decimal("32000"))
+    buy_intent = _intent(
+        "BTC-USD", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("30000")
+    )
+    sell_intent = _intent(
+        "BTC-USD", OrderSide.SELL, metadata_registry, Decimal("0.6"), Decimal("32000")
+    )
 
     buy_order = broker.submit_order(buy_intent)
     broker.record_fill(buy_order.id, price=Decimal("30000"), quantity=Decimal("0.5"))
@@ -83,8 +92,12 @@ def test_fifo_inventory_tracks_remaining_quantity(
     assert position.average_price == Decimal("30500")
 
 
-def test_deterministic_fills_and_order_lifecycle_transitions(broker: PaperBroker) -> None:
-    intent = _intent("AAPL", OrderSide.BUY, broker.metadata_registry, Decimal("10"), Decimal("170"))
+def test_deterministic_fills_and_order_lifecycle_transitions(
+    broker: PaperBroker,
+) -> None:
+    intent = _intent(
+        "AAPL", OrderSide.BUY, broker.metadata_registry, Decimal("10"), Decimal("170")
+    )
     order = broker.submit_order(intent)
 
     assert order.status is OrderStatus.NEW
@@ -100,7 +113,9 @@ def test_deterministic_fills_and_order_lifecycle_transitions(broker: PaperBroker
 
 
 def test_event_logging_emits_all_transitions(broker: PaperBroker) -> None:
-    intent = _intent("AAPL", OrderSide.BUY, broker.metadata_registry, Decimal("5"), Decimal("171"))
+    intent = _intent(
+        "AAPL", OrderSide.BUY, broker.metadata_registry, Decimal("5"), Decimal("171")
+    )
     order = broker.submit_order(intent)
     broker.record_fill(order.id, price=Decimal("171.00"), quantity=Decimal("2"))
     broker.cancel_order(order.id)
@@ -117,7 +132,13 @@ def test_event_logging_emits_all_transitions(broker: PaperBroker) -> None:
 
 
 def test_account_snapshot_updates_on_fills_and_cancels(broker: PaperBroker) -> None:
-    intent = _intent("BTC-USD", OrderSide.BUY, broker.metadata_registry, Decimal("0.3"), Decimal("30000"))
+    intent = _intent(
+        "BTC-USD",
+        OrderSide.BUY,
+        broker.metadata_registry,
+        Decimal("0.3"),
+        Decimal("30000"),
+    )
     order = broker.submit_order(intent)
 
     broker.record_fill(order.id, price=Decimal("30000"), quantity=Decimal("0.2"))
@@ -125,15 +146,21 @@ def test_account_snapshot_updates_on_fills_and_cancels(broker: PaperBroker) -> N
 
     snapshot = broker.account_snapshot()
     assert snapshot.positions["BTC-USD"].quantity == Decimal("0.2")
-    assert any(event.type is EventType.CANCELLED for event in broker.events_for_order(order.id))
+    assert any(
+        event.type is EventType.CANCELLED for event in broker.events_for_order(order.id)
+    )
 
 
 def test_realized_and_unrealized_pnl_fifo(
     broker: PaperBroker,
     metadata_registry: SymbolMetadataRegistry,
 ) -> None:
-    buy_intent = _intent("BTC-USD", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("30000"))
-    sell_intent = _intent("BTC-USD", OrderSide.SELL, metadata_registry, Decimal("0.6"), Decimal("32000"))
+    buy_intent = _intent(
+        "BTC-USD", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("30000")
+    )
+    sell_intent = _intent(
+        "BTC-USD", OrderSide.SELL, metadata_registry, Decimal("0.6"), Decimal("32000")
+    )
 
     buy_order = broker.submit_order(buy_intent)
     broker.record_fill(buy_order.id, price=Decimal("30000"), quantity=Decimal("0.5"))
@@ -161,9 +188,13 @@ def test_fee_and_slippage_applied_deterministically(
         taker_fee_bps=Decimal("2"),
     )
 
-    intent = _intent("AAPL", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("100"))
+    intent = _intent(
+        "AAPL", OrderSide.BUY, metadata_registry, Decimal("1"), Decimal("100")
+    )
     order = broker.submit_order(intent)
-    broker.record_fill(order.id, price=Decimal("100"), quantity=Decimal("1"), liquidity="maker")
+    broker.record_fill(
+        order.id, price=Decimal("100"), quantity=Decimal("1"), liquidity="maker"
+    )
 
     events = broker.events_for_order(order.id)
     assert len(events) == 2

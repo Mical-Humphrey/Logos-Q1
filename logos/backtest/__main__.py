@@ -1,4 +1,5 @@
 """Entry point so `python -m logos.backtest` dispatches to the CLI backtest command."""
+
 # =============================================================================
 # Purpose:
 #   Provide a module-level shim that mirrors the `logos cli backtest` behavior.

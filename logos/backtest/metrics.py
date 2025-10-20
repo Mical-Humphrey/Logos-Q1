@@ -15,6 +15,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+
 def cagr(equity: pd.Series, periods_per_year: int) -> float:
     eq = equity.dropna().astype(float)
     if eq.empty:
@@ -25,12 +26,14 @@ def cagr(equity: pd.Series, periods_per_year: int) -> float:
         return 0.0
     return (end / start) ** (1.0 / years) - 1.0
 
+
 def sharpe(returns: pd.Series, periods_per_year: int, risk_free: float = 0.0) -> float:
     rets = returns.dropna().astype(float)
     if len(rets) == 0 or rets.std(ddof=0) == 0:
         return 0.0
     excess = rets - (risk_free / periods_per_year)
     return float(np.sqrt(periods_per_year) * excess.mean() / excess.std(ddof=0))
+
 
 def max_drawdown(equity: pd.Series) -> float:
     eq = equity.dropna().astype(float)
@@ -40,11 +43,13 @@ def max_drawdown(equity: pd.Series) -> float:
     dd = (eq / peak) - 1.0
     return float(dd.min())
 
+
 def win_rate(trade_pnls: pd.Series) -> float:
     pnl = trade_pnls.dropna()
     if len(pnl) == 0:
         return 0.0
     return float((pnl > 0).mean())
+
 
 def exposure(positions: pd.Series) -> float:
     pos = positions.fillna(0).abs()

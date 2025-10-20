@@ -36,7 +36,9 @@ def load_state(path: Path, session_id: str) -> LiveState:
 
 
 def save_state(state: LiveState, path: Path) -> None:
-    path.write_text(json.dumps(asdict(state), indent=2, sort_keys=True), encoding="utf-8")
+    path.write_text(
+        json.dumps(asdict(state), indent=2, sort_keys=True), encoding="utf-8"
+    )
 
 
 def append_event(event: Dict[str, Any], path: Path) -> None:

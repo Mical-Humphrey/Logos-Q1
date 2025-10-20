@@ -19,10 +19,14 @@ def fixture_path() -> Path:
 
 @pytest.fixture()
 def fresh_clock() -> MockTimeProvider:
-    return MockTimeProvider(current=dt.datetime(2024, 1, 1, 9, 32, 30, tzinfo=dt.timezone.utc))
+    return MockTimeProvider(
+        current=dt.datetime(2024, 1, 1, 9, 32, 30, tzinfo=dt.timezone.utc)
+    )
 
 
-def test_fixture_feed_replays_bars_in_order(fixture_path: Path, fresh_clock: MockTimeProvider) -> None:
+def test_fixture_feed_replays_bars_in_order(
+    fixture_path: Path, fresh_clock: MockTimeProvider
+) -> None:
     feed = FixtureReplayFeed(
         dataset=fixture_path,
         time_provider=fresh_clock,
@@ -40,7 +44,9 @@ def test_fixture_feed_replays_bars_in_order(fixture_path: Path, fresh_clock: Moc
     assert [bar.close for bar in bars] == [100.5, 101.0, 101.2]
 
 
-def test_fixture_feed_filters_since(fixture_path: Path, fresh_clock: MockTimeProvider) -> None:
+def test_fixture_feed_filters_since(
+    fixture_path: Path, fresh_clock: MockTimeProvider
+) -> None:
     feed = FixtureReplayFeed(
         dataset=fixture_path,
         time_provider=fresh_clock,
@@ -55,8 +61,12 @@ def test_fixture_feed_filters_since(fixture_path: Path, fresh_clock: MockTimePro
     assert bars[0].dt.isoformat() == "2024-01-01T09:32:00+00:00"
 
 
-def test_fixture_feed_stale_raises_fetch_error(fixture_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    clock = MockTimeProvider(current=dt.datetime(2024, 1, 1, 9, 40, tzinfo=dt.timezone.utc))
+def test_fixture_feed_stale_raises_fetch_error(
+    fixture_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    clock = MockTimeProvider(
+        current=dt.datetime(2024, 1, 1, 9, 40, tzinfo=dt.timezone.utc)
+    )
     feed = FixtureReplayFeed(
         dataset=fixture_path,
         time_provider=clock,
@@ -69,11 +79,17 @@ def test_fixture_feed_stale_raises_fetch_error(fixture_path: Path, caplog: pytes
             feed.fetch_bars("AAPL", "1m", since=None)
 
     assert "stale fixture data for AAPL" in str(exc.value)
-    attempts = [record for record in caplog.records if "fixture replay attempt" in record.message]
+    attempts = [
+        record
+        for record in caplog.records
+        if "fixture replay attempt" in record.message
+    ]
     assert len(attempts) == 3
 
 
-def test_fixture_feed_missing_file_raises(fresh_clock: MockTimeProvider, tmp_path: Path) -> None:
+def test_fixture_feed_missing_file_raises(
+    fresh_clock: MockTimeProvider, tmp_path: Path
+) -> None:
     dataset_path = tmp_path / "missing.csv"
     feed = FixtureReplayFeed(
         dataset=dataset_path,

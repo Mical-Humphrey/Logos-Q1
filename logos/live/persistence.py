@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Sequence
+from typing import Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import pandas as pd
 
@@ -72,7 +72,13 @@ def prepare_seeded_run_paths(
     )
 
 
-def _to_primitive(value):  # type: ignore[no-untyped-def]
+class EquityRow(TypedDict):
+    ts: datetime
+    equity: float
+    cash: float
+
+
+def _to_primitive(value: object) -> object:
     if isinstance(value, Decimal):
         return float(value)
     if isinstance(value, datetime):
@@ -82,6 +88,18 @@ def _to_primitive(value):  # type: ignore[no-untyped-def]
     if isinstance(value, (list, tuple, set)):
         return [_to_primitive(v) for v in value]
     return value
+
+
+def _to_float(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, str):
+        return float(value)
+    raise TypeError(f"Unsupported numeric type: {type(value)!r}")
 
 
 def write_snapshot(
@@ -99,13 +117,17 @@ def write_snapshot(
         "seed": paths.seed,
         "clock": clock.isoformat() if isinstance(clock, datetime) else str(clock),
         "account": _to_primitive(dict(account)),
-        "positions": _to_primitive({**positions} if isinstance(positions, Mapping) else list(positions)),
+        "positions": _to_primitive(
+            {**positions} if isinstance(positions, Mapping) else list(positions)
+        ),
         "open_orders": _to_primitive(list(open_orders)),
         "fills": _to_primitive(list(fills)),
         "config": _to_primitive(dict(config)),
     }
     paths.snapshot_file.parent.mkdir(parents=True, exist_ok=True)
-    paths.snapshot_file.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    paths.snapshot_file.write_text(
+        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
     return paths.snapshot_file
 
 
@@ -116,11 +138,11 @@ def write_equity_and_metrics(
     trades: Sequence[Mapping[str, object]],
     exposures: Iterable[float],
 ) -> tuple[Path, Path]:
-    rows = [
+    rows: list[EquityRow] = [
         {
-            "ts": (_to_timestamp(row.get("ts"))),
-            "equity": float(row.get("equity", 0.0)),
-            "cash": float(row.get("cash", 0.0)),
+            "ts": _to_timestamp(row["ts"]),
+            "equity": _to_float(row.get("equity", 0.0)),
+            "cash": _to_float(row.get("cash", 0.0)),
         }
         for row in equity_curve
     ]
@@ -131,33 +153,44 @@ def write_equity_and_metrics(
         writer = csv.writer(fh)
         writer.writerow(["ts", "equity", "cash"])
         for row in rows:
-            writer.writerow([row["ts"].isoformat(), f"{row['equity']:.6f}", f"{row['cash']:.6f}"])
+            writer.writerow(
+                [row["ts"].isoformat(), f"{row['equity']:.6f}", f"{row['cash']:.6f}"]
+            )
 
-    equity_series = pd.Series([row["equity"] for row in rows])
+    equity_series = pd.Series([row["equity"] for row in rows], dtype=float)
     returns = equity_series.pct_change().dropna()
 
     initial_equity = float(equity_series.iloc[0]) if not equity_series.empty else 0.0
     final_equity = float(equity_series.iloc[-1]) if not equity_series.empty else 0.0
     pnl = final_equity - initial_equity
 
-    sharpe_ratio = float(sharpe(returns, periods_per_year=_SHARPE_PERIODS_PER_YEAR)) if not returns.empty else 0.0
+    sharpe_ratio = (
+        float(sharpe(returns, periods_per_year=_SHARPE_PERIODS_PER_YEAR))
+        if not returns.empty
+        else 0.0
+    )
     drawdown = float(max_drawdown(equity_series)) if not equity_series.empty else 0.0
 
-    trade_returns = pd.Series([float(trade.get("pnl", 0.0)) for trade in trades])
+    trade_returns = pd.Series(
+        [_to_float(trade.get("pnl", 0.0)) for trade in trades], dtype=float
+    )
     hit = float(hit_rate(trade_returns)) if not trade_returns.empty else 0.0
 
     turnover_notional = 0.0
     for trade in trades:
-        if "notional" in trade:
-            turnover_notional += abs(float(trade["notional"]))
+        notional_value = trade.get("notional")
+        if notional_value is not None:
+            turnover_notional += abs(_to_float(notional_value))
         else:
-            qty = float(trade.get("qty", 0.0))
-            price = float(trade.get("price", 0.0))
+            qty = _to_float(trade.get("qty", 0.0))
+            price = _to_float(trade.get("price", 0.0))
             turnover_notional += abs(qty * price)
     turnover = turnover_notional / initial_equity if initial_equity else 0.0
 
     exposure_series = pd.Series(list(exposures), dtype=float)
-    exposure_value = float(exposure_ratio(exposure_series)) if not exposure_series.empty else 0.0
+    exposure_value = (
+        float(exposure_ratio(exposure_series)) if not exposure_series.empty else 0.0
+    )
 
     metrics_payload = {
         "run_id": paths.run_id,
@@ -172,7 +205,9 @@ def write_equity_and_metrics(
         "exposure": exposure_value,
     }
 
-    paths.metrics_file.write_text(json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8")
+    paths.metrics_file.write_text(
+        json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
     return paths.equity_curve_csv, paths.metrics_file
 
 

@@ -12,8 +12,20 @@ from logos.logging_setup import attach_live_runtime_handler, detach_handler
 
 from .broker_base import BrokerAdapter, OrderIntent, OrderState
 from .data_feed import Bar, DataFeed, FetchError
-from .report import append_account, append_order, append_position, append_trade, write_session_summary
-from .risk import RiskContext, RiskLimits, check_circuit_breakers, check_order_limits, compute_drawdown_bps
+from .report import (
+    append_account,
+    append_order,
+    append_position,
+    append_trade,
+    write_session_summary,
+)
+from .risk import (
+    RiskContext,
+    RiskLimits,
+    check_circuit_breakers,
+    check_order_limits,
+    compute_drawdown_bps,
+)
 from .session_manager import SessionPaths
 from .state import append_event, load_state, save_state
 from .time import TimeProvider, SystemTimeProvider
@@ -53,7 +65,9 @@ class LiveRunner:
         self.session = session
         self.risk_limits = risk_limits
         self.time_provider = time_provider or SystemTimeProvider()
-        self.loop_config = loop_config or LoopConfig(symbol="UNKNOWN", strategy="UNKNOWN", interval="1m")
+        self.loop_config = loop_config or LoopConfig(
+            symbol="UNKNOWN", strategy="UNKNOWN", interval="1m"
+        )
         self._state = load_state(session.state_file, session.session_id)
         if getattr(self.broker, "bootstrap_positions", None) and self._state.positions:
             try:
@@ -71,13 +85,20 @@ class LiveRunner:
     # Public API
     # ------------------------------------------------------------------
     def run(self) -> None:
-        logger.info("Starting live runner for %s/%s", self.loop_config.symbol, self.loop_config.strategy)
+        logger.info(
+            "Starting live runner for %s/%s",
+            self.loop_config.symbol,
+            self.loop_config.strategy,
+        )
         loops = 0
         last_bar_dt = None
         if self._state.last_bar_iso:
             last_bar_dt = dt.datetime.fromisoformat(self._state.last_bar_iso)
         while not self._stopped:
-            if self.loop_config.max_loops is not None and loops >= self.loop_config.max_loops:
+            if (
+                self.loop_config.max_loops is not None
+                and loops >= self.loop_config.max_loops
+            ):
                 self._halt_reason = "max_loops_reached"
                 break
             now = self.time_provider.utc_now()
@@ -91,7 +112,14 @@ class LiveRunner:
             if self._state.peak_equity < account_snapshot.equity:
                 self._state.peak_equity = account_snapshot.equity
             positions = self.broker.get_positions()
-            position_qty = next((pos.quantity for pos in positions if pos.symbol == self.loop_config.symbol), 0.0)
+            position_qty = next(
+                (
+                    pos.quantity
+                    for pos in positions
+                    if pos.symbol == self.loop_config.symbol
+                ),
+                0.0,
+            )
             last_ts = (last_bar_dt or now).timestamp()
             risk_ctx = RiskContext(
                 equity=account_snapshot.equity,
@@ -106,7 +134,9 @@ class LiveRunner:
             )
             decision = check_circuit_breakers(self.risk_limits, risk_ctx)
             if not decision.allowed:
-                logger.warning("Halting loop due to circuit breaker: %s", decision.reason)
+                logger.warning(
+                    "Halting loop due to circuit breaker: %s", decision.reason
+                )
                 self._halt_reason = decision.reason
                 append_event(
                     {
@@ -121,16 +151,35 @@ class LiveRunner:
                 self._state.equity = account_snapshot.equity
                 self._state.positions[self.loop_config.symbol] = {
                     "qty": position_qty,
-                    "avg_price": next((pos.avg_price for pos in positions if pos.symbol == self.loop_config.symbol), 0.0),
-                    "unrealized": next((pos.unrealized_pnl for pos in positions if pos.symbol == self.loop_config.symbol), 0.0),
+                    "avg_price": next(
+                        (
+                            pos.avg_price
+                            for pos in positions
+                            if pos.symbol == self.loop_config.symbol
+                        ),
+                        0.0,
+                    ),
+                    "unrealized": next(
+                        (
+                            pos.unrealized_pnl
+                            for pos in positions
+                            if pos.symbol == self.loop_config.symbol
+                        ),
+                        0.0,
+                    ),
                 }
                 self._persist_state()
                 break
             try:
-                bars = self.feed.fetch_bars(self.loop_config.symbol, self.loop_config.interval, last_bar_dt)
+                bars = self.feed.fetch_bars(
+                    self.loop_config.symbol, self.loop_config.interval, last_bar_dt
+                )
             except FetchError as exc:
                 logger.error("Data feed failure: %s", exc)
-                append_event({"type": "feed_error", "reason": str(exc)}, self.session.state_events_file)
+                append_event(
+                    {"type": "feed_error", "reason": str(exc)},
+                    self.session.state_events_file,
+                )
                 self._halt_reason = "feed_error"
                 break
             if not bars:
@@ -178,7 +227,9 @@ class LiveRunner:
     def _process_bar(self, bar: Bar) -> None:
         ts = bar.dt.timestamp()
         self.broker.on_market_data(bar.symbol, bar.close, ts)
-        broker_positions = {pos.symbol: pos.quantity for pos in self.broker.get_positions()}
+        broker_positions = {
+            pos.symbol: pos.quantity for pos in self.broker.get_positions()
+        }
         position_qty = broker_positions.get(bar.symbol, 0.0)
         intents = list(self.order_generator([bar], position_qty))
         order_map = {}
@@ -190,16 +241,24 @@ class LiveRunner:
             ctx = RiskContext(
                 equity=account.equity,
                 position_quantity=position_qty,
-                realized_drawdown_bps=compute_drawdown_bps(self._state.equity or account.equity, self._state.peak_equity or account.equity),
+                realized_drawdown_bps=compute_drawdown_bps(
+                    self._state.equity or account.equity,
+                    self._state.peak_equity or account.equity,
+                ),
                 consecutive_rejects=self._state.consecutive_rejects,
                 last_bar_ts=bar.dt.timestamp(),
                 now_ts=ts,
             )
-            decision = check_order_limits(self.loop_config.symbol, signed_qty, bar.close, self.risk_limits, ctx)
+            decision = check_order_limits(
+                self.loop_config.symbol, signed_qty, bar.close, self.risk_limits, ctx
+            )
             if not decision.allowed:
                 logger.warning("Order rejected by risk: %s", decision.reason)
                 self._state.consecutive_rejects += 1
-                append_event({"type": "order_reject", "reason": decision.reason, "ts": ts}, self.session.state_events_file)
+                append_event(
+                    {"type": "order_reject", "reason": decision.reason, "ts": ts},
+                    self.session.state_events_file,
+                )
                 continue
             try:
                 order = self.broker.place_order(intent)
@@ -233,7 +292,11 @@ class LiveRunner:
                 self._state.consecutive_rejects += 1
             else:
                 self._state.consecutive_rejects = 0
-            if order.state in {OrderState.FILLED, OrderState.CANCELED, OrderState.REJECTED}:
+            if order.state in {
+                OrderState.FILLED,
+                OrderState.CANCELED,
+                OrderState.REJECTED,
+            }:
                 self._state.open_orders.pop(order.order_id, None)
         for fill in self.broker.poll_fills():
             linked_order = order_map.get(fill.order_id)
@@ -254,7 +317,10 @@ class LiveRunner:
                 slip_bps=fill.slip_bps,
                 order_type=order_type,
             )
-            daily_trade_path = RUNS_LIVE_TRADES_DIR / f"{bar.symbol}_{dt.datetime.fromtimestamp(fill.ts, tz=dt.timezone.utc).strftime('%Y%m%d')}.csv"
+            daily_trade_path = (
+                RUNS_LIVE_TRADES_DIR
+                / f"{bar.symbol}_{dt.datetime.fromtimestamp(fill.ts, tz=dt.timezone.utc).strftime('%Y%m%d')}.csv"
+            )
             append_trade(
                 daily_trade_path,
                 ts=dt.datetime.fromtimestamp(fill.ts, tz=dt.timezone.utc),
@@ -276,7 +342,11 @@ class LiveRunner:
         positions = self.broker.get_positions()
         pos_dict = {}
         for pos in positions:
-            pos_dict[pos.symbol] = {"qty": pos.quantity, "avg_price": pos.avg_price, "unrealized": pos.unrealized_pnl}
+            pos_dict[pos.symbol] = {
+                "qty": pos.quantity,
+                "avg_price": pos.avg_price,
+                "unrealized": pos.unrealized_pnl,
+            }
             append_position(
                 self.session.positions_file,
                 ts=dt.datetime.fromtimestamp(account.ts, tz=dt.timezone.utc),
@@ -307,4 +377,7 @@ class LiveRunner:
 
     def _persist_state(self) -> None:
         save_state(self._state, self.session.state_file)
-        append_event({"type": "state", "equity": self._state.equity}, self.session.state_events_file)
+        append_event(
+            {"type": "state", "equity": self._state.equity},
+            self.session.state_events_file,
+        )

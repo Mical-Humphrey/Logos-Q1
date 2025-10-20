@@ -32,7 +32,7 @@ def setup_logging(level: str = "INFO") -> None:
 
 def parse_params(param_str: str | None) -> Dict[str, float | int | str]:
     """Parse a simple 'k=v,k=v' string into a dict with best-effort typing.
-    
+
     Integers remain int; floats remain float; everything else is str.
     """
     params: Dict[str, float | int | str] = {}

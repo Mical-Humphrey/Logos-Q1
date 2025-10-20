@@ -71,20 +71,38 @@ def validate_request(
     price = intent.limit_price if order_type == "limit" else None
 
     if not run_id:
-        return _reject("missing_run_id", adapter, run_id, seed, timestamp, venue, intent)
+        return _reject(
+            "missing_run_id", adapter, run_id, seed, timestamp, venue, intent
+        )
     if side not in SUPPORTED_SIDES:
         return _reject("invalid_side", adapter, run_id, seed, timestamp, venue, intent)
     if order_type not in SUPPORTED_ORDER_TYPES:
-        return _reject("invalid_order_type", adapter, run_id, seed, timestamp, venue, intent)
+        return _reject(
+            "invalid_order_type", adapter, run_id, seed, timestamp, venue, intent
+        )
     if time_in_force not in SUPPORTED_TIME_IN_FORCE:
-        return _reject("invalid_time_in_force", adapter, run_id, seed, timestamp, venue, intent)
+        return _reject(
+            "invalid_time_in_force", adapter, run_id, seed, timestamp, venue, intent
+        )
     if qty is None or qty <= 0:
-        return _reject("qty_not_positive", adapter, run_id, seed, timestamp, venue, intent)
+        return _reject(
+            "qty_not_positive", adapter, run_id, seed, timestamp, venue, intent
+        )
     if order_type == "limit":
         if price is None:
-            return _reject("limit_price_required", adapter, run_id, seed, timestamp, venue, intent)
+            return _reject(
+                "limit_price_required", adapter, run_id, seed, timestamp, venue, intent
+            )
         if price <= 0:
-            return _reject("limit_price_not_positive", adapter, run_id, seed, timestamp, venue, intent)
+            return _reject(
+                "limit_price_not_positive",
+                adapter,
+                run_id,
+                seed,
+                timestamp,
+                venue,
+                intent,
+            )
 
     intent_hash = intent_fingerprint(intent)
     client_order_id = derive_client_order_id(seed, intent_hash)
@@ -140,7 +158,11 @@ def _reject(
         "order_type": intent.order_type,
         "time_in_force": intent.time_in_force or "gtc",
         "qty": _decimal_to_str(intent.quantity),
-        "price": _decimal_to_str(intent.limit_price) if intent.limit_price is not None else None,
+        "price": (
+            _decimal_to_str(intent.limit_price)
+            if intent.limit_price is not None
+            else None
+        ),
         "client_order_id": client_order_id,
         "intent_hash": intent_hash,
     }

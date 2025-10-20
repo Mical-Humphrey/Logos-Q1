@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from typing import Sequence
+from typing import Callable, Dict, Optional, Sequence, cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -42,7 +42,10 @@ from .run_manager import (
 from .utils import parse_params
 from .data_loader import get_prices
 from .strategies import STRATEGIES
-from .backtest.engine import run_backtest
+from .backtest.engine import BacktestResult, run_backtest
+# Strategy function type alias for registry casts
+StrategyFunction = Callable[..., pd.Series]
+
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,7 @@ BARS_PER_DAY = {
     "10m": 144,
     "5m": 288,
 }
+
 
 def periods_per_year(asset_class: str, interval: str) -> int:
     """Return the appropriate annualization factor for Sharpe/CAGR."""
@@ -109,13 +113,17 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
 
     try:
         if args.paper:
-            logger.info("Paper trading mode enabled: no live broker interactions will be attempted")
+            logger.info(
+                "Paper trading mode enabled: no live broker interactions will be attempted"
+            )
 
         # Load data with requested interval (resampling if yfinance cannot natively)
-        df = get_prices(symbol, start, end, interval=args.interval, asset_class=asset_class)
+        df = get_prices(
+            symbol, start, end, interval=args.interval, asset_class=asset_class
+        )
 
         # Strategy function and params
-        strat_func = STRATEGIES[args.strategy]
+        strat_func = cast(StrategyFunction, STRATEGIES[args.strategy])
         params = parse_params(args.params)
         signals = strat_func(df, **params) if params else strat_func(df)
 
@@ -123,7 +131,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         ppy = periods_per_year(asset_class, args.interval)
 
         # Run the engine with asset-aware costs
-        res = run_backtest(
+        res: BacktestResult = run_backtest(
             prices=df,
             signals=signals,
             dollar_per_trade=args.dollar_per_trade,
@@ -156,9 +164,12 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "params": params or {},
             "paper_mode": bool(args.paper),
         }
-        env_payload = capture_env(["LOGOS_SEED", "YFINANCE_USERNAME", "YFINANCE_PASSWORD"])
-        if not any(env_payload.values()):
-            env_payload = None
+        captured_env = capture_env(
+            ["LOGOS_SEED", "YFINANCE_USERNAME", "YFINANCE_PASSWORD"]
+        )
+        env_payload: Optional[Dict[str, str]] = (
+            captured_env if any(captured_env.values()) else None
+        )
 
         write_config(run_ctx, config_payload, env=env_payload)
         write_metrics(run_ctx, res["metrics"])
@@ -181,34 +192,73 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
 # -----------------------------------------------------------------------------
 def build_parser(settings: Settings) -> argparse.ArgumentParser:
     """Construct the CLI parser so shim modules can reuse it."""
-    parser = argparse.ArgumentParser(prog="Logos-Q1", description="Quant backtesting CLI")
+    parser = argparse.ArgumentParser(
+        prog="Logos-Q1", description="Quant backtesting CLI"
+    )
     sub = parser.add_subparsers(dest="command")
 
     # backtest: main user entry
     p = sub.add_parser("backtest", help="Run a single-symbol backtest")
-    p.add_argument("--symbol", required=True, help="Ticker (e.g., MSFT, BTC-USD, EURUSD=X)")
-    p.add_argument("--strategy", required=True, choices=list(STRATEGIES), help="Strategy name")
-    p.add_argument("--start", default=None, help="Start date YYYY-MM-DD (defaults to .env START_DATE)")
-    p.add_argument("--end", default=None, help="End date YYYY-MM-DD (defaults to .env END_DATE)")
+    p.add_argument(
+        "--symbol", required=True, help="Ticker (e.g., MSFT, BTC-USD, EURUSD=X)"
+    )
+    p.add_argument(
+        "--strategy", required=True, choices=list(STRATEGIES), help="Strategy name"
+    )
+    p.add_argument(
+        "--start",
+        default=None,
+        help="Start date YYYY-MM-DD (defaults to .env START_DATE)",
+    )
+    p.add_argument(
+        "--end", default=None, help="End date YYYY-MM-DD (defaults to .env END_DATE)"
+    )
 
     # NEW: asset class and interval
-    p.add_argument("--asset-class", choices=["equity", "crypto", "forex"],
-                   default=settings.asset_class,
-                   help="Affects costs and metric annualization")
-    p.add_argument("--interval", default="1d",
-                   help="Bar size: 1d, 1h/60m, 30m, 15m, 10m, 5m")
+    p.add_argument(
+        "--asset-class",
+        choices=["equity", "crypto", "forex"],
+        default=settings.asset_class,
+        help="Affects costs and metric annualization",
+    )
+    p.add_argument(
+        "--interval", default="1d", help="Bar size: 1d, 1h/60m, 30m, 15m, 10m, 5m"
+    )
 
     # Costs & engine knobs
-    p.add_argument("--dollar-per-trade", type=float, default=10_000.0, help="Sizing per trade")
-    p.add_argument("--slip-bps", type=float, default=settings.slippage_bps,
-                   help="Slippage in basis points per order")
-    p.add_argument("--commission", type=float, default=settings.commission_per_share,
-                   help="Equity commission $/share")
-    p.add_argument("--fee-bps", type=float, default=5.0,
-                   help="Crypto maker/taker fee in bps (0.01%% = 1 bps)")
-    p.add_argument("--fx-pip-size", type=float, default=0.0001, help="FX pip size (0.0001 for EURUSD, 0.01 for USDJPY)")
-    p.add_argument("--params", default=None, help="Comma list 'k=v,k=v' for strategy params")
-    p.add_argument("--paper", action="store_true", help="Enable paper trading simulation mode")
+    p.add_argument(
+        "--dollar-per-trade", type=float, default=10_000.0, help="Sizing per trade"
+    )
+    p.add_argument(
+        "--slip-bps",
+        type=float,
+        default=settings.slippage_bps,
+        help="Slippage in basis points per order",
+    )
+    p.add_argument(
+        "--commission",
+        type=float,
+        default=settings.commission_per_share,
+        help="Equity commission $/share",
+    )
+    p.add_argument(
+        "--fee-bps",
+        type=float,
+        default=5.0,
+        help="Crypto maker/taker fee in bps (0.01%% = 1 bps)",
+    )
+    p.add_argument(
+        "--fx-pip-size",
+        type=float,
+        default=0.0001,
+        help="FX pip size (0.0001 for EURUSD, 0.01 for USDJPY)",
+    )
+    p.add_argument(
+        "--params", default=None, help="Comma list 'k=v,k=v' for strategy params"
+    )
+    p.add_argument(
+        "--paper", action="store_true", help="Enable paper trading simulation mode"
+    )
 
     return parser
 

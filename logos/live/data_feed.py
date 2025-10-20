@@ -30,7 +30,9 @@ class Bar:
 class DataFeed(Protocol):
     """Interface implemented by concrete data feeds."""
 
-    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+    def fetch_bars(
+        self, symbol: str, interval: str, since: Optional[dt.datetime]
+    ) -> List[Bar]:
         """Return bars newer than ``since`` in ascending order."""
 
 
@@ -40,7 +42,9 @@ class MemoryBarFeed:
 
     bars: List[Bar]
 
-    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+    def fetch_bars(
+        self, symbol: str, interval: str, since: Optional[dt.datetime]
+    ) -> List[Bar]:
         filtered = [b for b in self.bars if b.symbol == symbol]
         if since is not None:
             filtered = [b for b in filtered if b.dt > since]
@@ -57,7 +61,9 @@ class CsvBarFeed:
     path: Path
     time_provider: TimeProvider
 
-    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+    def fetch_bars(
+        self, symbol: str, interval: str, since: Optional[dt.datetime]
+    ) -> List[Bar]:
         if not self.path.exists():
             return []
         out: List[Bar] = []
@@ -114,13 +120,17 @@ class FixtureReplayFeed:
         self.dataset = Path(self.dataset)
         self._cache: Dict[str, List[Bar]] = {}
 
-    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+    def fetch_bars(
+        self, symbol: str, interval: str, since: Optional[dt.datetime]
+    ) -> List[Bar]:
         attempts = 0
         last_age: Optional[float] = None
         while attempts <= self.max_retries:
             bars = self._load_symbol(symbol)
             if not bars:
-                raise FetchError(f"fixture dataset {self.dataset} has no rows for {symbol}")
+                raise FetchError(
+                    f"fixture dataset {self.dataset} has no rows for {symbol}"
+                )
             last_age = self._age_seconds(bars)
             if last_age <= self.max_age_seconds:
                 return [bar for bar in bars if since is None or bar.dt > since]
@@ -163,7 +173,9 @@ class FixtureReplayFeed:
                         symbol=symbol,
                     )
                 except KeyError as exc:
-                    raise FetchError(f"missing column {exc.args[0]} in {self.dataset}") from exc
+                    raise FetchError(
+                        f"missing column {exc.args[0]} in {self.dataset}"
+                    ) from exc
                 except ValueError as exc:
                     raise FetchError(f"invalid bar in {self.dataset}: {row}") from exc
                 rows.append(bar)
@@ -195,7 +207,9 @@ class CachedPollingFeed:
     max_age: float = 90.0
     max_retries: int = 2
 
-    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+    def fetch_bars(
+        self, symbol: str, interval: str, since: Optional[dt.datetime]
+    ) -> List[Bar]:
         bars = self._load_cache(symbol)
         if self._is_fresh(bars):
             return [bar for bar in bars if since is None or bar.dt > since]
@@ -296,4 +310,3 @@ class CachedPollingFeed:
                         "symbol": bar.symbol,
                     }
                 )
-

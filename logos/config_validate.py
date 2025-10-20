@@ -24,11 +24,20 @@ def _check_paths() -> List[Check]:
     ensure_dirs()
     return [
         (APP_LOGS_DIR.exists(), f"log directory exists -> {APP_LOGS_DIR}"),
-        (APP_LOG_FILE.parent.exists(), f"app log path parent exists -> {APP_LOG_FILE.parent}"),
+        (
+            APP_LOG_FILE.parent.exists(),
+            f"app log path parent exists -> {APP_LOG_FILE.parent}",
+        ),
         (DATA_CACHE_DIR.exists(), f"data cache directory exists -> {DATA_CACHE_DIR}"),
         (RUNS_LIVE_DIR.exists(), f"live runs directory exists -> {RUNS_LIVE_DIR}"),
-        (RUNS_LIVE_SESSIONS_DIR.exists(), f"session directory exists -> {RUNS_LIVE_SESSIONS_DIR}"),
-        (RUNS_LIVE_TRADES_DIR.exists(), f"trade archive directory exists -> {RUNS_LIVE_TRADES_DIR}"),
+        (
+            RUNS_LIVE_SESSIONS_DIR.exists(),
+            f"session directory exists -> {RUNS_LIVE_SESSIONS_DIR}",
+        ),
+        (
+            RUNS_LIVE_TRADES_DIR.exists(),
+            f"trade archive directory exists -> {RUNS_LIVE_TRADES_DIR}",
+        ),
     ]
 
 
@@ -38,17 +47,29 @@ def _check_broker(settings) -> List[Check]:
     if broker == "ccxt":
         checks.extend(
             [
-                (bool(settings.ccxt_exchange), "ccxt exchange configured (CCXT_EXCHANGE)"),
+                (
+                    bool(settings.ccxt_exchange),
+                    "ccxt exchange configured (CCXT_EXCHANGE)",
+                ),
                 (bool(settings.ccxt_api_key), "ccxt API key provided (CCXT_API_KEY)"),
-                (bool(settings.ccxt_api_secret), "ccxt API secret provided (CCXT_API_SECRET)"),
+                (
+                    bool(settings.ccxt_api_secret),
+                    "ccxt API secret provided (CCXT_API_SECRET)",
+                ),
             ]
         )
     elif broker == "alpaca":
         checks.extend(
             [
-                (bool(settings.alpaca_base_url), "Alpaca base URL configured (ALPACA_BASE_URL)"),
+                (
+                    bool(settings.alpaca_base_url),
+                    "Alpaca base URL configured (ALPACA_BASE_URL)",
+                ),
                 (bool(settings.alpaca_key_id), "Alpaca key configured (ALPACA_KEY_ID)"),
-                (bool(settings.alpaca_secret_key), "Alpaca secret configured (ALPACA_SECRET_KEY)"),
+                (
+                    bool(settings.alpaca_secret_key),
+                    "Alpaca secret configured (ALPACA_SECRET_KEY)",
+                ),
             ]
         )
     elif broker in {"ib", "ibkr", "interactive_brokers"}:

@@ -80,7 +80,13 @@ def _ensure_columns(
     return df.loc[:, list(expected)]
 
 
-def _fill_metadata(df: pd.DataFrame, *, session_id: str | None, strategy: str | None, symbol: str | None) -> None:
+def _fill_metadata(
+    df: pd.DataFrame,
+    *,
+    session_id: str | None,
+    strategy: str | None,
+    symbol: str | None,
+) -> None:
     if "session_id" in df.columns and session_id:
         df["session_id"] = df["session_id"].replace("", pd.NA).fillna(session_id)
     elif session_id:
@@ -98,10 +104,13 @@ def _fill_metadata(df: pd.DataFrame, *, session_id: str | None, strategy: str | 
 def _finalize(df: pd.DataFrame) -> pd.DataFrame:
     if "ts" in df.columns:
         df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
-    return df.sort_values("ts" if "ts" in df.columns else df.index.name or df.index, ignore_index=True)
+        return df.sort_values("ts", ignore_index=True)
+    return df.sort_index().reset_index(drop=True)
 
 
-def load_trades(path: Path, *, session_id: str | None = None, strategy: str | None = None) -> pd.DataFrame:
+def load_trades(
+    path: Path, *, session_id: str | None = None, strategy: str | None = None
+) -> pd.DataFrame:
     df = _read_csv(path)
     if df.empty:
         return pd.DataFrame(columns=TRADE_COLUMNS)

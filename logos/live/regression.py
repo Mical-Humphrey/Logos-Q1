@@ -11,21 +11,38 @@ import textwrap
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
 from .broker_alpaca import AlpacaBrokerAdapter
-from .broker_base import OrderIntent as BrokerOrderIntent, SymbolMeta
+from .broker_base import (
+    OrderIntent as BrokerOrderIntent,
+    Position as BrokerPosition,
+    SymbolMeta,
+)
 from .broker_ccxt import CCXTBrokerAdapter
 from .broker_paper import PaperBrokerAdapter
 from .data_feed import Bar, FixtureReplayFeed
-from .persistence import SeededRunPaths, prepare_seeded_run_paths, write_equity_and_metrics, write_snapshot
+from .persistence import (
+    SeededRunPaths,
+    prepare_seeded_run_paths,
+    write_equity_and_metrics,
+    write_snapshot,
+)
 from .risk import RiskContext, RiskDecision, RiskLimits, enforce_guards
 from .time import MockTimeProvider
 from .translator import SymbolMetadataRegistry, Translator
-from .types import Account, OrderSide, Position, SizingInstruction
+from .types import (
+    Account,
+    OrderIntent as StrategyOrderIntent,
+    OrderSide,
+    Position,
+    SizingInstruction,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_FIXTURE_DIR = PROJECT_ROOT / "tests" / "fixtures" / "live" / "regression_default"
+DEFAULT_FIXTURE_DIR = (
+    PROJECT_ROOT / "tests" / "fixtures" / "live" / "regression_default"
+)
 BASELINE_DIR = PROJECT_ROOT / "tests" / "fixtures" / "regression" / "smoke"
 
 DEFAULT_SEED = 7
@@ -91,11 +108,23 @@ def _load_metadata(path: Path) -> SymbolMetadataRegistry:
 
 
 def _build_feed(dataset_path: Path, clock: MockTimeProvider) -> FixtureReplayFeed:
-    return FixtureReplayFeed(dataset=dataset_path, time_provider=clock, max_age_seconds=600, max_retries=0)
+    return FixtureReplayFeed(
+        dataset=dataset_path, time_provider=clock, max_age_seconds=600, max_retries=0
+    )
 
 
-def _configure_paper_broker(metadata: SymbolMetadataRegistry, account: Account, symbol: str, clock: MockTimeProvider) -> PaperBrokerAdapter:
-    broker = PaperBrokerAdapter(time_provider=clock, starting_cash=float(account.cash), slippage_bps=0.0, fee_bps=0.0)
+def _configure_paper_broker(
+    metadata: SymbolMetadataRegistry,
+    account: Account,
+    symbol: str,
+    clock: MockTimeProvider,
+) -> PaperBrokerAdapter:
+    broker = PaperBrokerAdapter(
+        time_provider=clock,
+        starting_cash=float(account.cash),
+        slippage_bps=0.0,
+        fee_bps=0.0,
+    )
     symbol_meta = metadata.resolve(symbol)
     broker.set_symbol_meta(
         SymbolMeta(
@@ -121,7 +150,15 @@ def _configure_paper_broker(metadata: SymbolMetadataRegistry, account: Account, 
     return broker
 
 
-def _to_broker_intent(intent) -> BrokerOrderIntent:  # type: ignore[no-untyped-def]
+class AdapterLike(Protocol):
+    """Subset of adapter behaviour required for regression dry runs."""
+
+    def place_order(self, intent: BrokerOrderIntent) -> object: ...
+
+    def on_market_data(self, symbol: str, price: float, ts: float) -> None: ...
+
+
+def _to_broker_intent(intent: StrategyOrderIntent) -> BrokerOrderIntent:
     limit_price = intent.price.limit if intent.price else None
     return BrokerOrderIntent(
         symbol=intent.metadata.symbol,
@@ -132,8 +169,13 @@ def _to_broker_intent(intent) -> BrokerOrderIntent:  # type: ignore[no-untyped-d
     )
 
 
-def _account_payload(cash: float, equity: float, broker: PaperBrokerAdapter, positions: Sequence) -> Mapping[str, float]:  # type: ignore[no-untyped-def]
-    unrealized = sum(getattr(pos, "unrealized_pnl", 0.0) for pos in positions)
+def _account_payload(
+    cash: float,
+    equity: float,
+    broker: PaperBrokerAdapter,
+    positions: Sequence[BrokerPosition],
+) -> Dict[str, float]:
+    unrealized = sum(float(getattr(pos, "unrealized_pnl", 0.0)) for pos in positions)
     return {
         "cash": cash,
         "equity": equity,
@@ -143,18 +185,22 @@ def _account_payload(cash: float, equity: float, broker: PaperBrokerAdapter, pos
     }
 
 
-def _positions_payload(positions: Iterable) -> Mapping[str, Mapping[str, float]]:  # type: ignore[no-untyped-def]
+def _positions_payload(
+    positions: Iterable[BrokerPosition],
+) -> Dict[str, Dict[str, float]]:
     payload: Dict[str, Dict[str, float]] = {}
     for position in positions:
         payload[position.symbol] = {
-            "quantity": position.quantity,
-            "average_price": position.avg_price,
-            "unrealized_pnl": position.unrealized_pnl,
+            "quantity": float(position.quantity),
+            "average_price": float(position.avg_price),
+            "unrealized_pnl": float(position.unrealized_pnl),
         }
     return payload
 
 
-def _write_adapter_logs(paths: SeededRunPaths, entries: List[dict]) -> Path:
+def _write_adapter_logs(
+    paths: SeededRunPaths, entries: List[Dict[str, object]]
+) -> Path:
     log_path = paths.artifacts_dir / ADAPTER_LOG_FILENAME
     if not entries:
         log_path.write_text("[]\n", encoding="utf-8")
@@ -164,50 +210,65 @@ def _write_adapter_logs(paths: SeededRunPaths, entries: List[dict]) -> Path:
     return log_path
 
 
-def _drain_adapter_logs(adapter: object) -> List[dict]:
+def _drain_adapter_logs(adapter: object) -> List[Dict[str, object]]:
     drain = getattr(adapter, "drain_logs", None)
     if callable(drain):
-        return list(drain())
+        return [dict(entry) for entry in cast(Iterable[Mapping[str, object]], drain())]
     logs_attr = getattr(adapter, "logs", None)
     if logs_attr is None:
         return []
     if callable(logs_attr):
-        logs = list(logs_attr())
+        raw_logs = cast(Iterable[Mapping[str, object]], logs_attr())
     else:
-        logs = list(logs_attr)
+        raw_logs = cast(Iterable[Mapping[str, object]], logs_attr)
+    logs = [dict(entry) for entry in raw_logs]
     reset = getattr(adapter, "reset_logs", None)
     if callable(reset):
         reset()
     return logs
 
 
-def _select_adapter(config: RegressionConfig, clock: MockTimeProvider) -> Tuple[str, str | None, object | None]:
+def _select_adapter(
+    config: RegressionConfig, clock: MockTimeProvider
+) -> Tuple[str, str | None, AdapterLike | None]:
     if config.adapter_mode == "paper":
         return "paper", None, None
     if config.adapter_mode != "adapter":
         raise ValueError(f"Unknown adapter mode: {config.adapter_mode}")
     adapter_name = (config.adapter_name or "").lower()
     if adapter_name == "alpaca":
-        return "dry-run", "alpaca", AlpacaBrokerAdapter(
-            base_url="alpaca-paper",
-            key_id="dry-run",
-            secret_key="dry-run",
-            run_id=config.label,
-            seed=config.seed,
-            time_provider=clock,
+        return (
+            "dry-run",
+            "alpaca",
+            AlpacaBrokerAdapter(
+                base_url="alpaca-paper",
+                key_id="dry-run",
+                secret_key="dry-run",
+                run_id=config.label,
+                seed=config.seed,
+                time_provider=clock,
+            ),
         )
     if adapter_name == "ccxt":
-        return "dry-run", "ccxt", CCXTBrokerAdapter(
-            exchange="ccxt-dry",
-            run_id=config.label,
-            seed=config.seed,
-            time_provider=clock,
+        return (
+            "dry-run",
+            "ccxt",
+            CCXTBrokerAdapter(
+                exchange="ccxt-dry",
+                run_id=config.label,
+                seed=config.seed,
+                time_provider=clock,
+            ),
         )
     raise ValueError("Adapter mode requires --adapter of 'alpaca' or 'ccxt'")
 
 
-def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> RegressionArtifacts:
-    clock = MockTimeProvider(current=dt.datetime(2024, 1, 1, 9, 33, tzinfo=dt.timezone.utc))
+def _run_pipeline(
+    paths: SeededRunPaths, config: RegressionConfig
+) -> RegressionArtifacts:
+    clock = MockTimeProvider(
+        current=dt.datetime(2024, 1, 1, 9, 33, tzinfo=dt.timezone.utc)
+    )
     clock_origin = clock.current
     account_path = config.dataset_dir / ACCOUNT_FILENAME
     bars_path = config.dataset_dir / BARS_FILENAME
@@ -232,7 +293,11 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
     )
     broker_intent = _to_broker_intent(intent)
 
-    limits = RiskLimits(max_notional=5_000.0, symbol_position_limits={config.symbol: 100.0}, max_drawdown_bps=10_000.0)
+    limits = RiskLimits(
+        max_notional=5_000.0,
+        symbol_position_limits={config.symbol: 100.0},
+        max_drawdown_bps=10_000.0,
+    )
     ctx = RiskContext(
         equity=float(account.equity),
         position_quantity=0.0,
@@ -241,12 +306,20 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
         last_bar_ts=bars[0].dt.timestamp(),
         now_ts=bars[0].dt.timestamp(),
     )
-    decision: RiskDecision = enforce_guards(config.symbol, broker_intent.quantity, float(signal_price), limits, ctx)
+    decision: RiskDecision = enforce_guards(
+        config.symbol, broker_intent.quantity, float(signal_price), limits, ctx
+    )
     if not decision.allowed:
         raise RuntimeError(f"Regression guard rejected order: {decision.reason}")
 
     adapter_mode_label, adapter_name, adapter = _select_adapter(config, clock)
-    adapter_logs: List[dict] = []
+    adapter_logs: List[Dict[str, object]] = []
+    equity_curve: List[Dict[str, object]]
+    exposures: List[float]
+    fills_payload: List[Dict[str, object]]
+    trade_payloads: List[Dict[str, object]]
+    account_payload: Mapping[str, float]
+    positions_payload: Mapping[str, Mapping[str, float]]
 
     if adapter_mode_label == "paper":
         broker = _configure_paper_broker(metadata, account, config.symbol, clock)
@@ -259,9 +332,9 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
                 "cash": broker.get_account().cash,
             }
         ]
-        exposures: List[float] = [0.0]
-        fills_payload: List[Dict[str, object]] = []
-        trade_payloads: List[Dict[str, float]] = []
+        exposures = [0.0]
+        fills_payload = []
+        trade_payloads = []
 
         for bar in bars:
             clock.current = bar.dt
@@ -269,7 +342,9 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
             snapshot = broker.get_account()
             positions = broker.get_positions()
             exposures.append(sum(abs(pos.quantity) for pos in positions))
-            equity_curve.append({"ts": bar.dt, "equity": snapshot.equity, "cash": snapshot.cash})
+            equity_curve.append(
+                {"ts": bar.dt, "equity": snapshot.equity, "cash": snapshot.cash}
+            )
             for fill in broker.poll_fills():
                 fill_dt = dt.datetime.fromtimestamp(fill.ts, tz=dt.timezone.utc)
                 fills_payload.append(
@@ -295,7 +370,9 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
 
         final_snapshot = broker.get_account()
         final_positions = broker.get_positions()
-        account_payload = _account_payload(final_snapshot.cash, final_snapshot.equity, broker, final_positions)
+        account_payload = _account_payload(
+            final_snapshot.cash, final_snapshot.equity, broker, final_positions
+        )
         positions_payload = _positions_payload(final_positions)
     else:
         assert adapter is not None and adapter_name is not None
@@ -316,7 +393,13 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
             clock.current = bar.dt
             adapter.on_market_data(bar.symbol, bar.close, bar.dt.timestamp())
             adapter_logs.extend(_drain_adapter_logs(adapter))
-            equity_curve.append({"ts": bar.dt, "equity": float(account.equity), "cash": float(account.cash)})
+            equity_curve.append(
+                {
+                    "ts": bar.dt,
+                    "equity": float(account.equity),
+                    "cash": float(account.cash),
+                }
+            )
             exposures.append(0.0)
 
         account_payload = {
@@ -367,7 +450,12 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
     if adapter_mode_label != "paper":
         adapter_log_path = _write_adapter_logs(paths, adapter_logs)
 
-    return RegressionArtifacts(snapshot=paths.snapshot_file, equity_curve=equity_path, metrics=metrics_path, adapter_logs=adapter_log_path)
+    return RegressionArtifacts(
+        snapshot=paths.snapshot_file,
+        equity_curve=equity_path,
+        metrics=metrics_path,
+        adapter_logs=adapter_log_path,
+    )
 
 
 def _compare(baseline: Path, output: Path) -> str | None:
@@ -402,14 +490,18 @@ def _compare_metrics(baseline: Path, output: Path, tolerance: float) -> str | No
             continue
         baseline_value = baseline_data[key]
         output_value = output_data[key]
-        if isinstance(baseline_value, (int, float)) and isinstance(output_value, (int, float)):
+        if isinstance(baseline_value, (int, float)) and isinstance(
+            output_value, (int, float)
+        ):
             if abs(float(baseline_value) - float(output_value)) > tolerance:
                 mismatches.append(
                     f"{key} baseline={baseline_value} output={output_value} tol={tolerance}"
                 )
         else:
             if baseline_value != output_value:
-                mismatches.append(f"{key} baseline={baseline_value} output={output_value}")
+                mismatches.append(
+                    f"{key} baseline={baseline_value} output={output_value}"
+                )
     if mismatches:
         return "metrics mismatch: " + "; ".join(mismatches)
     return None
@@ -431,7 +523,14 @@ def run_regression(
     dataset = dataset_dir or DEFAULT_FIXTURE_DIR
     output_root.mkdir(parents=True, exist_ok=True)
     paths = prepare_seeded_run_paths(seed, label, base_dir=output_root)
-    config = RegressionConfig(dataset_dir=dataset, symbol=symbol, seed=seed, label=label, adapter_mode=adapter_mode, adapter_name=adapter_name)
+    config = RegressionConfig(
+        dataset_dir=dataset,
+        symbol=symbol,
+        seed=seed,
+        label=label,
+        adapter_mode=adapter_mode,
+        adapter_name=adapter_name,
+    )
     artifacts = _run_pipeline(paths, config)
 
     tracked = {
@@ -447,7 +546,9 @@ def run_regression(
         baseline_path = baseline_dir / artifact.name
         if update_baseline:
             if not allow_refresh:
-                raise RuntimeError("Baseline refresh requested without confirmation flag")
+                raise RuntimeError(
+                    "Baseline refresh requested without confirmation flag"
+                )
             baseline_path.parent.mkdir(parents=True, exist_ok=True)
             baseline_path.write_bytes(artifact.read_bytes())
             continue
@@ -455,15 +556,24 @@ def run_regression(
         if diff:
             diff_map[name] = diff
     matches = not diff_map and not update_baseline
-    return RegressionResult(run_id=paths.run_id, artifacts=artifacts, matches_baseline=matches, diffs=diff_map)
+    return RegressionResult(
+        run_id=paths.run_id,
+        artifacts=artifacts,
+        matches_baseline=matches,
+        diffs=diff_map,
+    )
 
 
-def _checksum(path: Path) -> str:
+def _checksum(path: Path | None) -> str:
+    if path is None:
+        raise ValueError("checksum requires a file path")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the Logos live regression smoke test")
+    parser = argparse.ArgumentParser(
+        description="Run the Logos live regression smoke test"
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("runs/live/regression"))
     parser.add_argument("--baseline", type=Path, default=BASELINE_DIR)
     parser.add_argument("--refresh-baseline", action="store_true")
@@ -481,7 +591,9 @@ def main(argv: List[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.refresh_baseline and not args.confirm_refresh:
-        parser.error("--refresh-baseline also requires --confirm-refresh to avoid accidental updates")
+        parser.error(
+            "--refresh-baseline also requires --confirm-refresh to avoid accidental updates"
+        )
     result = run_regression(
         output_root=args.output_dir,
         baseline_dir=args.baseline,

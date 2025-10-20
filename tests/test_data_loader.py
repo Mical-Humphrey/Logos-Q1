@@ -35,7 +35,9 @@ def test_get_prices_reads_from_raw_fixture(raw_dir):
     fixture_path = raw_dir / f"{symbol}.csv"
     _fixture_df().to_csv(fixture_path, index_label="Date")
 
-    df = data_loader.get_prices(symbol, "2024-01-01", "2024-01-05", asset_class="equity")
+    df = data_loader.get_prices(
+        symbol, "2024-01-01", "2024-01-05", asset_class="equity"
+    )
 
     assert not df.empty
     assert list(df.columns) == ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
@@ -58,7 +60,9 @@ def test_get_prices_writes_cache_in_new_structure(monkeypatch):
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
 
-    result = data_loader.get_prices(symbol, "2024-01-01", "2024-01-05", asset_class="equity")
+    result = data_loader.get_prices(
+        symbol, "2024-01-01", "2024-01-05", asset_class="equity"
+    )
 
     assert not result.empty
     assert cache_file.exists()

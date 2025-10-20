@@ -54,7 +54,9 @@ def _build_broker(args: argparse.Namespace, settings: Settings) -> BrokerAdapter
         secret = settings.alpaca_secret_key
         base_url = settings.alpaca_base_url or "https://paper-api.alpaca.markets"
         if not key or not secret:
-            raise SystemExit("Alpaca credentials missing (ALPACA_KEY_ID / ALPACA_SECRET_KEY)")
+            raise SystemExit(
+                "Alpaca credentials missing (ALPACA_KEY_ID / ALPACA_SECRET_KEY)"
+            )
         return AlpacaBrokerAdapter(base_url=base_url, key_id=key, secret_key=secret)
     if broker_key in {"ib", "ibkr", "interactive_brokers"}:
         if not settings.ib_host or settings.ib_port is None:
@@ -72,8 +74,12 @@ def _build_parser() -> argparse.ArgumentParser:
     trade.add_argument("--strategy", required=True)
     trade.add_argument("--interval", default="1m")
     trade.add_argument("--asset-class", default=None)
-    trade.add_argument("--params", help="Strategy parameters as JSON or key=value pairs")
-    trade.add_argument("--live", action="store_true", help="Enable real order submission")
+    trade.add_argument(
+        "--params", help="Strategy parameters as JSON or key=value pairs"
+    )
+    trade.add_argument(
+        "--live", action="store_true", help="Enable real order submission"
+    )
     trade.add_argument("--i-acknowledge-risk", action="store_true", dest="ack")
     trade.add_argument("--broker", default="paper")
     trade.add_argument("--dollar-per-trade", type=float)
@@ -81,9 +87,15 @@ def _build_parser() -> argparse.ArgumentParser:
     trade.add_argument("--kill-switch-file", type=Path)
     trade.add_argument("--risk.max-dd-bps", dest="risk_max_dd", type=float)
     trade.add_argument("--risk.max-position", dest="risk_max_pos", type=float)
-    trade.add_argument("--risk.max-rejects", dest="risk_max_rejects", type=int, default=5)
-    trade.add_argument("--feed-file", type=Path, help="Optional CSV to tail for live bars")
-    trade.add_argument("--max-loops", type=int, help="Stop after N loops (useful for dry runs)")
+    trade.add_argument(
+        "--risk.max-rejects", dest="risk_max_rejects", type=int, default=5
+    )
+    trade.add_argument(
+        "--feed-file", type=Path, help="Optional CSV to tail for live bars"
+    )
+    trade.add_argument(
+        "--max-loops", type=int, help="Stop after N loops (useful for dry runs)"
+    )
     trade.add_argument("--log-level", default=None)
     return parser
 
@@ -93,9 +105,13 @@ def _validate_live_flags(args: argparse.Namespace, settings: Settings) -> None:
         if not args.ack:
             raise SystemExit("--live requires --i-acknowledge-risk")
         if settings.mode != "live":
-            raise SystemExit("MODE must be set to 'live' in the environment for live trading")
+            raise SystemExit(
+                "MODE must be set to 'live' in the environment for live trading"
+            )
     if settings.mode == "live" and not args.ack:
-        logger.warning("Environment MODE=live but --i-acknowledge-risk not provided; running in paper mode")
+        logger.warning(
+            "Environment MODE=live but --i-acknowledge-risk not provided; running in paper mode"
+        )
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -114,7 +130,9 @@ def main(argv: list[str] | None = None) -> None:
 
     broker = _build_broker(args, settings)
     asset_class = (args.asset_class or settings.asset_class).lower()
-    feed_path = args.feed_file or live_cache_path(asset_class, args.symbol, args.interval)
+    feed_path = args.feed_file or live_cache_path(
+        asset_class, args.symbol, args.interval
+    )
     time_provider = SystemTimeProvider()
     feed = CsvBarFeed(path=feed_path, time_provider=time_provider)
     session_paths, session_handler = create_session(args.symbol, args.strategy)
@@ -125,8 +143,16 @@ def main(argv: list[str] | None = None) -> None:
         if dollar_per_trade is None:
             dollar_per_trade = settings.risk_max_notional or 10_000.0
         sizing = SizingConfig(
-            max_notional=args.max_notional if args.max_notional is not None else settings.risk_max_notional,
-            max_position=args.risk_max_pos if args.risk_max_pos is not None else settings.risk_max_position,
+            max_notional=(
+                args.max_notional
+                if args.max_notional is not None
+                else settings.risk_max_notional
+            ),
+            max_position=(
+                args.risk_max_pos
+                if args.risk_max_pos is not None
+                else settings.risk_max_position
+            ),
         )
         strategy_spec = StrategySpec(
             symbol=args.symbol,
@@ -137,9 +163,21 @@ def main(argv: list[str] | None = None) -> None:
         )
         order_generator = StrategyOrderGenerator(broker, strategy_spec)
         risk_limits = RiskLimits(
-            max_notional=args.max_notional if args.max_notional is not None else settings.risk_max_notional,
-            max_position=args.risk_max_pos if args.risk_max_pos is not None else settings.risk_max_position,
-            max_drawdown_bps=args.risk_max_dd if args.risk_max_dd is not None else settings.risk_max_dd_bps,
+            max_notional=(
+                args.max_notional
+                if args.max_notional is not None
+                else settings.risk_max_notional
+            ),
+            max_position=(
+                args.risk_max_pos
+                if args.risk_max_pos is not None
+                else settings.risk_max_position
+            ),
+            max_drawdown_bps=(
+                args.risk_max_dd
+                if args.risk_max_dd is not None
+                else settings.risk_max_dd_bps
+            ),
             max_consecutive_rejects=args.risk_max_rejects,
             kill_switch_file=args.kill_switch_file,
         )
@@ -154,7 +192,9 @@ def main(argv: list[str] | None = None) -> None:
                 symbol=args.symbol,
                 strategy=args.strategy,
                 interval=args.interval,
-                kill_switch_file=str(args.kill_switch_file) if args.kill_switch_file else None,
+                kill_switch_file=(
+                    str(args.kill_switch_file) if args.kill_switch_file else None
+                ),
                 max_loops=args.max_loops,
             ),
         )

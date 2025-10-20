@@ -3,6 +3,7 @@
 These tests verify price tick and lot-size rounding for the translator. Other
 behaviours remain skipped until later milestones.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

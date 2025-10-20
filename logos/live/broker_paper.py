@@ -58,15 +58,21 @@ class PaperBrokerAdapter(BrokerAdapter):
 
     def place_order(self, intent: OrderIntent) -> Order:
         meta = self.get_symbol_meta(intent.symbol)
-        fallback_price = intent.limit_price if intent.limit_price is not None else price_or_default()
+        fallback_price = (
+            intent.limit_price if intent.limit_price is not None else price_or_default()
+        )
         mark = self._marks.get(intent.symbol, fallback_price)
         price_basis = intent.limit_price if intent.limit_price is not None else mark
         qty, price_basis = quantize_order(intent.quantity, price_basis, meta)
         if not meets_minimums(qty, price_basis, meta):
-            return self._build_order(intent, OrderState.REJECTED, reject="min_requirements")
+            return self._build_order(
+                intent, OrderState.REJECTED, reject="min_requirements"
+            )
         if intent.order_type == "market":
             price_basis = mark
-        intent = dataclasses.replace(intent, quantity=qty, limit_price=intent.limit_price)
+        intent = dataclasses.replace(
+            intent, quantity=qty, limit_price=intent.limit_price
+        )
         order = self._build_order(intent, OrderState.SUBMITTED)
         self._open_orders[order.order_id] = order
         return order
@@ -108,7 +114,14 @@ class PaperBrokerAdapter(BrokerAdapter):
         for symbol, data in self._positions.items():
             mark = self._marks.get(symbol, data.get("avg_price", 0.0))
             unrealized = (mark - data["avg_price"]) * data["qty"]
-            out.append(Position(symbol=symbol, quantity=data["qty"], avg_price=data["avg_price"], unrealized_pnl=unrealized))
+            out.append(
+                Position(
+                    symbol=symbol,
+                    quantity=data["qty"],
+                    avg_price=data["avg_price"],
+                    unrealized_pnl=unrealized,
+                )
+            )
         return out
 
     def get_account(self) -> AccountSnapshot:
@@ -116,7 +129,12 @@ class PaperBrokerAdapter(BrokerAdapter):
         for symbol, data in self._positions.items():
             mark = self._marks.get(symbol, data["avg_price"])
             equity += data["qty"] * mark
-        return AccountSnapshot(equity=equity, cash=self._cash, buying_power=self._cash, ts=self.time_provider.utc_now().timestamp())
+        return AccountSnapshot(
+            equity=equity,
+            cash=self._cash,
+            buying_power=self._cash,
+            ts=self.time_provider.utc_now().timestamp(),
+        )
 
     def reconcile(self) -> None:
         # TODO: integrate with persistence/logs if needed.
@@ -133,9 +151,13 @@ class PaperBrokerAdapter(BrokerAdapter):
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
-    def _build_order(self, intent: OrderIntent, state: OrderState, reject: Optional[str] = None) -> Order:
+    def _build_order(
+        self, intent: OrderIntent, state: OrderState, reject: Optional[str] = None
+    ) -> Order:
         order_id = intent.client_order_id or f"PB-{next(self._order_seq):06d}"
-        order = Order(order_id=order_id, intent=intent, state=state, reject_reason=reject)
+        order = Order(
+            order_id=order_id, intent=intent, state=state, reject_reason=reject
+        )
         self._orders[order_id] = order
         self._journal.record(order)
         return order
@@ -169,7 +191,9 @@ class PaperBrokerAdapter(BrokerAdapter):
 
         self._apply_fill(intent.symbol, signed_qty, fill_price, fees)
 
-        updated = dataclasses.replace(order, state=OrderState.FILLED, filled_qty=qty, avg_fill_price=fill_price)
+        updated = dataclasses.replace(
+            order, state=OrderState.FILLED, filled_qty=qty, avg_fill_price=fill_price
+        )
         self._orders[order.order_id] = updated
         self._journal.record(updated)
         fill = Fill(
@@ -194,11 +218,15 @@ class PaperBrokerAdapter(BrokerAdapter):
         )
         return True
 
-    def _apply_fill(self, symbol: str, signed_qty: float, price: float, fees: float) -> None:
+    def _apply_fill(
+        self, symbol: str, signed_qty: float, price: float, fees: float
+    ) -> None:
         self._cash -= price * signed_qty
         self._cash -= fees
         self._fees_paid += fees
-        pos = self._positions.setdefault(symbol, {"qty": 0.0, "avg_price": 0.0, "realized": 0.0})
+        pos = self._positions.setdefault(
+            symbol, {"qty": 0.0, "avg_price": 0.0, "realized": 0.0}
+        )
         prev_qty = pos.get("qty", 0.0)
         avg_price = pos.get("avg_price", 0.0)
         new_qty = prev_qty + signed_qty
@@ -206,7 +234,9 @@ class PaperBrokerAdapter(BrokerAdapter):
         realized = 0.0
         if prev_qty == 0 or prev_qty * signed_qty >= 0:
             if abs(new_qty) > 1e-9:
-                pos["avg_price"] = ((prev_qty * avg_price) + (signed_qty * price)) / new_qty
+                pos["avg_price"] = (
+                    (prev_qty * avg_price) + (signed_qty * price)
+                ) / new_qty
             else:
                 pos["avg_price"] = 0.0
         else:
@@ -236,10 +266,16 @@ class PaperBrokerAdapter(BrokerAdapter):
             if abs(qty) < 1e-9:
                 continue
             realized = float(data.get("realized", 0.0))
-            self._positions[symbol] = {"qty": qty, "avg_price": avg_price, "realized": realized}
+            self._positions[symbol] = {
+                "qty": qty,
+                "avg_price": avg_price,
+                "realized": realized,
+            }
             self._marks[symbol] = avg_price
             self._realized_pnl += realized
-        cash_offset = sum(pos["qty"] * pos["avg_price"] for pos in self._positions.values())
+        cash_offset = sum(
+            pos["qty"] * pos["avg_price"] for pos in self._positions.values()
+        )
         self._cash = self.starting_cash - cash_offset
 
 

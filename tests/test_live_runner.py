@@ -40,6 +40,7 @@ class SequencedTimeProvider:
             value = self._timestamps[-1]
         return value
 
+
 @pytest.fixture
 def patch_live_paths(monkeypatch, tmp_path):
     base = tmp_path / "live"
@@ -73,9 +74,33 @@ def test_strategy_order_generator_emits_intents():
     )
     generator = StrategyOrderGenerator(broker, spec)
     bars = [
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc), open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc), open=101, high=102, low=100, close=101, volume=1_100, symbol="MSFT"),
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc), open=102, high=103, low=101, close=103, volume=1_200, symbol="MSFT"),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            open=100,
+            high=101,
+            low=99,
+            close=100,
+            volume=1_000,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc),
+            open=101,
+            high=102,
+            low=100,
+            close=101,
+            volume=1_100,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc),
+            open=102,
+            high=103,
+            low=101,
+            close=103,
+            volume=1_200,
+            symbol="MSFT",
+        ),
     ]
 
     assert generator.process([bars[0]], current_qty=0.0) == []
@@ -86,7 +111,10 @@ def test_strategy_order_generator_emits_intents():
     assert buy_intent.side == "buy"
     assert buy_intent.symbol == "MSFT"
     assert buy_intent.order_type == "market"
-    assert pytest.approx(buy_intent.quantity, rel=1e-3) == spec.dollar_per_trade / bars[1].close
+    assert (
+        pytest.approx(buy_intent.quantity, rel=1e-3)
+        == spec.dollar_per_trade / bars[1].close
+    )
 
     third_intents = generator.process([bars[2]], current_qty=buy_intent.quantity)
     assert len(third_intents) == 1
@@ -100,13 +128,47 @@ def test_strategy_order_generator_emits_intents():
 
 def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
     bars = [
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc), open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc), open=101, high=102, low=100, close=101, volume=1_100, symbol="MSFT"),
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc), open=102, high=103, low=101, close=103, volume=1_200, symbol="MSFT"),
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 33, tzinfo=dt.timezone.utc), open=104, high=105, low=103, close=104, volume=1_300, symbol="MSFT"),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            open=100,
+            high=101,
+            low=99,
+            close=100,
+            volume=1_000,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc),
+            open=101,
+            high=102,
+            low=100,
+            close=101,
+            volume=1_100,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc),
+            open=102,
+            high=103,
+            low=101,
+            close=103,
+            volume=1_200,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 33, tzinfo=dt.timezone.utc),
+            open=104,
+            high=105,
+            low=103,
+            close=104,
+            volume=1_300,
+            symbol="MSFT",
+        ),
     ]
     feed = MemoryBarFeed(bars=bars)
-    clock = MockTimeProvider(current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc))
+    clock = MockTimeProvider(
+        current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
+    )
     broker = PaperBrokerAdapter(time_provider=clock, slippage_bps=0.0, fee_bps=0.0)
 
     spec = StrategySpec(
@@ -128,7 +190,9 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=10),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+            ),
         )
         runner.run()
     finally:
@@ -148,10 +212,20 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
 
 def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_paths):
     bars = [
-        Bar(dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc), open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
+        Bar(
+            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            open=100,
+            high=101,
+            low=99,
+            close=100,
+            volume=1_000,
+            symbol="MSFT",
+        ),
     ]
     feed = MemoryBarFeed(bars=bars)
-    clock = MockTimeProvider(current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc))
+    clock = MockTimeProvider(
+        current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
+    )
     broker = PaperBrokerAdapter(time_provider=clock, slippage_bps=0.0, fee_bps=0.0)
 
     spec = StrategySpec(
@@ -164,7 +238,12 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
     generator = StrategyOrderGenerator(broker, spec)
     kill_switch = tmp_path / "kill_switch.flag"
     kill_switch.write_text("halt", encoding="utf-8")
-    risk_limits = RiskLimits(max_notional=2_000.0, max_position=1000.0, kill_switch_file=kill_switch, stale_data_threshold_s=60)
+    risk_limits = RiskLimits(
+        max_notional=2_000.0,
+        max_position=1000.0,
+        kill_switch_file=kill_switch,
+        stale_data_threshold_s=60,
+    )
 
     session_paths, handler = create_session("MSFT", "momentum")
     try:
@@ -175,7 +254,9 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=5),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+            ),
         )
         runner.run()
     finally:
@@ -187,7 +268,11 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
 
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]
-    assert any(event.get("type") == "circuit_breaker" and event.get("reason") == "kill_switch_triggered" for event in events)
+    assert any(
+        event.get("type") == "circuit_breaker"
+        and event.get("reason") == "kill_switch_triggered"
+        for event in events
+    )
 
 
 def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
@@ -217,7 +302,9 @@ def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
     )
     broker = PaperBrokerAdapter(time_provider=provider, slippage_bps=0.0, fee_bps=0.0)
     session_paths, handler = create_session("MSFT", "momentum")
-    risk_limits = RiskLimits(max_notional=0.0, max_position=0.0, stale_data_threshold_s=60)
+    risk_limits = RiskLimits(
+        max_notional=0.0, max_position=0.0, stale_data_threshold_s=60
+    )
     try:
         runner = LiveRunner(
             broker=broker,
@@ -226,7 +313,9 @@ def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=provider,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=5),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+            ),
         )
         runner.run()
     finally:
@@ -235,19 +324,42 @@ def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]
 
-    assert any(event.get("type") == "circuit_breaker" and event.get("reason") == "data_stale" for event in events)
+    assert any(
+        event.get("type") == "circuit_breaker" and event.get("reason") == "data_stale"
+        for event in events
+    )
 
 
 def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     initial_bars = [
-        Bar(dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=1), open=101, high=102, low=100, close=101, volume=1_100, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=2), open=102, high=103, low=101, close=102, volume=1_050, symbol="MSFT"),
+        Bar(
+            dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=1),
+            open=101,
+            high=102,
+            low=100,
+            close=101,
+            volume=1_100,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=2),
+            open=102,
+            high=103,
+            low=101,
+            close=102,
+            volume=1_050,
+            symbol="MSFT",
+        ),
     ]
     feed_initial = MemoryBarFeed(bars=initial_bars)
     clock_initial = MockTimeProvider(current=start)
-    broker_initial = PaperBrokerAdapter(time_provider=clock_initial, slippage_bps=0.0, fee_bps=0.0)
+    broker_initial = PaperBrokerAdapter(
+        time_provider=clock_initial, slippage_bps=0.0, fee_bps=0.0
+    )
     spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
@@ -267,7 +379,9 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock_initial,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=5),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+            ),
         )
         runner.run()
     finally:
@@ -279,12 +393,30 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     assert initial_qty > 0
 
     followup_bars = [
-        Bar(dt=start + dt.timedelta(minutes=3), open=103, high=104, low=102, close=103, volume=1_200, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=4), open=104, high=105, low=103, close=104, volume=1_250, symbol="MSFT"),
+        Bar(
+            dt=start + dt.timedelta(minutes=3),
+            open=103,
+            high=104,
+            low=102,
+            close=103,
+            volume=1_200,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=4),
+            open=104,
+            high=105,
+            low=103,
+            close=104,
+            volume=1_250,
+            symbol="MSFT",
+        ),
     ]
     feed_followup = MemoryBarFeed(bars=followup_bars)
     clock_followup = MockTimeProvider(current=start + dt.timedelta(minutes=3))
-    broker_followup = PaperBrokerAdapter(time_provider=clock_followup, slippage_bps=0.0, fee_bps=0.0)
+    broker_followup = PaperBrokerAdapter(
+        time_provider=clock_followup, slippage_bps=0.0, fee_bps=0.0
+    )
     generator_followup = StrategyOrderGenerator(broker_followup, spec)
 
     handler_followup = attach_run_file_handler(session_paths.logs_dir / "run.log")
@@ -296,13 +428,17 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock_followup,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=5),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+            ),
         )
         runner.run()
     finally:
         detach_handler(handler_followup)
 
-    state_after_second = json.loads(session_paths.state_file.read_text(encoding="utf-8"))
+    state_after_second = json.loads(
+        session_paths.state_file.read_text(encoding="utf-8")
+    )
     assert state_after_second["last_bar_iso"] == followup_bars[-1].dt.isoformat()
     assert "MSFT" in state_after_second["positions"]
     final_qty = state_after_second["positions"]["MSFT"]["qty"]
@@ -314,9 +450,21 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
         events = [json.loads(line) for line in fh]
     assert any(event.get("type") == "state" for event in events)
 
-    orders_df = load_orders(session_paths.orders_file, session_id=session_paths.session_id, strategy="momentum")
-    trades_df = load_trades(session_paths.trades_file, session_id=session_paths.session_id, strategy="momentum")
-    positions_df = load_positions(session_paths.positions_file, session_id=session_paths.session_id, strategy="momentum")
+    orders_df = load_orders(
+        session_paths.orders_file,
+        session_id=session_paths.session_id,
+        strategy="momentum",
+    )
+    trades_df = load_trades(
+        session_paths.trades_file,
+        session_id=session_paths.session_id,
+        strategy="momentum",
+    )
+    positions_df = load_positions(
+        session_paths.positions_file,
+        session_id=session_paths.session_id,
+        strategy="momentum",
+    )
     account_df = load_account(
         session_paths.account_file,
         session_id=session_paths.session_id,
@@ -342,13 +490,33 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
 def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
-        Bar(dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=1), open=120, high=121, low=119, close=120, volume=1_050, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=2), open=80, high=81, low=79, close=80, volume=1_200, symbol="MSFT"),
+        Bar(
+            dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=1),
+            open=120,
+            high=121,
+            low=119,
+            close=120,
+            volume=1_050,
+            symbol="MSFT",
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=2),
+            open=80,
+            high=81,
+            low=79,
+            close=80,
+            volume=1_200,
+            symbol="MSFT",
+        ),
     ]
     feed = MemoryBarFeed(bars=bars)
     clock = MockTimeProvider(current=start)
-    broker = PaperBrokerAdapter(time_provider=clock, starting_cash=1_000.0, slippage_bps=0.0, fee_bps=0.0)
+    broker = PaperBrokerAdapter(
+        time_provider=clock, starting_cash=1_000.0, slippage_bps=0.0, fee_bps=0.0
+    )
 
     class SingleLongGenerator:
         def __init__(self) -> None:
@@ -363,7 +531,9 @@ def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
             return [OrderIntent(symbol="MSFT", side="buy", quantity=5.0)]
 
     order_generator = SingleLongGenerator()
-    risk_limits = RiskLimits(max_notional=50_000.0, max_position=1_000.0, max_drawdown_bps=1_000)
+    risk_limits = RiskLimits(
+        max_notional=50_000.0, max_position=1_000.0, max_drawdown_bps=1_000
+    )
 
     session_paths, handler = create_session("MSFT", "momentum")
     try:
@@ -374,7 +544,9 @@ def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=10),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+            ),
         )
         runner.run()
     finally:
@@ -382,14 +554,28 @@ def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
 
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]
-    assert any(event.get("reason") == "session_drawdown_limit" for event in events if event.get("type") == "circuit_breaker")
+    assert any(
+        event.get("reason") == "session_drawdown_limit"
+        for event in events
+        if event.get("type") == "circuit_breaker"
+    )
 
 
 def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
-        Bar(dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
-        Bar(dt=start + dt.timedelta(minutes=1), open=101, high=102, low=100, close=101, volume=1_100, symbol="MSFT"),
+        Bar(
+            dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"
+        ),
+        Bar(
+            dt=start + dt.timedelta(minutes=1),
+            open=101,
+            high=102,
+            low=100,
+            close=101,
+            volume=1_100,
+            symbol="MSFT",
+        ),
     ]
     feed = MemoryBarFeed(bars=bars)
     clock = MockTimeProvider(current=start)
@@ -398,7 +584,9 @@ def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
     def reject_generator(bars, current_qty):
         return [OrderIntent(symbol="MSFT", side="buy", quantity=100.0)]
 
-    risk_limits = RiskLimits(max_notional=10.0, max_position=1.0, max_consecutive_rejects=1)
+    risk_limits = RiskLimits(
+        max_notional=10.0, max_position=1.0, max_consecutive_rejects=1
+    )
 
     session_paths, handler = create_session("MSFT", "momentum")
     try:
@@ -409,7 +597,9 @@ def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=10),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+            ),
         )
         runner.run()
     finally:
@@ -417,4 +607,8 @@ def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
 
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]
-    assert any(event.get("reason") == "reject_limit_reached" for event in events if event.get("type") == "circuit_breaker")
+    assert any(
+        event.get("reason") == "reject_limit_reached"
+        for event in events
+        if event.get("type") == "circuit_breaker"
+    )

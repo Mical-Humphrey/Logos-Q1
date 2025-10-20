@@ -9,6 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+
 def signals_to_orders(
     signals: pd.Series,
     prices: pd.Series,

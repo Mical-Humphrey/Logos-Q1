@@ -40,7 +40,19 @@ def test_load_trades_handles_legacy_layout(tmp_path: Path) -> None:
         "session_id",
         "strategy",
     ]
-    row = ["2025-01-01T09:31:00+00:00", "F1", "MSFT", "buy", 5, 100.5, 0.25, 5, "market", "legacy-session", "momentum"]
+    row = [
+        "2025-01-01T09:31:00+00:00",
+        "F1",
+        "MSFT",
+        "buy",
+        5,
+        100.5,
+        0.25,
+        5,
+        "market",
+        "legacy-session",
+        "momentum",
+    ]
     csv_path = tmp_path / "trades.csv"
     _write_csv(csv_path, header, [row])
 
@@ -64,7 +76,17 @@ def test_load_orders_fills_missing_metadata(tmp_path: Path) -> None:
         "reject_reason",
         "broker_order_id",
     ]
-    row = ["2025-01-01T09:31:00+00:00", "O1", "MSFT", "buy", 5, 101.0, "submitted", "", "PB-1"]
+    row = [
+        "2025-01-01T09:31:00+00:00",
+        "O1",
+        "MSFT",
+        "buy",
+        5,
+        101.0,
+        "submitted",
+        "",
+        "PB-1",
+    ]
     csv_path = tmp_path / "orders.csv"
     _write_csv(csv_path, header, [row])
 

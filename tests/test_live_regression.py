@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from logos.live import regression
-from logos.live.regression import BASELINE_DIR, DEFAULT_FIXTURE_DIR, DEFAULT_SYMBOL, METRIC_ABS_TOLERANCE, run_regression
+from logos.live.regression import (
+    BASELINE_DIR,
+    DEFAULT_FIXTURE_DIR,
+    DEFAULT_SYMBOL,
+    METRIC_ABS_TOLERANCE,
+    run_regression,
+)
 
 
 def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
@@ -79,9 +85,12 @@ def test_adapter_mode_emits_logs(tmp_path: Path) -> None:
     )
 
     assert result_two.matches_baseline is True
+    assert result_one.artifacts.adapter_logs is not None
     assert result_two.artifacts.adapter_logs is not None
-    assert result_two.artifacts.adapter_logs.exists()
-    assert _checksum(result_one.artifacts.adapter_logs) == _checksum(result_two.artifacts.adapter_logs)
+    first_logs = result_one.artifacts.adapter_logs
+    second_logs = result_two.artifacts.adapter_logs
+    assert second_logs.exists()
+    assert _checksum(first_logs) == _checksum(second_logs)
 
 
 def test_compare_metrics_tolerance(tmp_path: Path) -> None:

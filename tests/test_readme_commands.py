@@ -16,7 +16,7 @@ BACKTEST_COMMANDS = [
     "--symbol EURUSD=X --strategy mean_reversion --asset-class forex --interval 30m --slip-bps 8 --commission 0.0 --fx-pip-size 0.0001 --start 2023-06-01 --end 2023-08-31",
     "--symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --paper",
     "--symbol TSLA --strategy momentum --start 2024-01-01 --end 2024-03-31",
-        "--symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper",
+    "--symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper",
     "--symbol MSFT --strategy momentum --params fast=20,slow=50 --paper --dollar-per-trade 2000",
     "--symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --paper",
     "--symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-01-15",

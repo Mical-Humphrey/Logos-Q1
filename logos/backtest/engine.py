@@ -15,8 +15,10 @@
 #   - Slippage remains naive bps on price
 # =============================================================================
 from __future__ import annotations
+
 import logging
-from typing import Dict
+from typing import Dict, TypedDict
+
 import numpy as np
 import pandas as pd
 
@@ -26,17 +28,26 @@ from .costs import commission_per_share, crypto_fee_usd, fx_spread_price_bump
 
 logger = logging.getLogger(__name__)
 
+
+class BacktestResult(TypedDict):
+    equity_curve: pd.Series
+    positions: pd.Series
+    returns: pd.Series
+    trades: pd.DataFrame
+    metrics: Dict[str, float]
+
+
 def run_backtest(
     prices: pd.DataFrame,
     signals: pd.Series,
     dollar_per_trade: float = 10_000,
     slip_bps: float = 1.0,
     commission_per_share_rate: float = 0.0035,
-    fee_bps: float = 5.0,            # crypto maker/taker fee
-    fx_pip_size: float = 0.0001,     # 0.0001 for EURUSD; 0.01 for USDJPY
+    fee_bps: float = 5.0,  # crypto maker/taker fee
+    fx_pip_size: float = 0.0001,  # 0.0001 for EURUSD; 0.01 for USDJPY
     asset_class: str = "equity",
     periods_per_year: int = 252,
-) -> Dict[str, object]:
+) -> BacktestResult:
     """Simulate trading given price data and target signals with asset-aware costs."""
     df = prices.copy().sort_index()
     sig = signals.reindex(df.index).fillna(0).astype(int)
@@ -45,7 +56,7 @@ def run_backtest(
     # Detect changes in desired position direction (delta signals)
     changes = sig - sig.shift(1).fillna(0).astype(int)
     orders_idx = changes.index[changes != 0]
-    sides = np.sign(changes.loc[orders_idx]).astype(int)      # +1 buy more, -1 sell more
+    sides = np.sign(changes.loc[orders_idx]).astype(int)  # +1 buy more, -1 sell more
     ref_prices = close.loc[orders_idx]
     shares = np.floor(dollar_per_trade / ref_prices).astype(int) * sides
 
@@ -60,10 +71,11 @@ def run_backtest(
             continue
         # Base price:
         px = float(close.loc[t])
-
         # FX spread model (buy pays up, sell receives down)
         if asset in {"fx", "forex"}:
-            px = fx_spread_price_bump(px, int(side), spread_pips=1.0, pip_size=fx_pip_size)
+            px = fx_spread_price_bump(
+                px, int(side), spread_pips=1.0, pip_size=fx_pip_size
+            )
 
         # Slippage on top
         fill_p = slip_price(px, int(side), slip_bps=slip_bps)
@@ -91,24 +103,26 @@ def run_backtest(
     returns = equity.pct_change().fillna(0.0)
 
     # Crude trade PnL proxy: mark realized PnL when absolute position decreases
-    trade_marks = (position.abs().diff() < 0)
+    trade_marks = position.abs().diff() < 0
     realized = returns.where(trade_marks, 0.0)
-    trade_pnl_series = (realized * equity.shift(1).bfill())
+    trade_pnl_series = realized * equity.shift(1).bfill()
 
     metrics = {
-        "CAGR":    cagr(equity, periods_per_year=periods_per_year),
-        "Sharpe":  sharpe(returns, periods_per_year=periods_per_year),
-        "MaxDD":   max_drawdown(equity),
+        "CAGR": cagr(equity, periods_per_year=periods_per_year),
+        "Sharpe": sharpe(returns, periods_per_year=periods_per_year),
+        "MaxDD": max_drawdown(equity),
         "WinRate": win_rate(trade_pnl_series[trade_pnl_series != 0.0]),
-        "Exposure":exposure(position),
+        "Exposure": exposure(position),
     }
 
-    trades = pd.DataFrame({
-        "time": list(orders_idx),
-        "side": list(sides),
-        "shares": list(shares),
-        "ref_close": list(ref_prices.astype(float)),
-    })
+    trades = pd.DataFrame(
+        {
+            "time": list(orders_idx),
+            "side": list(sides),
+            "shares": list(shares),
+            "ref_close": list(ref_prices.astype(float)),
+        }
+    )
 
     return {
         "equity_curve": equity,

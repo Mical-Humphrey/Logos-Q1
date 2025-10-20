@@ -21,16 +21,16 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
 
-from ..config import load_settings
+from ..config import Settings, load_settings
 from ..data_loader import get_prices
 from ..backtest.engine import run_backtest
 from ..strategies.mean_reversion import generate_signals as mean_reversion_signals
@@ -46,7 +46,7 @@ class LessonContext:
     """Shared state for a tutor run, tracking narration, files, and flags."""
 
     lesson: str
-    settings: object
+    settings: Settings
     plot: bool
     explain_math: bool
     lesson_dir: str
@@ -81,9 +81,7 @@ class LessonContext:
         self.glossary.extend(entries)
         self.narrate("Glossary (name | symbol | definition | units):")
         for entry in entries:
-            line = (
-                f"  {entry['name']:<22} | {entry['symbol']:<8} | {entry['definition']} | {entry['units']}"
-            )
+            line = f"  {entry['name']:<22} | {entry['symbol']:<8} | {entry['definition']} | {entry['units']}"
             self.narrate(line)
 
     def add_plot(self, path: str) -> None:
@@ -97,10 +95,14 @@ LESSON_HANDLERS: Dict[str, Callable[[LessonContext], None]] = {}
 LESSON_DESCRIPTIONS: Dict[str, str] = {}
 
 
-def lesson(name: str, description: str) -> Callable[[Callable[[LessonContext], None]], Callable[[LessonContext], None]]:
+def lesson(
+    name: str, description: str
+) -> Callable[[Callable[[LessonContext], None]], Callable[[LessonContext], None]]:
     """Decorator to register lesson handlers and their CLI description."""
 
-    def decorator(func: Callable[[LessonContext], None]) -> Callable[[LessonContext], None]:
+    def decorator(
+        func: Callable[[LessonContext], None]
+    ) -> Callable[[LessonContext], None]:
         LESSON_HANDLERS[name] = func
         LESSON_DESCRIPTIONS[name] = description
         return func
@@ -133,15 +135,25 @@ def _prepare_run_dirs(lesson_name: str) -> Tuple[str, str, str, str]:
     return lesson_dir, run_dir, plots_dir, stamp
 
 
+def _format_index_label(label: object) -> str:
+    if isinstance(label, pd.Timestamp):
+        return label.date().isoformat()
+    if isinstance(label, datetime):
+        return label.date().isoformat()
+    return str(label)
+
+
 def _summarize_data(ctx: LessonContext, df: pd.DataFrame) -> None:
     """Narrate dataset hygiene stats (rows, range, NaNs, zero-volume bars)."""
     rows = len(df)
-    start_date = df.index.min().date() if not df.empty else "n/a"
-    end_date = df.index.max().date() if not df.empty else "n/a"
+    if df.empty:
+        start_date = "n/a"
+        end_date = "n/a"
+    else:
+        start_date = _format_index_label(df.index.min())
+        end_date = _format_index_label(df.index.max())
     missing_values = int(df.isna().sum().sum())
-    zero_volume = (
-        int(df["Volume"].eq(0).sum()) if "Volume" in df.columns else "n/a"
-    )
+    zero_volume = int(df["Volume"].eq(0).sum()) if "Volume" in df.columns else "n/a"
     ctx.narrate(
         f"Data summary: {rows} rows from {start_date} to {end_date}; "
         f"missing values={missing_values}; zero-volume bars={zero_volume}."
@@ -167,22 +179,31 @@ def _summarize_signals(ctx: LessonContext, signals: pd.Series) -> float:
     return exposure_pct / 100.0
 
 
-def _print_takeaways(ctx: LessonContext, metrics: Dict[str, float], equity: pd.Series) -> None:
+def _print_takeaways(
+    ctx: LessonContext, metrics: Dict[str, float], equity: pd.Series
+) -> None:
     """Summarize three insights after metrics are computed."""
-    start_date = equity.index.min().date() if not equity.empty else "n/a"
-    end_date = equity.index.max().date() if not equity.empty else "n/a"
+    if equity.empty:
+        start_date = "n/a"
+        end_date = "n/a"
+        worst_point = "n/a"
+    else:
+        start_date = _format_index_label(equity.index.min())
+        end_date = _format_index_label(equity.index.max())
+        worst_point = _format_index_label(equity.idxmin())
     cagr = metrics.get("CAGR")
     sharpe = metrics.get("Sharpe")
     max_dd = metrics.get("MaxDD")
     exposure_ratio = metrics.get("Exposure", 0.0)
-    worst_point = equity.idxmin().date() if not equity.empty else "n/a"
 
     if cagr is not None and np.isfinite(cagr):
         ctx.narrate(
             f"Takeaway 1: CAGR {cagr:.2%} across {start_date}–{end_date}; compounding drove overall growth."
         )
     else:
-        ctx.narrate("Takeaway 1: CAGR unavailable — insufficient variation in equity curve.")
+        ctx.narrate(
+            "Takeaway 1: CAGR unavailable — insufficient variation in equity curve."
+        )
 
     if sharpe is not None and np.isfinite(sharpe):
         qualitative = (
@@ -273,24 +294,46 @@ def _plot_mean_reversion(
         gridspec_kw={"height_ratios": [3, 1]},
     )
 
-    ax_price.plot(close.index, close.values, label="Close", color="#60a5fa", linewidth=1.4)
-    ax_price.plot(sma.index, sma.values, label=f"SMA({lookback})", color="#1d4ed8", linewidth=1.2)
+    ax_price.plot(
+        close.index,
+        close.to_numpy(dtype=float, copy=False),
+        label="Close",
+        color="#60a5fa",
+        linewidth=1.4,
+    )
+    ax_price.plot(
+        sma.index,
+        sma.to_numpy(dtype=float, copy=False),
+        label=f"SMA({lookback})",
+        color="#1d4ed8",
+        linewidth=1.2,
+    )
     ax_price.fill_between(
         close.index,
-        upper.values,
-        lower.values,
+        upper.to_numpy(dtype=float, copy=False),
+        lower.to_numpy(dtype=float, copy=False),
         color="#93c5fd",
         alpha=0.15,
         label="±1σ band",
     )
-    for when, delta in changes[changes != 0].items():
-        color = "#10b981" if signals.loc[when] > 0 else "#ef4444"
+    event_times: list[pd.Timestamp] = [
+        cast(pd.Timestamp, when)
+        for when in changes[changes != 0].index
+        if isinstance(when, pd.Timestamp)
+    ]
+    for when in event_times:
+        color = "#10b981" if float(signals.loc[when]) > 0 else "#ef4444"
         ax_price.axvline(when, color=color, linestyle="--", alpha=0.35, linewidth=1.0)
     ax_price.set_ylabel("Price")
     ax_price.legend(loc="upper left")
     ax_price.set_title("Mean Reversion Lesson: price vs. SMA ± σ")
 
-    ax_z.plot(zscores.index, zscores.values, color="#6366f1", linewidth=1.5)
+    ax_z.plot(
+        zscores.index,
+        zscores.to_numpy(dtype=float, copy=False),
+        color="#6366f1",
+        linewidth=1.5,
+    )
     ax_z.axhline(1.0, color="#f97316", linestyle="--", alpha=0.7)
     ax_z.axhline(-1.0, color="#f97316", linestyle="--", alpha=0.7)
     ax_z.set_ylabel("z-score")
@@ -323,9 +366,25 @@ def _plot_momentum(
         return
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(close.index, close.values, label="Close", color="#60a5fa", linewidth=1.2)
-    ax.plot(sma_fast.index, sma_fast.values, label=f"Fast SMA({sma_fast.name})", color="#16a34a")
-    ax.plot(sma_slow.index, sma_slow.values, label=f"Slow SMA({sma_slow.name})", color="#f97316")
+    ax.plot(
+        close.index,
+        close.to_numpy(dtype=float, copy=False),
+        label="Close",
+        color="#60a5fa",
+        linewidth=1.2,
+    )
+    ax.plot(
+        sma_fast.index,
+        sma_fast.to_numpy(dtype=float, copy=False),
+        label=f"Fast SMA({sma_fast.name})",
+        color="#16a34a",
+    )
+    ax.plot(
+        sma_slow.index,
+        sma_slow.to_numpy(dtype=float, copy=False),
+        label=f"Slow SMA({sma_slow.name})",
+        color="#f97316",
+    )
 
     state = signals.astype(int)
     regime_id = (state != state.shift()).cumsum()
@@ -334,7 +393,13 @@ def _plot_momentum(
         if val == 0:
             continue
         color = "#dcfce7" if val > 0 else "#fee2e2"
-        ax.axvspan(segment.index[0], segment.index[-1], color=color, alpha=0.25)
+        if len(segment.index) == 0:
+            continue
+    start_time = cast(pd.Timestamp, segment.index[0])
+    end_time = cast(pd.Timestamp, segment.index[-1])
+    start_val = float(mdates.date2num(start_time.to_pydatetime()))
+    end_val = float(mdates.date2num(end_time.to_pydatetime()))
+    ax.axvspan(start_val, end_val, color=color, alpha=0.25)
 
     ax.set_title("Momentum Lesson: crossover regimes")
     ax.set_ylabel("Price")
@@ -381,28 +446,67 @@ def _plot_pairs(
         gridspec_kw={"height_ratios": [3, 2, 1]},
     )
 
-    ax_top.plot(norm_a.index, norm_a.values, label=f"{sym_a} (normalized)", color="#0ea5e9")
-    ax_top.plot(norm_b.index, norm_b.values, label=f"{sym_b} (normalized)", color="#f97316")
+    ax_top.plot(
+        norm_a.index,
+        norm_a.to_numpy(dtype=float, copy=False),
+        label=f"{sym_a} (normalized)",
+        color="#0ea5e9",
+    )
+    ax_top.plot(
+        norm_b.index,
+        norm_b.to_numpy(dtype=float, copy=False),
+        label=f"{sym_b} (normalized)",
+        color="#f97316",
+    )
     long_shown = False
     short_shown = False
-    for when, delta in changes[changes != 0].items():
-        val = sig_a.loc[when]
+    event_times: list[pd.Timestamp] = [
+        cast(pd.Timestamp, when)
+        for when in changes[changes != 0].index
+        if isinstance(when, pd.Timestamp)
+    ]
+    for when in event_times:
+        val = int(sig_a.loc[when])
         if val == 1:
             label = "Long A / Short B" if not long_shown else None
-            ax_top.scatter(when, norm_a.loc[when], marker="^", color="#10b981", s=60, label=label)
+            ax_top.scatter(
+                when,
+                float(norm_a.loc[when]),
+                marker="^",
+                color="#10b981",
+                s=60,
+                label=label,
+            )
             long_shown = True
         elif val == -1:
             label = "Short A / Long B" if not short_shown else None
-            ax_top.scatter(when, norm_a.loc[when], marker="v", color="#ef4444", s=60, label=label)
+            ax_top.scatter(
+                when,
+                float(norm_a.loc[when]),
+                marker="v",
+                color="#ef4444",
+                s=60,
+                label=label,
+            )
             short_shown = True
     ax_top.set_title("Pairs Trading Lesson: normalized legs")
     ax_top.legend(loc="upper left")
 
-    ax_mid.plot(spread.index, spread.values, color="#4b5563", linewidth=1.3)
+    ax_mid.plot(
+        spread.index,
+        spread.to_numpy(dtype=float, copy=False),
+        color="#4b5563",
+        linewidth=1.3,
+    )
     ax_mid.axhline(spread.mean(), color="#1d4ed8", linestyle="--", alpha=0.5)
     ax_mid.set_ylabel("Spread")
 
-    ax_bot.plot(zscores.index, zscores.values, color="#6366f1", linewidth=1.5)
+    ax_bot.plot(
+        zscores.index,
+        zscores.to_numpy(dtype=float, copy=False),
+        color="#6366f1",
+        linewidth=1.5,
+    )
     ax_bot.axhline(1.0, color="#f97316", linestyle="--", alpha=0.7)
     ax_bot.axhline(-1.0, color="#f97316", linestyle="--", alpha=0.7)
     ax_bot.set_ylabel("z-score")
@@ -422,10 +526,14 @@ def _plot_pairs(
 @lesson("mean_reversion", "Fade z-score extremes on a single asset.")
 def _lesson_mean_reversion(ctx: LessonContext) -> None:
     symbol = "MSFT"
-    ctx.narrate(f"[Lesson: Mean Reversion] Using {symbol} daily bars to illustrate z-score fades.")
+    ctx.narrate(
+        f"[Lesson: Mean Reversion] Using {symbol} daily bars to illustrate z-score fades."
+    )
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices = get_prices(symbol, start, end, interval="1d", asset_class="equity").tail(60)
+    prices = get_prices(symbol, start, end, interval="1d", asset_class="equity").tail(
+        60
+    )
     _summarize_data(ctx, prices)
     close = prices["Close"].astype(float)
 
@@ -438,27 +546,64 @@ def _lesson_mean_reversion(ctx: LessonContext) -> None:
 
     ctx.add_glossary(
         [
-            {"name": "Lookback window", "symbol": "n", "definition": "Bars used for rolling stats", "units": "bars"},
-            {"name": "Rolling mean", "symbol": "μ_t", "definition": "Average price across the last n bars", "units": "price"},
-            {"name": "Rolling std dev", "symbol": "σ_t", "definition": "Volatility of price over the last n bars", "units": "price"},
-            {"name": "Z-score", "symbol": "z_t", "definition": "Standardized distance from the rolling mean", "units": "σ"},
-            {"name": "Price", "symbol": "p_t", "definition": "Closing price at time t", "units": "price"},
+            {
+                "name": "Lookback window",
+                "symbol": "n",
+                "definition": "Bars used for rolling stats",
+                "units": "bars",
+            },
+            {
+                "name": "Rolling mean",
+                "symbol": "μ_t",
+                "definition": "Average price across the last n bars",
+                "units": "price",
+            },
+            {
+                "name": "Rolling std dev",
+                "symbol": "σ_t",
+                "definition": "Volatility of price over the last n bars",
+                "units": "price",
+            },
+            {
+                "name": "Z-score",
+                "symbol": "z_t",
+                "definition": "Standardized distance from the rolling mean",
+                "units": "σ",
+            },
+            {
+                "name": "Price",
+                "symbol": "p_t",
+                "definition": "Closing price at time t",
+                "units": "price",
+            },
         ]
     )
 
-    ctx.narrate(f"Step 1: {lookback}-day SMA = mean({window.min():.2f}…{window.max():.2f}) = {sma:.2f}")
-    ctx.narrate(f"Step 2: σ (population std) = {sigma:.2f}; latest Close = {last_price:.2f}")
-    ctx.narrate(f"Step 3: z = (Price - SMA) / σ = ({last_price:.2f} - {sma:.2f}) / {sigma:.2f} = {z_value:.2f}")
+    ctx.narrate(
+        f"Step 1: {lookback}-day SMA = mean({window.min():.2f}…{window.max():.2f}) = {sma:.2f}"
+    )
+    ctx.narrate(
+        f"Step 2: σ (population std) = {sigma:.2f}; latest Close = {last_price:.2f}"
+    )
+    ctx.narrate(
+        f"Step 3: z = (Price - SMA) / σ = ({last_price:.2f} - {sma:.2f}) / {sigma:.2f} = {z_value:.2f}"
+    )
 
-    ctx.explain("Simple Moving Average", f"SMA_t = (1/n) Σ p_i over the last {lookback} bars.")
+    ctx.explain(
+        "Simple Moving Average", f"SMA_t = (1/n) Σ p_i over the last {lookback} bars."
+    )
     ctx.explain(
         "Rolling Standard Deviation",
         "σ_t = sqrt((1/n) Σ (p_i - μ_t)^2), capturing dispersion around the mean.",
     )
-    ctx.explain("Z-score", "z_t measures how many standard deviations p_t sits away from μ_t.")
+    ctx.explain(
+        "Z-score", "z_t measures how many standard deviations p_t sits away from μ_t."
+    )
 
     signals = mean_reversion_signals(prices, lookback=lookback, z_entry=1.0)
-    zscores = (close - close.rolling(lookback).mean()) / close.rolling(lookback).std(ddof=0)
+    zscores = (close - close.rolling(lookback).mean()) / close.rolling(lookback).std(
+        ddof=0
+    )
     _summarize_signals(ctx, signals)
 
     changes = signals.diff().fillna(signals)
@@ -470,22 +615,32 @@ def _lesson_mean_reversion(ctx: LessonContext) -> None:
         )
         step += 1
     else:
-        for when, delta in meaningful.items():
-            sig = signals.loc[when]
+        event_times: list[pd.Timestamp] = [
+            cast(pd.Timestamp, when)
+            for when in meaningful.index
+            if isinstance(when, pd.Timestamp)
+        ]
+        for when in event_times:
+            sig = int(signals.loc[when])
             tag = "BUY" if sig == 1 else "SELL" if sig == -1 else "EXIT"
             reason = "reversion opportunity" if sig else "mean hit"
-            z_at = zscores.loc[when]
+            z_at = float(zscores.loc[when])
             ctx.narrate(
-                f"Step {step}: {tag} {'entry' if sig else 'flat'} at {close.loc[when]:.2f} on {when.date()} "
+                f"Step {step}: {tag} {'entry' if sig else 'flat'} at {float(close.loc[when]):.2f} on {when.date()} "
                 f"because z = {z_at:.2f} → {reason}."
             )
             step += 1
 
-    results = run_backtest(prices=prices, signals=signals, asset_class="equity", periods_per_year=252)
+    results = run_backtest(
+        prices=prices, signals=signals, asset_class="equity", periods_per_year=252
+    )
     returns_std = results["returns"].std()
     if np.isclose(returns_std, 0.0):
-        ctx.narrate("Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0.")
-    for note in results.get("warnings", []):
+        ctx.narrate(
+            "Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0."
+        )
+    warnings = cast(Iterable[str], results.get("warnings", []))
+    for note in warnings:
         ctx.narrate(f"Warning: {note}")
     _print_takeaways(ctx, results["metrics"], results["equity_curve"])
 
@@ -499,20 +654,40 @@ def _lesson_momentum(ctx: LessonContext) -> None:
     ctx.narrate(f"[Lesson: Momentum] Tracking trend-following crossovers on {symbol}.")
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices = get_prices(symbol, start, end, interval="1d", asset_class="crypto").tail(90)
+    prices = get_prices(symbol, start, end, interval="1d", asset_class="crypto").tail(
+        90
+    )
     _summarize_data(ctx, prices)
     close = prices["Close"].astype(float)
 
     fast, slow = 5, 15
     sma_fast = close.rolling(fast).mean().rename(fast)
     sma_slow = close.rolling(slow).mean().rename(slow)
-    ctx.explain("Momentum Signal", "Signal = sign(SMA_fast - SMA_slow); crossovers flag regime shifts.")
+    ctx.explain(
+        "Momentum Signal",
+        "Signal = sign(SMA_fast - SMA_slow); crossovers flag regime shifts.",
+    )
 
     ctx.add_glossary(
         [
-            {"name": "Fast moving average", "symbol": "SMA_f", "definition": f"Mean of last {fast} closes", "units": "price"},
-            {"name": "Slow moving average", "symbol": "SMA_s", "definition": f"Mean of last {slow} closes", "units": "price"},
-            {"name": "Signal", "symbol": "s_t", "definition": "Direction derived from SMA_f - SMA_s", "units": "{-1,0,+1}"},
+            {
+                "name": "Fast moving average",
+                "symbol": "SMA_f",
+                "definition": f"Mean of last {fast} closes",
+                "units": "price",
+            },
+            {
+                "name": "Slow moving average",
+                "symbol": "SMA_s",
+                "definition": f"Mean of last {slow} closes",
+                "units": "price",
+            },
+            {
+                "name": "Signal",
+                "symbol": "s_t",
+                "definition": "Direction derived from SMA_f - SMA_s",
+                "units": "{-1,0,+1}",
+            },
         ]
     )
 
@@ -530,23 +705,35 @@ def _lesson_momentum(ctx: LessonContext) -> None:
     step = 3
     meaningful = changes[changes != 0]
     if meaningful.empty:
-        ctx.narrate(f"Step {step}: No crossover yet — trend filter still neutral in this sample.")
+        ctx.narrate(
+            f"Step {step}: No crossover yet — trend filter still neutral in this sample."
+        )
         step += 1
     else:
-        for when, delta in meaningful.items():
-            sig = signals.loc[when]
+        event_times: list[pd.Timestamp] = [
+            cast(pd.Timestamp, when)
+            for when in meaningful.index
+            if isinstance(when, pd.Timestamp)
+        ]
+        for when in event_times:
+            sig = int(signals.loc[when])
             direction = "LONG" if sig == 1 else "SHORT" if sig == -1 else "FLAT"
             ctx.narrate(
                 f"Step {step}: {direction} on {when.date()} because SMA({fast}) {'>' if sig == 1 else '<' if sig == -1 else '≈'} "
-                f"SMA({slow}). Price={close.loc[when]:.2f}."
+                f"SMA({slow}). Price={float(close.loc[when]):.2f}."
             )
             step += 1
 
-    results = run_backtest(prices=prices, signals=signals, asset_class="crypto", periods_per_year=365)
+    results = run_backtest(
+        prices=prices, signals=signals, asset_class="crypto", periods_per_year=365
+    )
     returns_std = results["returns"].std()
     if np.isclose(returns_std, 0.0):
-        ctx.narrate("Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0.")
-    for note in results.get("warnings", []):
+        ctx.narrate(
+            "Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0."
+        )
+    warnings = cast(Iterable[str], results.get("warnings", []))
+    for note in warnings:
         ctx.narrate(f"Warning: {note}")
     _print_takeaways(ctx, results["metrics"], results["equity_curve"])
 
@@ -557,28 +744,62 @@ def _lesson_momentum(ctx: LessonContext) -> None:
 @lesson("pairs_trading", "Trade the spread between two correlated assets.")
 def _lesson_pairs(ctx: LessonContext) -> None:
     sym_a, sym_b = "MSFT", "AAPL"
-    ctx.narrate(f"[Lesson: Pairs Trading] Comparing {sym_a} vs {sym_b} to trade their spread.")
+    ctx.narrate(
+        f"[Lesson: Pairs Trading] Comparing {sym_a} vs {sym_b} to trade their spread."
+    )
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices_a = get_prices(sym_a, start, end, interval="1d", asset_class="equity").tail(90)
-    prices_b = get_prices(sym_b, start, end, interval="1d", asset_class="equity").tail(90)
+    prices_a = get_prices(sym_a, start, end, interval="1d", asset_class="equity").tail(
+        90
+    )
+    prices_b = get_prices(sym_b, start, end, interval="1d", asset_class="equity").tail(
+        90
+    )
     closes = pd.DataFrame({sym_a: prices_a["Close"], sym_b: prices_b["Close"]}).dropna()
     _summarize_data(ctx, closes)
 
     corr = closes.pct_change().corr().iloc[0, 1]
-    ctx.narrate(f"Step 1: 30-day return correlation = {corr:.2f}. High correlation suggests spread mean reversion.")
+    ctx.narrate(
+        f"Step 1: 30-day return correlation = {corr:.2f}. High correlation suggests spread mean reversion."
+    )
 
     lookback = 20
     ctx.add_glossary(
         [
-            {"name": "Hedge ratio", "symbol": "β", "definition": "OLS slope linking A to B", "units": "ratio"},
-            {"name": "Spread", "symbol": "spread_t", "definition": "A - β·B residual", "units": "price"},
-            {"name": "Z-score", "symbol": "z_t", "definition": "Spread normalized by its σ", "units": "σ"},
-            {"name": "Price", "symbol": "p_t", "definition": "Closing leg price", "units": "price"},
+            {
+                "name": "Hedge ratio",
+                "symbol": "β",
+                "definition": "OLS slope linking A to B",
+                "units": "ratio",
+            },
+            {
+                "name": "Spread",
+                "symbol": "spread_t",
+                "definition": "A - β·B residual",
+                "units": "price",
+            },
+            {
+                "name": "Z-score",
+                "symbol": "z_t",
+                "definition": "Spread normalized by its σ",
+                "units": "σ",
+            },
+            {
+                "name": "Price",
+                "symbol": "p_t",
+                "definition": "Closing leg price",
+                "units": "price",
+            },
         ]
     )
-    ctx.explain("Hedge Ratio", "β estimated via ordinary least squares between the two price series.")
-    ctx.explain("Pair Spread", "spread_t = p^A_t - β p^B_t captures divergence from the equilibrium line.")
+    ctx.explain(
+        "Hedge Ratio",
+        "β estimated via ordinary least squares between the two price series.",
+    )
+    ctx.explain(
+        "Pair Spread",
+        "spread_t = p^A_t - β p^B_t captures divergence from the equilibrium line.",
+    )
 
     signals_df = pairs_trading_signals(
         closes,
@@ -602,11 +823,18 @@ def _lesson_pairs(ctx: LessonContext) -> None:
     step = 4
     meaningful = changes[changes != 0]
     if meaningful.empty:
-        ctx.narrate("Step 4: Spread never hit ±1.0σ during this slice — patience is part of pairs trading.")
+        ctx.narrate(
+            "Step 4: Spread never hit ±1.0σ during this slice — patience is part of pairs trading."
+        )
         step += 1
     else:
-        for when, delta in meaningful.items():
-            sig = sig_a.loc[when]
+        event_times: list[pd.Timestamp] = [
+            cast(pd.Timestamp, when)
+            for when in meaningful.index
+            if isinstance(when, pd.Timestamp)
+        ]
+        for when in event_times:
+            sig = int(sig_a.loc[when])
             if sig == 1:
                 action = f"LONG {sym_a} / SHORT {sym_b}"
             elif sig == -1:
@@ -614,16 +842,24 @@ def _lesson_pairs(ctx: LessonContext) -> None:
             else:
                 action = "EXIT spread"
             ctx.narrate(
-                f"Step {step}: {action} on {when.date()} because spread z = {signals_df['zscore'].loc[when]:.2f}."
+                f"Step {step}: {action} on {when.date()} because spread z = {float(signals_df['zscore'].loc[when]):.2f}."
             )
             step += 1
 
     aligned_prices = prices_a.loc[sig_a.index]
-    results = run_backtest(prices=aligned_prices, signals=sig_a.astype(int), asset_class="equity", periods_per_year=252)
+    results = run_backtest(
+        prices=aligned_prices,
+        signals=sig_a.astype(int),
+        asset_class="equity",
+        periods_per_year=252,
+    )
     returns_std = results["returns"].std()
     if np.isclose(returns_std, 0.0):
-        ctx.narrate("Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0.")
-    for note in results.get("warnings", []):
+        ctx.narrate(
+            "Sharpe variance guard: returns variance was zero, so Sharpe was reset to 0.0."
+        )
+    warnings = cast(Iterable[str], results.get("warnings", []))
+    for note in warnings:
         ctx.narrate(f"Warning: {note}")
     _print_takeaways(ctx, results["metrics"], results["equity_curve"])
 
@@ -631,11 +867,15 @@ def _lesson_pairs(ctx: LessonContext) -> None:
         _plot_pairs(ctx, closes.loc[sig_a.index], signals_df.loc[sig_a.index], sig_a)
 
 
-def run_lesson(lesson_name: str, plot: bool = False, explain_math: bool = False) -> None:
+def run_lesson(
+    lesson_name: str, plot: bool = False, explain_math: bool = False
+) -> None:
     """Public entry point for CLI and shims."""
     lesson_key = lesson_name.lower().strip()
     if lesson_key not in LESSON_HANDLERS:
-        raise ValueError(f"Unknown lesson '{lesson_name}'. Available: {', '.join(available_lessons())}")
+        raise ValueError(
+            f"Unknown lesson '{lesson_name}'. Available: {', '.join(available_lessons())}"
+        )
 
     lesson_dir, run_dir, plots_dir, stamp = _prepare_run_dirs(lesson_key)
     settings = load_settings()

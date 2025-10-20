@@ -76,9 +76,16 @@ class AlpacaBrokerAdapter(BrokerAdapter):
         if validation.accepted:
             order_id = self._next_id()
             updated_intent = replace(intent, client_order_id=validation.client_order_id)
-            order = Order(order_id=order_id, intent=updated_intent, state=OrderState.SUBMITTED)
+            order = Order(
+                order_id=order_id, intent=updated_intent, state=OrderState.SUBMITTED
+            )
             self._orders[order_id] = order
-        self._append_log(action="place_order", order_id=order_id, validation=validation, timestamp=timestamp)
+        self._append_log(
+            action="place_order",
+            order_id=order_id,
+            validation=validation,
+            timestamp=timestamp,
+        )
         if not validation.accepted:
             raise ValueError(validation.reason)
         assert order is not None
@@ -99,9 +106,18 @@ class AlpacaBrokerAdapter(BrokerAdapter):
         updated: Optional[Order] = None
         if validation.accepted:
             updated_intent = replace(intent, client_order_id=validation.client_order_id)
-            updated = replace(self._orders[order_id], intent=updated_intent, state=OrderState.SUBMITTED)
+            updated = replace(
+                self._orders[order_id],
+                intent=updated_intent,
+                state=OrderState.SUBMITTED,
+            )
             self._orders[order_id] = updated
-        self._append_log(action="replace_order", order_id=order_id, validation=validation, timestamp=timestamp)
+        self._append_log(
+            action="replace_order",
+            order_id=order_id,
+            validation=validation,
+            timestamp=timestamp,
+        )
         if not validation.accepted:
             raise ValueError(validation.reason)
         assert updated is not None
@@ -122,7 +138,12 @@ class AlpacaBrokerAdapter(BrokerAdapter):
         )
         canceled = replace(existing, state=OrderState.CANCELED)
         self._orders[order_id] = canceled
-        self._append_log(action="cancel_order", order_id=order_id, validation=validation, timestamp=timestamp)
+        self._append_log(
+            action="cancel_order",
+            order_id=order_id,
+            validation=validation,
+            timestamp=timestamp,
+        )
         return canceled
 
     def poll_fills(self) -> List[Fill]:
@@ -148,7 +169,14 @@ class AlpacaBrokerAdapter(BrokerAdapter):
     def _next_id(self) -> str:
         return f"ALPACA-DRY-{next(self._seq):06d}"
 
-    def _append_log(self, *, action: str, order_id: Optional[str], validation: ValidationResult, timestamp: str) -> None:
+    def _append_log(
+        self,
+        *,
+        action: str,
+        order_id: Optional[str],
+        validation: ValidationResult,
+        timestamp: str,
+    ) -> None:
         normalized = dict(validation.normalized_payload)
         entry = {
             "adapter": ADAPTER_NAME,
@@ -184,5 +212,3 @@ class AlpacaBrokerAdapter(BrokerAdapter):
             },
         }
         self._logs.append(entry)
-
-

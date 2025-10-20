@@ -4,6 +4,7 @@ This module introduces the dataclasses and enumerations used by the translator,
 paper broker, and runner subsystems. Implementations are deferred to Sprint A
 and will initially be exercised via failing-first tests.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

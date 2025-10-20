@@ -10,7 +10,9 @@
 from __future__ import annotations
 import pandas as pd
 import warnings
+
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="pandas.core.nanops")
+
 
 def generate_signals(df: pd.DataFrame, fast: int = 20, slow: int = 50) -> pd.Series:
     """Return {-1,0,+1} signals from SMA crossover."""

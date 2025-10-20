@@ -91,7 +91,9 @@ def new_run(
     run_log_file = logs_dir / "run.log"
 
     # Attach per-run log handler
-    handler = attach_run_file_handler(run_log_file, level=logger.level if logger else None)
+    handler = attach_run_file_handler(
+        run_log_file, level=logger.level if logger else None
+    )
 
     if set_latest and base_dir == RUNS_DIR:
         _safe_symlink(run_dir, RUNS_LATEST_LINK)
@@ -109,14 +111,18 @@ def new_run(
     )
 
 
-def write_config(ctx: RunContext, config: Dict[str, Any], env: Optional[Dict[str, Any]] = None) -> None:
+def write_config(
+    ctx: RunContext, config: Dict[str, Any], env: Optional[Dict[str, Any]] = None
+) -> None:
     """
     Persist the effective configuration, including selected environment values.
     """
     payload = {"config": config}
     if env:
         payload["env"] = env
-    ctx.config_file.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    ctx.config_file.write_text(
+        yaml.safe_dump(payload, sort_keys=False), encoding="utf-8"
+    )
 
 
 def write_metrics(ctx: RunContext, metrics: Dict[str, Any]) -> None:
@@ -134,14 +140,14 @@ def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None
         rows = trades if isinstance(trades, (list, tuple)) else []
         if rows and isinstance(rows[0], dict):
             fieldnames = list(rows[0].keys())
-            with ctx.trades_file.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)  # type: ignore
+            with ctx.trades_file.open("w", newline="", encoding="utf-8") as fh:
+                dict_writer = csv.DictWriter(fh, fieldnames=fieldnames)
+                dict_writer.writeheader()
+                dict_writer.writerows(rows)  # type: ignore[arg-type]
         else:
-            with ctx.trades_file.open("w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerows(rows)  # type: ignore
+            with ctx.trades_file.open("w", newline="", encoding="utf-8") as fh:
+                row_writer = csv.writer(fh)
+                row_writer.writerows(rows)  # type: ignore[arg-type]
 
 
 def save_equity_plot(ctx: RunContext, fig: Any) -> Path:
@@ -169,6 +175,7 @@ def close_run_context(ctx: RunContext) -> None:
 
 
 # Lesson runs -----------------------------------------------------------------
+
 
 @dataclass
 class LessonPaths:

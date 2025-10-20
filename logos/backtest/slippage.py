@@ -9,6 +9,7 @@
 # =============================================================================
 from __future__ import annotations
 
+
 def apply(price: float, side: int, slip_bps: float = 1.0) -> float:
     """Return adjusted fill price after applying slip_bps basis points."""
     bps = slip_bps / 10_000.0

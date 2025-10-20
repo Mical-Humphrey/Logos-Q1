@@ -32,7 +32,9 @@ DEFAULT_OUTPUT_ROOT = regression.PROJECT_ROOT / "runs" / "live" / "phase2"
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run Logos regression matrix against pinned baselines")
+    parser = argparse.ArgumentParser(
+        description="Run Logos regression matrix against pinned baselines"
+    )
     parser.add_argument(
         "--scenarios",
         default=",".join(DEFAULT_SCENARIOS),
@@ -43,11 +45,34 @@ def _build_parser() -> argparse.ArgumentParser:
         default=",".join(DEFAULT_MODES),
         help="Comma-separated modes (paper, adapter:ccxt, adapter:alpaca)",
     )
-    parser.add_argument("--seed", type=int, default=regression.DEFAULT_SEED, help="Seed used for deterministic runs")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_ROOT, help="Root directory for matrix outputs")
-    parser.add_argument("--baseline-root", type=Path, default=DEFAULT_BASELINE_ROOT, help="Root directory containing pinned baselines")
-    parser.add_argument("--refresh-baseline", action="store_true", help="Overwrite baselines with fresh outputs")
-    parser.add_argument("--i-understand", action="store_true", help="Required confirmation when refreshing baselines")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=regression.DEFAULT_SEED,
+        help="Seed used for deterministic runs",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_ROOT,
+        help="Root directory for matrix outputs",
+    )
+    parser.add_argument(
+        "--baseline-root",
+        type=Path,
+        default=DEFAULT_BASELINE_ROOT,
+        help="Root directory containing pinned baselines",
+    )
+    parser.add_argument(
+        "--refresh-baseline",
+        action="store_true",
+        help="Overwrite baselines with fresh outputs",
+    )
+    parser.add_argument(
+        "--i-understand",
+        action="store_true",
+        help="Required confirmation when refreshing baselines",
+    )
     return parser
 
 
@@ -69,7 +94,11 @@ def _resolve_modes(values: Iterable[str]) -> List[_ModeSpec]:
     resolved: List[_ModeSpec] = []
     for value in values:
         if value == "paper":
-            resolved.append(_ModeSpec(raw=value, adapter_mode="paper", adapter_name=None, dir_name="paper"))
+            resolved.append(
+                _ModeSpec(
+                    raw=value, adapter_mode="paper", adapter_name=None, dir_name="paper"
+                )
+            )
             continue
         if value.startswith("adapter:"):
             adapter = value.split(":", 1)[1]
@@ -77,7 +106,12 @@ def _resolve_modes(values: Iterable[str]) -> List[_ModeSpec]:
                 raise ValueError(f"Unsupported adapter mode: {value}")
             dir_name = f"adapter_{adapter}"
             resolved.append(
-                _ModeSpec(raw=value, adapter_mode="adapter", adapter_name=adapter, dir_name=dir_name)
+                _ModeSpec(
+                    raw=value,
+                    adapter_mode="adapter",
+                    adapter_name=adapter,
+                    dir_name=dir_name,
+                )
             )
             continue
         raise ValueError(f"Unrecognised mode specification: {value}")

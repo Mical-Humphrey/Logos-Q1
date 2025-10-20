@@ -84,9 +84,21 @@ def test_artifacts_and_metrics_are_deterministic(tmp_path) -> None:
     paths = prepare_seeded_run_paths(9, "Paper Demo", base_dir=tmp_path)
 
     equity_curve = [
-        {"ts": dt.datetime(2024, 1, 1, 9, 30, tzinfo=dt.timezone.utc), "equity": 100_000.0, "cash": 100_000.0},
-        {"ts": dt.datetime(2024, 1, 1, 9, 31, tzinfo=dt.timezone.utc), "equity": 100_500.0, "cash": 99_500.0},
-        {"ts": dt.datetime(2024, 1, 1, 9, 32, tzinfo=dt.timezone.utc), "equity": 101_000.0, "cash": 99_000.0},
+        {
+            "ts": dt.datetime(2024, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            "equity": 100_000.0,
+            "cash": 100_000.0,
+        },
+        {
+            "ts": dt.datetime(2024, 1, 1, 9, 31, tzinfo=dt.timezone.utc),
+            "equity": 100_500.0,
+            "cash": 99_500.0,
+        },
+        {
+            "ts": dt.datetime(2024, 1, 1, 9, 32, tzinfo=dt.timezone.utc),
+            "equity": 101_000.0,
+            "cash": 99_000.0,
+        },
     ]
     trades = [
         {"id": "F-1", "pnl": 500.0, "notional": 10_000.0},
@@ -128,5 +140,5 @@ def test_artifacts_and_metrics_are_deterministic(tmp_path) -> None:
     assert metrics_payload["turnover"] == pytest.approx(0.2)
     assert metrics_payload["exposure"] == pytest.approx(0.5)
     returns = pd.Series([row["equity"] for row in equity_curve]).pct_change().dropna()
-    expected_sharpe = float(returns.mean() / returns.std(ddof=0) * (252 ** 0.5))
+    expected_sharpe = float(returns.mean() / returns.std(ddof=0) * (252**0.5))
     assert metrics_payload["sharpe"] == pytest.approx(expected_sharpe)

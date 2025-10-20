@@ -3,24 +3,60 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, Iterator
 
 from logos.live import regression
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Execute deterministic live regression runs")
-    parser.add_argument("--dataset", type=Path, default=regression.DEFAULT_FIXTURE_DIR, help="Dataset directory containing bars.csv, symbols.yaml, account.json")
-    parser.add_argument("--symbol", default=regression.DEFAULT_SYMBOL, help="Target symbol for the regression run")
-    parser.add_argument("--mode", choices=["paper", "adapter"], default="paper", help="Execution mode: paper broker or dry-run adapter")
-    parser.add_argument("--adapter", choices=["alpaca", "ccxt"], default=None, help="Dry-run adapter to use when --mode adapter")
-    parser.add_argument("--run-label", dest="label", default="cli-regression", help="Label used for seeded output directories")
-    parser.add_argument("--output-dir", type=Path, default=Path("runs/live/regression"), help="Root directory for regression artifacts")
-    parser.add_argument("--baseline-dir", type=Path, default=Path("runs/live/regression_baseline"), help="Directory used for optional baseline comparisons")
+    parser = argparse.ArgumentParser(
+        description="Execute deterministic live regression runs"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=regression.DEFAULT_FIXTURE_DIR,
+        help="Dataset directory containing bars.csv, symbols.yaml, account.json",
+    )
+    parser.add_argument(
+        "--symbol",
+        default=regression.DEFAULT_SYMBOL,
+        help="Target symbol for the regression run",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["paper", "adapter"],
+        default="paper",
+        help="Execution mode: paper broker or dry-run adapter",
+    )
+    parser.add_argument(
+        "--adapter",
+        choices=["alpaca", "ccxt"],
+        default=None,
+        help="Dry-run adapter to use when --mode adapter",
+    )
+    parser.add_argument(
+        "--run-label",
+        dest="label",
+        default="cli-regression",
+        help="Label used for seeded output directories",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("runs/live/regression"),
+        help="Root directory for regression artifacts",
+    )
+    parser.add_argument(
+        "--baseline-dir",
+        type=Path,
+        default=Path("runs/live/regression_baseline"),
+        help="Directory used for optional baseline comparisons",
+    )
     return parser
 
 
-def _checksums(paths: Iterable[Path]) -> Iterable[Tuple[Path, str]]:
+def _checksums(paths: Iterable[Path | None]) -> Iterator[tuple[Path, str]]:
     import hashlib
 
     for path in paths:

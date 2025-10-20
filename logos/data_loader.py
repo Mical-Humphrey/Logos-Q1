@@ -18,7 +18,7 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Dict, cast
 
 import numpy as np
 import pandas as pd
@@ -43,7 +43,9 @@ def _cache_path(symbol: str, interval: str, asset_tag: str) -> Path:
     return cache_dir / f"{safe}_{interval}.csv"
 
 
-def _candidate_fixture_paths(symbol: str, interval: str, asset_tag: str, download_symbol: str | None) -> list[Path]:
+def _candidate_fixture_paths(
+    symbol: str, interval: str, asset_tag: str, download_symbol: str | None
+) -> list[Path]:
     """Enumerate possible fixture filenames for graceful offline fallbacks."""
     ensure_dirs([DATA_RAW_DIR])
     candidates: list[Path] = []
@@ -52,20 +54,24 @@ def _candidate_fixture_paths(symbol: str, interval: str, asset_tag: str, downloa
         symbols.add(download_symbol)
     for sym in symbols:
         safe = _safe_symbol(sym)
-        candidates.extend([
-            DATA_RAW_DIR / f"{safe}.csv",
-            DATA_RAW_DIR / f"{safe}_{interval}.csv",
-            DATA_RAW_DIR / f"{asset_tag}_{safe}.csv",
-            DATA_RAW_DIR / f"{asset_tag}_{safe}_{interval}.csv",
-        ])
+        candidates.extend(
+            [
+                DATA_RAW_DIR / f"{safe}.csv",
+                DATA_RAW_DIR / f"{safe}_{interval}.csv",
+                DATA_RAW_DIR / f"{asset_tag}_{safe}.csv",
+                DATA_RAW_DIR / f"{asset_tag}_{safe}_{interval}.csv",
+            ]
+        )
     # Deduplicate while preserving order
-    seen = {}
+    seen: Dict[Path, None] = {}
     for path in candidates:
         seen.setdefault(path, None)
     return list(seen.keys())
 
 
-def _load_fixture(symbol: str, interval: str, asset_tag: str, download_symbol: str | None) -> pd.DataFrame | None:
+def _load_fixture(
+    symbol: str, interval: str, asset_tag: str, download_symbol: str | None
+) -> pd.DataFrame | None:
     for path in _candidate_fixture_paths(symbol, interval, asset_tag, download_symbol):
         if not path.exists():
             continue
@@ -78,21 +84,25 @@ def _load_fixture(symbol: str, interval: str, asset_tag: str, download_symbol: s
             logger.warning(f"Failed reading fixture {path}: {exc}")
     return None
 
+
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return df
+
 
 def _ensure_adj_close(df: pd.DataFrame) -> pd.DataFrame:
     if "Adj Close" not in df.columns:
         df["Adj Close"] = df["Close"]
     return df
 
+
 def _covers_range(df: pd.DataFrame, start: str, end: str) -> bool:
     if df.empty:
         return False
     s, e = pd.to_datetime(start), pd.to_datetime(end)
     return df.index.min() <= s and df.index.max() >= e
+
 
 def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     """Resample daily bars to intraday with sane OHLCV aggregation."""
@@ -105,7 +115,7 @@ def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
         "Adj Close": "last",
         "Volume": "sum",
     }
-    out = df.resample(rule).apply(ohlc).dropna(how="any")
+    out = df.resample(rule).agg(ohlc).dropna(how="any")  # type: ignore[arg-type]
     return out
 
 
@@ -121,18 +131,27 @@ def _expand_daily_to_intraday(df: pd.DataFrame, interval: str) -> pd.DataFrame:
         freq = freq.replace("m", "min")
         step = pd.Timedelta(freq)
     per_day = max(int(pd.Timedelta("1D") / step), 1)
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df = df.copy()
+        df.index = pd.to_datetime(df.index)
+
     frames: list[pd.DataFrame] = []
-    for dt, row in df.iterrows():
-        start = pd.Timestamp(dt)
+    index = cast(pd.DatetimeIndex, df.index)
+    for dt in index:
+        row = df.loc[dt]
+        start = dt
         idx = pd.date_range(start=start, periods=per_day, freq=freq, inclusive="left")
-        day = pd.DataFrame({
-            "Open": row["Open"],
-            "High": row["High"],
-            "Low": row["Low"],
-            "Close": row["Close"],
-            "Adj Close": row["Adj Close"],
-            "Volume": row["Volume"] / per_day,
-        }, index=idx)
+        day = pd.DataFrame(
+            {
+                "Open": float(row["Open"]),
+                "High": float(row["High"]),
+                "Low": float(row["Low"]),
+                "Close": float(row["Close"]),
+                "Adj Close": float(row.get("Adj Close", row["Close"])),
+                "Volume": float(row["Volume"]) / per_day,
+            },
+            index=idx,
+        )
         frames.append(day)
     if not frames:
         return df.copy()
@@ -141,7 +160,9 @@ def _expand_daily_to_intraday(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     return out
 
 
-def _generate_synthetic_ohlcv(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+def _generate_synthetic_ohlcv(
+    symbol: str, start: str, end: str, interval: str
+) -> pd.DataFrame:
     """Produce deterministic pseudo-random OHLCV data when remote data is unavailable."""
     freq = interval.lower()
     try:
@@ -172,16 +193,21 @@ def _generate_synthetic_ohlcv(symbol: str, start: str, end: str, interval: str) 
     low = np.clip(low, a_min=1e-3, a_max=None)
     volume = rng.integers(1_000, 10_000, size=len(idx))
 
-    df = pd.DataFrame({
-        "Open": open_px,
-        "High": high,
-        "Low": low,
-        "Close": close,
-        "Adj Close": close,
-        "Volume": volume,
-    }, index=idx)
+    df = pd.DataFrame(
+        {
+            "Open": open_px,
+            "High": high,
+            "Low": low,
+            "Close": close,
+            "Adj Close": close,
+            "Volume": volume,
+        },
+        index=idx,
+    )
     df.index.name = "Date"
-    logger.warning(f"Generated synthetic {interval} data for {symbol} between {start} and {end}")
+    logger.warning(
+        f"Generated synthetic {interval} data for {symbol} between {start} and {end}"
+    )
     return df
 
 
@@ -202,6 +228,7 @@ def _fallback_prices(
     if fixture is not None:
         return fixture
     return _generate_synthetic_ohlcv(symbol, start, end, interval)
+
 
 def _load_from_yahoo(
     symbol: str,
@@ -250,8 +277,12 @@ def _load_from_yahoo(
             new = pd.DataFrame()
 
         if new.empty:
-            logger.warning(f"Yahoo Finance returned no rows for {dl_symbol} [{interval}]. Using fallback data.")
-            new = _fallback_prices(symbol, start, end, interval, asset_tag, download_symbol)
+            logger.warning(
+                f"Yahoo Finance returned no rows for {dl_symbol} [{interval}]. Using fallback data."
+            )
+            new = _fallback_prices(
+                symbol, start, end, interval, asset_tag, download_symbol
+            )
         else:
             new.index.name = "Date"
             new = _flatten_columns(new)
@@ -267,9 +298,12 @@ def _load_from_yahoo(
             logger.warning(f"Could not write cache: {ex}")
         df = new
 
-    df = df.loc[pd.to_datetime(start): pd.to_datetime(end)]
+    assert df is not None
+    df = df.loc[pd.to_datetime(start) : pd.to_datetime(end)]
     if df.empty:
-        logger.warning(f"No rows available after clipping {symbol} [{interval}] to {start} -> {end}; generating synthetic data.")
+        logger.warning(
+            f"No rows available after clipping {symbol} [{interval}] to {start} -> {end}; generating synthetic data."
+        )
         df = _generate_synthetic_ohlcv(symbol, start, end, interval)
     cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
     df = df[cols]
@@ -280,12 +314,16 @@ def _load_from_yahoo(
     return df
 
 
-def _load_equity_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+def _load_equity_prices(
+    symbol: str, start: str, end: str, interval: str
+) -> pd.DataFrame:
     """Equity loader: direct Yahoo Finance pull."""
     return _load_from_yahoo(symbol, start, end, interval, asset_tag="equity")
 
 
-def _load_crypto_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+def _load_crypto_prices(
+    symbol: str, start: str, end: str, interval: str
+) -> pd.DataFrame:
     """Crypto loader: prefer Yahoo Finance symbols like BTC-USD."""
     try:
         return _load_from_yahoo(symbol, start, end, interval, asset_tag="crypto")
@@ -302,10 +340,14 @@ def _normalize_forex_symbol(symbol: str) -> tuple[str, str]:
     return symbol.upper(), yahoo_symbol
 
 
-def _load_forex_prices(symbol: str, start: str, end: str, interval: str) -> pd.DataFrame:
+def _load_forex_prices(
+    symbol: str, start: str, end: str, interval: str
+) -> pd.DataFrame:
     """Forex loader: map to Yahoo Finance '=X' tickers automatically."""
     original, yahoo_symbol = _normalize_forex_symbol(symbol)
-    return _load_from_yahoo(original, start, end, interval, asset_tag="forex", download_symbol=yahoo_symbol)
+    return _load_from_yahoo(
+        original, start, end, interval, asset_tag="forex", download_symbol=yahoo_symbol
+    )
 
 
 def get_prices(

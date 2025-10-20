@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
+
 @dataclass
 class Settings:
     """Strongly-typed container for config values."""
@@ -44,12 +45,14 @@ class Settings:
     ib_host: str | None = None
     ib_port: int | None = None
 
+
 def load_settings() -> Settings:
     """Load environment variables and return a Settings instance.
-    
+
     We call this in the CLI so all downstream modules get consistent settings.
     """
     load_dotenv()
+
     def _get_float(name: str, default: float) -> float:
         raw = os.getenv(name)
         if raw is None:

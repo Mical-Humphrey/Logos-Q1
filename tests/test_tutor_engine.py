@@ -50,7 +50,9 @@ def tutor_run_tmp(tmp_path, monkeypatch):
         return {
             "returns": pd.Series([0.0] * len(idx), index=idx),
             "equity_curve": pd.Series(range(len(idx)), index=idx, dtype=float),
-            "trades": pd.DataFrame({"time": [], "side": [], "shares": [], "ref_close": []}),
+            "trades": pd.DataFrame(
+                {"time": [], "side": [], "shares": [], "ref_close": []}
+            ),
             "metrics": {"CAGR": 0.1, "Sharpe": 1.0, "MaxDD": -0.05, "Exposure": 0.2},
             "warnings": [],
         }

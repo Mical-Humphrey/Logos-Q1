@@ -4,6 +4,7 @@ Sprint A will replace the placeholders with deterministic quantisation logic
 and metadata-driven validation. For now the scaffolding exists so tests can
 assert desired behaviour and fail until implementation lands.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
@@ -12,7 +13,14 @@ from typing import Dict
 
 import yaml
 
-from logos.live.types import Account, OrderIntent, OrderSide, Pricing, SizingInstruction, SymbolMetadata
+from logos.live.types import (
+    Account,
+    OrderIntent,
+    OrderSide,
+    Pricing,
+    SizingInstruction,
+    SymbolMetadata,
+)
 
 
 class SymbolMetadataRegistry:

@@ -11,6 +11,7 @@ from . import LessonContext
 
 FIXTURE = DATA_RAW_DIR / "fixtures" / "mean_reversion_ohlcv.csv"
 
+
 def _load_fixture() -> pd.DataFrame:
     # Tiny committed CSV expected at data/raw/fixtures/mean_reversion_ohlcv.csv
     # If missing, synthesize a deterministic series.
@@ -23,9 +24,17 @@ def _load_fixture() -> pd.DataFrame:
     dt = pd.date_range("2020-01-01", periods=n, freq="D", tz="UTC")
     prices = 100 + np.cumsum(rng.normal(0, 1, size=n))
     df = pd.DataFrame(
-        {"dt": dt, "open": prices, "high": prices + 0.5, "low": prices - 0.5, "close": prices, "volume": 1000}
+        {
+            "dt": dt,
+            "open": prices,
+            "high": prices + 0.5,
+            "low": prices - 0.5,
+            "close": prices,
+            "volume": 1000,
+        }
     )
     return df
+
 
 def build_glossary(explain_math: bool) -> Dict[str, Any]:
     g = {
@@ -42,6 +51,7 @@ def build_glossary(explain_math: bool) -> Dict[str, Any]:
         }
     return g
 
+
 def generate_transcript(glossary: Dict[str, Any], explain_math: bool) -> str:
     parts = [
         "Lesson: Mean Reversion",
@@ -51,6 +61,7 @@ def generate_transcript(glossary: Dict[str, Any], explain_math: bool) -> str:
     if explain_math and "formulas" in glossary:
         parts.append(f"- Formula: {glossary['formulas']['zscore']}")
     return "\n".join(parts) + "\n"
+
 
 def generate_plots(ctx: LessonContext) -> None:
     df = _load_fixture()
@@ -69,8 +80,20 @@ def generate_plots(ctx: LessonContext) -> None:
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(df["dt"], df["close"], label="Close")
     ax.plot(df["dt"], df["ma"], label=f"MA({L})", alpha=0.8)
-    ax.scatter(df.loc[entries, "dt"], df.loc[entries, "close"], marker="^", color="green", label="Entries")
-    ax.scatter(df.loc[exits, "dt"], df.loc[exits, "close"], marker="v", color="red", label="Exits")
+    ax.scatter(
+        df.loc[entries, "dt"],
+        df.loc[entries, "close"],
+        marker="^",
+        color="green",
+        label="Entries",
+    )
+    ax.scatter(
+        df.loc[exits, "dt"],
+        df.loc[exits, "close"],
+        marker="v",
+        color="red",
+        label="Exits",
+    )
     ax.legend()
     ax.set_title("Mean Reversion Lesson: Annotated Entries/Exits")
 

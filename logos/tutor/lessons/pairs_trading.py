@@ -71,9 +71,19 @@ def generate_plots(ctx: LessonContext) -> None:
     ax_price.legend(loc="best")
 
     ax_spread.plot(df["dt"], spread, label="Spread", color="tab:purple")
-    ax_spread.plot(df["dt"], spread.rolling(40).mean(), label="Rolling Mean", color="black", linestyle="--")
-    ax_spread.fill_between(df["dt"], z * 0 + 2, 2, color="red", alpha=0.1, label="+2σ threshold")
-    ax_spread.fill_between(df["dt"], z * 0 - 2, -2, color="green", alpha=0.1, label="-2σ threshold")
+    ax_spread.plot(
+        df["dt"],
+        spread.rolling(40).mean(),
+        label="Rolling Mean",
+        color="black",
+        linestyle="--",
+    )
+    ax_spread.fill_between(
+        df["dt"], z * 0 + 2, 2, color="red", alpha=0.1, label="+2σ threshold"
+    )
+    ax_spread.fill_between(
+        df["dt"], z * 0 - 2, -2, color="green", alpha=0.1, label="-2σ threshold"
+    )
     ax_spread.set_title("Spread and Entry Thresholds")
     ax_spread.legend(loc="best")
     fig.tight_layout()

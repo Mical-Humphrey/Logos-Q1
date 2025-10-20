@@ -80,8 +80,20 @@ def generate_plots(ctx: LessonContext) -> None:
     ax.plot(df["dt"], close, label="Close", color="steelblue")
     ax.plot(df["dt"], fast, label="EMA 20", color="green", alpha=0.8)
     ax.plot(df["dt"], slow, label="EMA 60", color="orange", alpha=0.8)
-    ax.scatter(df.loc[crosses_up, "dt"], close[crosses_up], marker="^", color="green", label="Bullish crossover")
-    ax.scatter(df.loc[crosses_down, "dt"], close[crosses_down], marker="v", color="red", label="Bearish crossover")
+    ax.scatter(
+        df.loc[crosses_up, "dt"],
+        close[crosses_up],
+        marker="^",
+        color="green",
+        label="Bullish crossover",
+    )
+    ax.scatter(
+        df.loc[crosses_down, "dt"],
+        close[crosses_down],
+        marker="v",
+        color="red",
+        label="Bearish crossover",
+    )
     ax.set_title("Momentum Lesson: EMA Crossovers")
     ax.set_xlabel("Date")
     ax.set_ylabel("Price")

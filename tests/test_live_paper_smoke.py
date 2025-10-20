@@ -46,15 +46,17 @@ def _write_feed(path: Path, bars: list[tuple[dt.datetime, float]]) -> None:
         writer = csv.writer(fh)
         writer.writerow(["dt", "open", "high", "low", "close", "volume", "symbol"])
         for bar_dt, price in bars:
-            writer.writerow([
-                bar_dt.isoformat(),
-                price,
-                price + 0.5,
-                price - 0.5,
-                price,
-                1_000,
-                "MSFT",
-            ])
+            writer.writerow(
+                [
+                    bar_dt.isoformat(),
+                    price,
+                    price + 0.5,
+                    price - 0.5,
+                    price,
+                    1_000,
+                    "MSFT",
+                ]
+            )
 
 
 def test_live_paper_smoke(tmp_path, monkeypatch):
@@ -93,7 +95,9 @@ def test_live_paper_smoke(tmp_path, monkeypatch):
             session=session_paths,
             risk_limits=risk_limits,
             time_provider=clock,
-            loop_config=LoopConfig(symbol="MSFT", strategy="momentum", interval="1m", max_loops=10),
+            loop_config=LoopConfig(
+                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+            ),
         )
         runner.run()
     finally:

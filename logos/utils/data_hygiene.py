@@ -2,6 +2,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+
 def enforce_schema(df: pd.DataFrame) -> pd.DataFrame:
     cols = ["dt", "open", "high", "low", "close", "volume"]
     missing = [c for c in cols if c not in df.columns]
@@ -12,7 +13,10 @@ def enforce_schema(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values("dt").reset_index(drop=True)
     return df
 
-def clean_numeric(df: pd.DataFrame, cols=("open", "high", "low", "close", "volume")) -> pd.DataFrame:
+
+def clean_numeric(
+    df: pd.DataFrame, cols=("open", "high", "low", "close", "volume")
+) -> pd.DataFrame:
     df = df.copy()
     for c in cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")

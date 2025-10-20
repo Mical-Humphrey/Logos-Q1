@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Mapping, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +50,15 @@ def _notional(quantity: float, price: float) -> float:
     return abs(quantity * price)
 
 
-def check_order_limits(symbol: str, quantity: float, price: float, limits: RiskLimits, ctx: RiskContext) -> RiskDecision:
+def check_order_limits(
+    symbol: str, quantity: float, price: float, limits: RiskLimits, ctx: RiskContext
+) -> RiskDecision:
     """Ensure the proposed order respects sizing limits."""
 
-    if limits.max_notional > 0 and _notional(quantity, price) > limits.max_notional + 1e-6:
+    if (
+        limits.max_notional > 0
+        and _notional(quantity, price) > limits.max_notional + 1e-6
+    ):
         return RiskDecision(False, "max_notional_exceeded")
 
     limit = limits.symbol_position_limits.get(symbol, limits.max_position)
@@ -67,7 +72,9 @@ def check_order_limits(symbol: str, quantity: float, price: float, limits: RiskL
 def check_session_drawdown(limits: RiskLimits, ctx: RiskContext) -> RiskDecision:
     """Guard that halts the session when drawdown breaches limits."""
 
-    if limits.max_drawdown_bps > 0 and ctx.realized_drawdown_bps <= -abs(limits.max_drawdown_bps):
+    if limits.max_drawdown_bps > 0 and ctx.realized_drawdown_bps <= -abs(
+        limits.max_drawdown_bps
+    ):
         return RiskDecision(False, "session_drawdown_limit")
     return RiskDecision(True)
 
@@ -80,7 +87,10 @@ def check_circuit_breakers(limits: RiskLimits, ctx: RiskContext) -> RiskDecision
     drawdown_decision = check_session_drawdown(limits, ctx)
     if not drawdown_decision.allowed:
         return drawdown_decision
-    if limits.max_consecutive_rejects > 0 and ctx.consecutive_rejects >= limits.max_consecutive_rejects:
+    if (
+        limits.max_consecutive_rejects > 0
+        and ctx.consecutive_rejects >= limits.max_consecutive_rejects
+    ):
         return RiskDecision(False, "reject_limit_reached")
     if limits.stale_data_threshold_s > 0:
         age = ctx.now_ts - ctx.last_bar_ts
@@ -98,15 +108,19 @@ def compute_drawdown_bps(equity: float, peak_equity: float) -> float:
     return (drop / peak_equity) * 10_000
 
 
-ViolationLogger = Callable[[str, Dict[str, float]], None]
+ViolationPayload = Mapping[str, float | str]
+ViolationLogger = Callable[[str, ViolationPayload], None]
 SnapshotPersister = Callable[[RiskDecision], None]
 
 
-def _log_violation(reason: str, payload: Dict[str, float]) -> None:
+def _log_violation(reason: str, payload: ViolationPayload) -> None:
     logger.error(
         "risk_guard_halt reason=%s details=%s",
         reason,
-        {k: (round(v, 6) if isinstance(v, (int, float)) else v) for k, v in payload.items()},
+        {
+            k: (round(v, 6) if isinstance(v, (int, float)) else v)
+            for k, v in payload.items()
+        },
     )
 
 
@@ -163,7 +177,7 @@ def _handle_violation(
     persist_snapshot: SnapshotPersister | None,
     violation_logger: ViolationLogger,
 ) -> None:
-    payload = {
+    payload: Dict[str, float | str] = {
         "symbol": symbol,
         "quantity": quantity,
         "price": price,

@@ -4,9 +4,10 @@ import logging
 import logging.handlers
 from pathlib import Path
 
-from .paths import APP_LOGS_DIR, ensure_dirs
+from logos.paths import APP_LOGS_DIR, ensure_dirs
 
 APP_LOG_FILE = APP_LOGS_DIR / "app.log"
+
 
 def setup_app_logging(level: int = logging.INFO) -> logging.Logger:
     """
@@ -24,7 +25,9 @@ def setup_app_logging(level: int = logging.INFO) -> logging.Logger:
     # Console handler
     ch = logging.StreamHandler()
     ch.setLevel(level)
-    ch.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+    ch.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    )
     logger.addHandler(ch)
 
     # Rotating file handler for app-level logs
@@ -32,18 +35,24 @@ def setup_app_logging(level: int = logging.INFO) -> logging.Logger:
         APP_LOG_FILE, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
     )
     fh.setLevel(level)
-    fh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    )
     logger.addHandler(fh)
 
     return logger
 
 
-def attach_run_file_handler(logger: logging.Logger, run_log_file: Path, level: int = logging.INFO) -> None:
+def attach_run_file_handler(
+    logger: logging.Logger, run_log_file: Path, level: int = logging.INFO
+) -> None:
     """
     Attach a file handler that logs to runs/{id}/logs/run.log for the provided logger.
     """
     run_log_file.parent.mkdir(parents=True, exist_ok=True)
     fh = logging.FileHandler(run_log_file, encoding="utf-8")
     fh.setLevel(level)
-    fh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+    fh.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    )
     logger.addHandler(fh)

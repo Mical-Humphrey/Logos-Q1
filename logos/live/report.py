@@ -55,7 +55,15 @@ def append_order(path: Path, *, ts: dt.datetime, **fields: object) -> None:
 
 
 def append_position(path: Path, *, ts: dt.datetime, **fields: object) -> None:
-    headers = ["ts", "session_id", "symbol", "strategy", "qty", "avg_price", "unrealized_pnl"]
+    headers = [
+        "ts",
+        "session_id",
+        "symbol",
+        "strategy",
+        "qty",
+        "avg_price",
+        "unrealized_pnl",
+    ]
     row = {"ts": ts.isoformat(timespec="seconds"), **fields}
     _append_row(path, headers, row)
 

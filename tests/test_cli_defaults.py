@@ -26,7 +26,9 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
     run_dir = tmp_path / "runs" / "test_run"
     (run_dir / "logs").mkdir(parents=True)
 
-    def fake_new_run(symbol: str, strategy: str) -> RunContext:  # pragma: no cover - test helper
+    def fake_new_run(
+        symbol: str, strategy: str
+    ) -> RunContext:  # pragma: no cover - test helper
         log_file = run_dir / "logs" / "run.log"
         log_file.parent.mkdir(parents=True, exist_ok=True)
         log_file.write_text("", encoding="utf-8")
@@ -69,7 +71,13 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
             "ref_close": [101.0, 103.0],
         }
     )
-    metrics = {"CAGR": 0.15, "Sharpe": 1.25, "MaxDD": -0.04, "WinRate": 0.6, "Exposure": 0.5}
+    metrics = {
+        "CAGR": 0.15,
+        "Sharpe": 1.25,
+        "MaxDD": -0.04,
+        "WinRate": 0.6,
+        "Exposure": 0.5,
+    }
 
     def fake_run_backtest(**kwargs):
         return {

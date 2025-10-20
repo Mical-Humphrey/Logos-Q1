@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .broker_base import AccountSnapshot, BrokerAdapter, Fill, Order, OrderIntent, Position, SymbolMeta
+from .broker_base import (
+    AccountSnapshot,
+    BrokerAdapter,
+    Fill,
+    Order,
+    OrderIntent,
+    Position,
+    SymbolMeta,
+)
 from .time import TimeProvider, SystemTimeProvider
 
 
@@ -36,7 +44,12 @@ class IBBrokerAdapter(BrokerAdapter):
         return []
 
     def get_account(self) -> AccountSnapshot:
-        return AccountSnapshot(equity=0.0, cash=0.0, buying_power=0.0, ts=self.time_provider.utc_now().timestamp())
+        return AccountSnapshot(
+            equity=0.0,
+            cash=0.0,
+            buying_power=0.0,
+            ts=self.time_provider.utc_now().timestamp(),
+        )
 
     def reconcile(self) -> None:
         return

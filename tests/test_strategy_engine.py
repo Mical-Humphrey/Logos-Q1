@@ -38,7 +38,9 @@ def _bar(ts: dt.datetime, price: float) -> Bar:
 
 def test_generator_quantizes_to_symbol_meta(strategy_name):
     broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
-    broker.set_symbol_meta(SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=5, price_precision=2))
+    broker.set_symbol_meta(
+        SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=5, price_precision=2)
+    )
     spec = StrategySpec(
         symbol="MSFT",
         strategy=strategy_name,
@@ -69,7 +71,9 @@ def test_generator_quantizes_to_symbol_meta(strategy_name):
 
 def test_generator_clamps_notional(strategy_name):
     broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
-    broker.set_symbol_meta(SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=1, price_precision=2))
+    broker.set_symbol_meta(
+        SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=1, price_precision=2)
+    )
     spec = StrategySpec(
         symbol="MSFT",
         strategy=strategy_name,

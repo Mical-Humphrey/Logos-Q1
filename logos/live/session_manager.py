@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,14 +53,20 @@ def _update_latest_pointer(session_dir: Path) -> None:
     latest.write_text(_pointer_contents(session_dir), encoding="utf-8")
 
 
-def create_session(symbol: str, strategy: str, when: dt.datetime | None = None) -> tuple[SessionPaths, object]:
+def create_session(
+    symbol: str, strategy: str, when: dt.datetime | None = None
+) -> tuple[SessionPaths, logging.Handler]:
     """Allocate a new session directory tree and logging handler."""
 
     when = when or dt.datetime.utcnow()
-    session_id = f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+    session_id = (
+        f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+    )
     base_dir = RUNS_LIVE_SESSIONS_DIR / session_id
     logs_dir = base_dir / "logs"
-    ensure_dirs([RUNS_LIVE_SESSIONS_DIR, logs_dir, RUNS_LIVE_TRADES_DIR, RUNS_LIVE_REPORTS_DIR])
+    ensure_dirs(
+        [RUNS_LIVE_SESSIONS_DIR, logs_dir, RUNS_LIVE_TRADES_DIR, RUNS_LIVE_REPORTS_DIR]
+    )
 
     state_file = base_dir / "state.json"
     state_events_file = base_dir / "state.jsonl"

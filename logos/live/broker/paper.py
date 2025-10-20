@@ -1,4 +1,5 @@
 """Deterministic paper broker with FIFO inventory, PnL, and event logging."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -159,10 +160,12 @@ class PaperBroker:
         inventory_value = Decimal("0")
         unrealized = Decimal("0")
         for symbol, lots in self._inventory.items():
-            total_quantity = sum(lot.quantity for lot in lots)
+            total_quantity = sum((lot.quantity for lot in lots), start=Decimal("0"))
             if total_quantity == 0:
                 continue
-            weighted_notional = sum(lot.quantity * lot.price for lot in lots)
+            weighted_notional = sum(
+                (lot.quantity * lot.price for lot in lots), start=Decimal("0")
+            )
             average_price = weighted_notional / total_quantity
             mark_price = self._last_price.get(symbol, average_price)
             positions[symbol] = Position(
@@ -249,7 +252,7 @@ class PaperBroker:
         liquidity: Optional[str],
     ) -> None:
         order = self._orders[order_id]
-        payload = {
+        payload: Dict[str, object] = {
             "ts": Decimal(next(self._clock)),
             "base_price": base_price,
             "price": executed_price,

@@ -12,11 +12,15 @@ from logos.live.time import MockTimeProvider
 
 
 def _clock() -> MockTimeProvider:
-    return MockTimeProvider(current=dt.datetime(2024, 1, 1, 15, 30, tzinfo=dt.timezone.utc))
+    return MockTimeProvider(
+        current=dt.datetime(2024, 1, 1, 15, 30, tzinfo=dt.timezone.utc)
+    )
 
 
 def _limit_intent(symbol: str = "AAPL") -> OrderIntent:
-    return OrderIntent(symbol=symbol, side="buy", quantity=10.0, order_type="limit", limit_price=150.5)
+    return OrderIntent(
+        symbol=symbol, side="buy", quantity=10.0, order_type="limit", limit_price=150.5
+    )
 
 
 def test_alpaca_dry_run_logs_are_deterministic() -> None:
@@ -184,7 +188,13 @@ def test_ccxt_dry_run_rejects_and_logs_reason() -> None:
         seed=7,
         time_provider=clock,
     )
-    bad_intent = OrderIntent(symbol="BTC/USD", side="buy", quantity=0.0, order_type="limit", limit_price=25_000.0)
+    bad_intent = OrderIntent(
+        symbol="BTC/USD",
+        side="buy",
+        quantity=0.0,
+        order_type="limit",
+        limit_price=25_000.0,
+    )
 
     with pytest.raises(ValueError):
         adapter.place_order(bad_intent)
@@ -219,4 +229,7 @@ def test_ccxt_cancel_uses_existing_order_payload() -> None:
     assert cancel_log["order_id"] == order.order_id
     assert cancel_log["adapter_mode"] == "dry-run"
     assert cancel_log["response"]["accepted"] is True
-    assert cancel_log["response"]["normalized_payload"]["client_order_id"] == place_log["response"]["client_order_id"]
+    assert (
+        cancel_log["response"]["normalized_payload"]["client_order_id"]
+        == place_log["response"]["client_order_id"]
+    )

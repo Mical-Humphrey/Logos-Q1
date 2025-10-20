@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Deque, Dict, Iterable, List
+from datetime import datetime
+from typing import Callable, Deque, Dict, Iterable, List, TypedDict, cast
 
 import pandas as pd
 
@@ -27,6 +28,20 @@ class StrategySpec:
     sizing: SizingConfig = field(default_factory=SizingConfig)
 
 
+class RollingBar(TypedDict):
+    """Pandas-friendly rolling OHLCV bar used for signal evaluation."""
+
+    Timestamp: datetime
+    Open: float
+    High: float
+    Low: float
+    Close: float
+    Volume: float
+
+
+StrategyFunction = Callable[..., pd.Series]
+
+
 class StrategyOrderGenerator:
     """Maintains rolling bars and converts strategy signals into orders."""
 
@@ -35,9 +50,9 @@ class StrategyOrderGenerator:
             raise ValueError(f"Unknown strategy '{spec.strategy}'")
         self.broker = broker
         self.spec = spec
-        self.strategy_fn = STRATEGIES[spec.strategy]
+        self.strategy_fn = cast(StrategyFunction, STRATEGIES[spec.strategy])
         self.meta: SymbolMeta = broker.get_symbol_meta(spec.symbol)
-        self._bars: Deque[Dict[str, float]] = deque(maxlen=spec.max_bars)
+        self._bars: Deque[RollingBar] = deque(maxlen=spec.max_bars)
         self._last_target_qty: float = 0.0
 
     # ------------------------------------------------------------------
@@ -49,11 +64,11 @@ class StrategyOrderGenerator:
             self._bars.append(
                 {
                     "Timestamp": bar.dt,
-                    "Open": bar.open,
-                    "High": bar.high,
-                    "Low": bar.low,
-                    "Close": bar.close,
-                    "Volume": bar.volume,
+                    "Open": float(bar.open),
+                    "High": float(bar.high),
+                    "Low": float(bar.low),
+                    "Close": float(bar.close),
+                    "Volume": float(bar.volume),
                 }
             )
             added = True
@@ -65,7 +80,11 @@ class StrategyOrderGenerator:
         if frame.empty:
             return []
 
-        signals = self.strategy_fn(frame, **self.spec.params) if self.spec.params else self.strategy_fn(frame)
+        signals = (
+            self.strategy_fn(frame, **self.spec.params)
+            if self.spec.params
+            else self.strategy_fn(frame)
+        )
         if signals.empty:
             return []
 
@@ -83,7 +102,10 @@ class StrategyOrderGenerator:
             cap = self.spec.sizing.max_position
             target_qty = max(min(target_qty, cap), -cap)
 
-        if abs(target_qty - current_qty) < 1e-6 and abs(target_qty - self._last_target_qty) < 1e-6:
+        if (
+            abs(target_qty - current_qty) < 1e-6
+            and abs(target_qty - self._last_target_qty) < 1e-6
+        ):
             return []
 
         target = TargetPosition(symbol=self.spec.symbol, quantity=target_qty)

@@ -9,7 +9,9 @@ from logos.live.broker_paper import PaperBrokerAdapter
 @pytest.fixture()
 def broker():
     broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
-    broker.set_symbol_meta(SymbolMeta(symbol="MSFT", price_precision=2, quantity_precision=2))
+    broker.set_symbol_meta(
+        SymbolMeta(symbol="MSFT", price_precision=2, quantity_precision=2)
+    )
     return broker
 
 
@@ -47,7 +49,9 @@ def test_market_order_fill_updates_cash_and_positions(broker: PaperBrokerAdapter
 
 
 def test_limit_order_waits_for_price_and_uses_limit_cap(broker: PaperBrokerAdapter):
-    intent = OrderIntent(symbol="MSFT", side="buy", quantity=5.0, order_type="limit", limit_price=100.0)
+    intent = OrderIntent(
+        symbol="MSFT", side="buy", quantity=5.0, order_type="limit", limit_price=100.0
+    )
     broker.place_order(intent)
 
     ts1 = dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc).timestamp()
@@ -61,10 +65,12 @@ def test_limit_order_waits_for_price_and_uses_limit_cap(broker: PaperBrokerAdapt
 
 
 def test_bootstrap_positions_sets_cash_and_marks(broker: PaperBrokerAdapter):
-    broker.bootstrap_positions({
-        "MSFT": {"qty": 8.0, "avg_price": 50.0, "realized": 0.0},
-        "TSLA": {"qty": -2.0, "avg_price": 200.0, "realized": 10.0},
-    })
+    broker.bootstrap_positions(
+        {
+            "MSFT": {"qty": 8.0, "avg_price": 50.0, "realized": 0.0},
+            "TSLA": {"qty": -2.0, "avg_price": 200.0, "realized": 10.0},
+        }
+    )
     positions = broker.get_positions()
     assert {p.symbol for p in positions} == {"MSFT", "TSLA"}
     msft = next(p for p in positions if p.symbol == "MSFT")
@@ -81,12 +87,16 @@ def test_bootstrap_positions_sets_cash_and_marks(broker: PaperBrokerAdapter):
 
 def test_realized_pnl_updates_on_position_reduction(broker: PaperBrokerAdapter):
     ts0 = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc).timestamp()
-    broker.place_order(OrderIntent(symbol="MSFT", side="buy", quantity=10.0, order_type="market"))
+    broker.place_order(
+        OrderIntent(symbol="MSFT", side="buy", quantity=10.0, order_type="market")
+    )
     broker.on_market_data("MSFT", price=100.0, ts=ts0)
     _latest_fill(broker)
 
     ts1 = dt.datetime(2025, 1, 1, 9, 35, tzinfo=dt.timezone.utc).timestamp()
-    broker.place_order(OrderIntent(symbol="MSFT", side="sell", quantity=4.0, order_type="market"))
+    broker.place_order(
+        OrderIntent(symbol="MSFT", side="sell", quantity=4.0, order_type="market")
+    )
     broker.on_market_data("MSFT", price=110.0, ts=ts1)
     _latest_fill(broker)
 
@@ -98,7 +108,9 @@ def test_realized_pnl_updates_on_position_reduction(broker: PaperBrokerAdapter):
 
 def test_order_history_and_events_capture_fill(broker: PaperBrokerAdapter):
     ts = dt.datetime(2025, 1, 1, 9, 40, tzinfo=dt.timezone.utc).timestamp()
-    order = broker.place_order(OrderIntent(symbol="MSFT", side="buy", quantity=1.0, order_type="market"))
+    order = broker.place_order(
+        OrderIntent(symbol="MSFT", side="buy", quantity=1.0, order_type="market")
+    )
     broker.on_market_data("MSFT", price=50.0, ts=ts)
     _latest_fill(broker)
 

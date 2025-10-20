@@ -15,9 +15,11 @@ import pandas as pd
 import numpy as np
 import logging
 import warnings
+
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="pandas.core.nanops")
 
 logger = logging.getLogger(__name__)
+
 
 def generate_signals(
     df: pd.DataFrame,
@@ -47,14 +49,14 @@ def generate_signals(
         # Single-symbol fallback: synthetically derive a partner series
         price_a = df[close_cols["close"]].astype(float)
         ratio = hedge_ratio if hedge_ratio is not None else 1.0
-        price_b = price_a.shift(1).fillna(method="bfill") * ratio
+        price_b = price_a.shift(1).bfill() * ratio
     else:
         # Take the first numeric column as a proxy price series
         numeric_cols = df.select_dtypes(include=["number"]).columns
         if len(numeric_cols) == 0:
             raise ValueError("pairs_trading requires at least one numeric price column")
         price_a = df[numeric_cols[0]].astype(float)
-        price_b = price_a.shift(1).fillna(method="bfill")
+        price_b = price_a.shift(1).bfill()
 
     if window is not None:
         lookback = int(window)
@@ -62,7 +64,9 @@ def generate_signals(
         z_entry = float(threshold)
         z_exit = min(z_exit, z_entry / 2)
 
-    beta = hedge_ratio if hedge_ratio is not None else np.polyfit(price_b, price_a, 1)[0]
+    beta = (
+        hedge_ratio if hedge_ratio is not None else np.polyfit(price_b, price_a, 1)[0]
+    )
     spread = price_a - beta * price_b
 
     mean = spread.rolling(lookback, min_periods=lookback).mean()
