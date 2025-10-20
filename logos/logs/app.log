@@ -55,3 +55,6 @@
 1 Failed download:
 2025-10-19 21:16:49,762 | ERROR | yfinance | ['BTC-USD']: YFPricesMissingError('possibly delisted; no price data found  (5m 2024-01-01 -> 2024-01-07) (Yahoo error = "5m data not available for startTime=1704067200 and endTime=1704585600. The requested range must be within the last 60 days.")')
 2025-10-19 21:16:49,768 | ERROR | logos.data_loader | Crypto data fetch failed for BTC-USD: No data for BTC-USD at interval 5m
+2025-10-20 12:48:54,807 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 12:48:54,811 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 12:48:54,812 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance

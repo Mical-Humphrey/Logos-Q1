@@ -1,0 +1,28 @@
+---
+BTC-USD:
+  venue_symbol: "BTC/USD"
+  price_precision: 2
+  quantity_precision: 3
+  lot_size: 0.001
+  min_notional: 10
+  max_notional: 75000
+  aliases:
+    - BTCUSD
+    - BTC-USD-PERP
+AAPL:
+  venue_symbol: "AAPL"
+  price_precision: 2
+  quantity_precision: 0
+  lot_size: 1
+  min_notional: 1
+  max_notional: 250000
+  aliases:
+    - US:AAPL
+DEMO:
+  venue_symbol: "DEMO"
+  price_precision: 2
+  quantity_precision: 0
+  lot_size: 1
+  min_notional: 1
+  max_notional: 50000
+  aliases: []
