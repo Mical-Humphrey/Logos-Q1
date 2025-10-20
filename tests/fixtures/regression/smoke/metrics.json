@@ -1,0 +1,12 @@
+{
+  "end_equity": 100006.3,
+  "exposure": 0.75,
+  "hit_rate": 0.0,
+  "max_drawdown": 0.0,
+  "pnl": 6.30000000000291,
+  "run_id": "0007-regression-smoke",
+  "seed": 7,
+  "sharpe": 18.026022129517163,
+  "start_equity": 100000.0,
+  "turnover": 0.009045
+}

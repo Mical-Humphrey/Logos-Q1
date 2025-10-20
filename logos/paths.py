@@ -11,9 +11,11 @@ DOCS_DIR = PROJECT_ROOT / "docs"
 
 _LEGACY_INPUT_DATA = PROJECT_ROOT / "input_data"
 
-DATA_DIR = PROJECT_ROOT / "data"
-if _LEGACY_INPUT_DATA.exists() and not DATA_DIR.exists():
+_DATA_CANDIDATE = PROJECT_ROOT / "data"
+if _LEGACY_INPUT_DATA.exists():
     DATA_DIR = _LEGACY_INPUT_DATA
+else:
+    DATA_DIR = _DATA_CANDIDATE
 
 DATA_RAW_DIR = DATA_DIR / "raw"
 DATA_CACHE_DIR = DATA_DIR / "cache"

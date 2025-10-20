@@ -383,7 +383,7 @@ def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
 
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]
-    assert any(event.get("reason") == "drawdown_limit_reached" for event in events if event.get("type") == "circuit_breaker")
+    assert any(event.get("reason") == "session_drawdown_limit" for event in events if event.get("type") == "circuit_breaker")
 
 
 def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
