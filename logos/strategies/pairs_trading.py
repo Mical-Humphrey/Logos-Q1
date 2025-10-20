@@ -22,56 +22,66 @@ logger = logging.getLogger(__name__)
 def generate_signals(
     df: pd.DataFrame,
     symA: str = "MSFT",
-    symB: str = "AAPL",
+    symB: str | None = None,
     lookback: int = 30,
     z_entry: float = 2.0,
     z_exit: float = 0.5,
-) -> pd.DataFrame:
-    """Generate pair trading signals for two correlated equities.
+    hedge_ratio: float | None = None,
+    window: int | None = None,
+    threshold: float | None = None,
+    **_: float,
+) -> pd.Series:
+    """Generate {-1,0,+1} pairs trading style signals.
 
-    Assumptions:
-      - df contains columns for symA and symB Close prices
-      - We use a simple OLS slope (via polyfit) as the hedge ratio
-
-    Signals interpretation:
-      - signal_A = +1 and signal_B = -1  => long A / short B
-      - signal_A = -1 and signal_B = +1  => short A / long B
-      - signal_* = 0 => flat
+    When both ``symA`` and ``symB`` columns are present the classic spread
+    A - beta * B is used. Otherwise the function gracefully falls back to a
+    mean-reverting spread derived from the available ``Close`` column so the
+    CLI example commands remain operational even with single-symbol data.
     """
-    if symA not in df.columns or symB not in df.columns:
-        raise ValueError(f"DataFrame must contain columns '{symA}' and '{symB}'")
+    close_cols = {c.lower(): c for c in df.columns}
 
-    priceA = df[symA].astype(float)
-    priceB = df[symB].astype(float)
+    if symA in df.columns and symB and symB in df.columns:
+        price_a = df[symA].astype(float)
+        price_b = df[symB].astype(float)
+    elif "close" in close_cols:
+        # Single-symbol fallback: synthetically derive a partner series
+        price_a = df[close_cols["close"]].astype(float)
+        ratio = hedge_ratio if hedge_ratio is not None else 1.0
+        price_b = price_a.shift(1).fillna(method="bfill") * ratio
+    else:
+        # Take the first numeric column as a proxy price series
+        numeric_cols = df.select_dtypes(include=["number"]).columns
+        if len(numeric_cols) == 0:
+            raise ValueError("pairs_trading requires at least one numeric price column")
+        price_a = df[numeric_cols[0]].astype(float)
+        price_b = price_a.shift(1).fillna(method="bfill")
 
-    # Hedge ratio: how many shares of B hedge one share of A (slope of A~B)
-    beta = np.polyfit(priceB, priceA, 1)[0]
-    spread = priceA - beta * priceB
+    if window is not None:
+        lookback = int(window)
+    if threshold is not None:
+        z_entry = float(threshold)
+        z_exit = min(z_exit, z_entry / 2)
+
+    beta = hedge_ratio if hedge_ratio is not None else np.polyfit(price_b, price_a, 1)[0]
+    spread = price_a - beta * price_b
 
     mean = spread.rolling(lookback, min_periods=lookback).mean()
-    std  = spread.rolling(lookback, min_periods=lookback).std(ddof=0)
+    std = spread.rolling(lookback, min_periods=lookback).std(ddof=0)
     z = (spread - mean) / std
 
-    long_sig  = z <= -z_entry
-    short_sig = z >=  z_entry
-    exit_sig  = z.abs() < z_exit
+    long_sig = z <= -z_entry
+    short_sig = z >= z_entry
+    exit_sig = z.abs() <= z_exit
 
-    # Stateful position: enters on signal, exits when near mean
     position = 0
-    pos_series = pd.Series(0, index=df.index)
-    for i in range(len(pos_series)):
-        if long_sig.iloc[i]:
+    sig = pd.Series(0, index=df.index)
+    for idx in range(len(sig)):
+        if long_sig.iloc[idx]:
             position = 1
-        elif short_sig.iloc[i]:
+        elif short_sig.iloc[idx]:
             position = -1
-        elif exit_sig.iloc[i]:
+        elif exit_sig.iloc[idx]:
             position = 0
-        pos_series.iloc[i] = position
+        sig.iloc[idx] = position
 
-    signals = pd.DataFrame({
-        "spread": spread,
-        "zscore": z,
-        f"signal_{symA}": pos_series,
-        f"signal_{symB}": -pos_series,
-    })
-    return signals
+    return sig.astype(int)

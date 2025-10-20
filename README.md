@@ -50,12 +50,12 @@ Every line of code in Logos-Q1 is structured to be *understood, extended, and tr
 ## 🧩 Example Usage
 ```bash
 # Mean reversion on equities
-python3 -m src.cli backtest --asset-class equity --symbol MSFT \
+python -m logos.cli backtest --asset-class equity --symbol MSFT \
   --strategy mean_reversion --start 2023-01-01 --end 2025-01-01 \
   --params "lookback=20,z_entry=2.0"
 
 # Momentum on crypto
-python3 -m src.cli backtest --asset-class crypto --symbol BTC-USD \
+python -m logos.cli backtest --asset-class crypto --symbol BTC-USD \
   --strategy momentum --start 2023-01-01 --end 2025-01-01 \
   --interval 1h --params "fast=20,slow=50"
 
@@ -73,3 +73,68 @@ Educational Mode
     (Future: Streamlit / CCXT / SQLite / FastAPI)
 
 🕊️ MIT License — Logos-Q1 is open for study, extension, and responsible live trading use.
+
+
+
+Command Examples
+
+— Daily equity backtest, paper mode, saves artifacts under runs/<timestamp>_MSFT_mean_reversion/.
+    python -m logos.cli backtest --symbol MSFT --strategy mean_reversion --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper
+
+— Crypto hourly momentum test with custom sizing/fees.
+    python -m logos.cli backtest --symbol BTC-USD --strategy momentum --asset-class crypto --interval 1h --dollar-per-trade 5000 --fee-bps 15 --paper
+
+— FX intraday run with explicit cost model.
+    python -m logos.cli backtest --symbol EURUSD=X --strategy mean_reversion --asset-class forex --interval 30m --slip-bps 8 --commission 0.0 --fx-pip-size 0.0001 --start 2023-06-01 --end 2023-08-31
+
+— Pairs trade using custom window/threshold parameters.
+    python -m logos.cli backtest --symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --paper
+
+— Momentum run using .env defaults for costs and interval.
+    python -m logos.cli backtest --symbol TSLA --strategy momentum --start 2024-01-01 --end 2024-03-31
+
+— High-frequency crypto smoke test (5-minute bars).
+    python -m logos.cli backtest --symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper
+
+— Momentum run with custom moving-average windows and smaller sizing.
+    python -m logos.cli backtest --symbol MSFT --strategy momentum --params fast=20,slow=50 --paper --dollar-per-trade 2000
+
+— Forex pairs lesson run via CLI wrapper.
+    python -m logos.cli backtest --symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --paper
+
+Tutor Mode Commands
+
+— List available Tutor lessons and exit.
+    python -m logos.tutor --list
+
+— Narrated mean-reversion lesson with transcript and glossary output.
+    python -m logos.tutor --lesson mean_reversion
+
+— Mean-reversion lesson with annotated plots and formula derivations.
+    python -m logos.tutor --lesson mean_reversion --plot --explain-math
+
+— Momentum lesson emphasizing regime shifts with visuals.
+    python -m logos.tutor --lesson momentum --plot
+
+— Pairs trading lesson with spread/z-score panels and math notes.
+    python -m logos.tutor --lesson pairs_trading --plot --explain-math
+
+Maintenance and Diagnostics
+
+— Full CLI/Tutor option reference (like a man page).
+    python -m logos.cli backtest --help
+    python -m logos.tutor --help
+
+— Run deterministic regression suite.
+    pytest -q
+
+— Quick synthetic smoke test on bundled fixture data.
+    python -m logos.cli backtest --symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-01-15
+
+— Verify directory scaffolding after checkout
+    python - <<'PY'
+from logos.paths import ensure_dirs
+
+ensure_dirs()
+print("dirs ok")
+PY

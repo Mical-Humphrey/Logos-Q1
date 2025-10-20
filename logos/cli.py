@@ -203,7 +203,8 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
                    help="Slippage in basis points per order")
     p.add_argument("--commission", type=float, default=settings.commission_per_share,
                    help="Equity commission $/share")
-    p.add_argument("--fee-bps", type=float, default=5.0, help="Crypto maker/taker fee in bps (0.01% = 1 bps)")
+    p.add_argument("--fee-bps", type=float, default=5.0,
+                   help="Crypto maker/taker fee in bps (0.01%% = 1 bps)")
     p.add_argument("--fx-pip-size", type=float, default=0.0001, help="FX pip size (0.0001 for EURUSD, 0.01 for USDJPY)")
     p.add_argument("--params", default=None, help="Comma list 'k=v,k=v' for strategy params")
     p.add_argument("--paper", action="store_true", help="Enable paper trading simulation mode")

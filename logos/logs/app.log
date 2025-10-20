@@ -42,3 +42,16 @@
 2025-10-19 18:56:21,534 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance
 2025-10-19 18:56:52,087 | INFO | __main__ | Starting backtest via CLI
 2025-10-19 18:56:52,089 | INFO | logos.data_loader | Downloading TSLA [1d] from Yahoo Finance
+2025-10-19 21:11:59,582 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 21:11:59,589 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 21:11:59,590 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-19 21:16:25,565 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 21:16:25,569 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 21:16:25,570 | INFO | logos.data_loader | Downloading EURUSD=X [1d] from Yahoo Finance
+2025-10-19 21:16:47,914 | INFO | __main__ | Starting backtest via CLI
+2025-10-19 21:16:47,917 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-19 21:16:47,917 | INFO | logos.data_loader | Downloading BTC-USD [5m] from Yahoo Finance
+2025-10-19 21:16:49,760 | ERROR | yfinance | 
+1 Failed download:
+2025-10-19 21:16:49,762 | ERROR | yfinance | ['BTC-USD']: YFPricesMissingError('possibly delisted; no price data found  (5m 2024-01-01 -> 2024-01-07) (Yahoo error = "5m data not available for startTime=1704067200 and endTime=1704585600. The requested range must be within the last 60 days.")')
+2025-10-19 21:16:49,768 | ERROR | logos.data_loader | Crypto data fetch failed for BTC-USD: No data for BTC-USD at interval 5m
