@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Protocol
+from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
 from .time import TimeProvider
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -91,6 +94,90 @@ class FetchError(RuntimeError):
 
 
 FetchCallable = Callable[[str, str, Optional[dt.datetime]], Iterable[Bar]]
+
+
+@dataclass
+class FixtureReplayFeed:
+    """Deterministic feed that replays bars from an on-disk fixture.
+
+    The feed eagerly reloads the fixture when bars grow stale, retrying up to
+    ``max_retries`` times with deterministic logging before raising
+    :class:`FetchError`.
+    """
+
+    dataset: Path
+    time_provider: TimeProvider
+    max_age_seconds: float = 300.0
+    max_retries: int = 1
+
+    def __post_init__(self) -> None:
+        self.dataset = Path(self.dataset)
+        self._cache: Dict[str, List[Bar]] = {}
+
+    def fetch_bars(self, symbol: str, interval: str, since: Optional[dt.datetime]) -> List[Bar]:
+        attempts = 0
+        last_age: Optional[float] = None
+        while attempts <= self.max_retries:
+            bars = self._load_symbol(symbol)
+            if not bars:
+                raise FetchError(f"fixture dataset {self.dataset} has no rows for {symbol}")
+            last_age = self._age_seconds(bars)
+            if last_age <= self.max_age_seconds:
+                return [bar for bar in bars if since is None or bar.dt > since]
+            logger.warning(
+                "fixture replay attempt %s/%s stale fixture data for %s (age=%ss, max_age=%ss)",
+                attempts + 1,
+                self.max_retries + 1,
+                symbol,
+                int(last_age),
+                int(self.max_age_seconds),
+            )
+            self._invalidate(symbol)
+            attempts += 1
+        message = (
+            f"stale fixture data for {symbol}: age={int(last_age or -1)}s exceeds "
+            f"max_age={int(self.max_age_seconds)}s after {self.max_retries + 1} attempts"
+        )
+        raise FetchError(message)
+
+    def _load_symbol(self, symbol: str) -> List[Bar]:
+        if symbol in self._cache:
+            return list(self._cache[symbol])
+        if not self.dataset.exists():
+            raise FetchError(f"fixture dataset missing at {self.dataset}")
+        rows: List[Bar] = []
+        with self.dataset.open("r", encoding="utf-8") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                if row.get("symbol") != symbol:
+                    continue
+                try:
+                    bar_dt = dt.datetime.fromisoformat(row["dt"])
+                    bar = Bar(
+                        dt=bar_dt,
+                        open=float(row["open"]),
+                        high=float(row["high"]),
+                        low=float(row["low"]),
+                        close=float(row["close"]),
+                        volume=float(row.get("volume", 0.0)),
+                        symbol=symbol,
+                    )
+                except KeyError as exc:
+                    raise FetchError(f"missing column {exc.args[0]} in {self.dataset}") from exc
+                except ValueError as exc:
+                    raise FetchError(f"invalid bar in {self.dataset}: {row}") from exc
+                rows.append(bar)
+        rows.sort(key=lambda bar: bar.dt)
+        self._cache[symbol] = rows
+        return list(rows)
+
+    def _invalidate(self, symbol: str) -> None:
+        self._cache.pop(symbol, None)
+
+    def _age_seconds(self, bars: List[Bar]) -> float:
+        latest = bars[-1].dt
+        now = self.time_provider.utc_now()
+        return (now - latest).total_seconds()
 
 
 @dataclass

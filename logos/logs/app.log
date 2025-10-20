@@ -58,3 +58,23 @@
 2025-10-20 12:48:54,807 | INFO | __main__ | Starting backtest via CLI
 2025-10-20 12:48:54,811 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
 2025-10-20 12:48:54,812 | INFO | logos.data_loader | Downloading MSFT [1d] from Yahoo Finance
+2025-10-20 13:34:40,832 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:34:40,842 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:34:40,843 | INFO | logos.data_loader | Downloading AAPL [1d] from Yahoo Finance
+2025-10-20 13:34:51,944 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:34:51,948 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:34:51,958 | INFO | logos.data_loader | Downloading AAPL [1d] from Yahoo Finance
+2025-10-20 13:36:25,895 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:36:25,898 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:36:25,911 | WARNING | logos.data_loader | No rows available after clipping AAPL [1d] to 2023-06-30 -> 2023-01-01; generating synthetic data.
+2025-10-20 13:36:25,915 | WARNING | logos.data_loader | Generated synthetic 1d data for AAPL between 2023-06-30 and 2023-01-01
+2025-10-20 13:36:47,247 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:36:47,251 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:36:47,265 | WARNING | logos.data_loader | No rows available after clipping AAPL [1d] to 2023-06-30 -> 2023-01-01; generating synthetic data.
+2025-10-20 13:36:47,268 | WARNING | logos.data_loader | Generated synthetic 1d data for AAPL between 2023-06-30 and 2023-01-01
+2025-10-20 13:38:00,287 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:38:00,291 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:38:00,293 | INFO | logos.data_loader | Downloading EURUSD=X [1d] from Yahoo Finance
+2025-10-20 13:38:27,765 | INFO | logos.cli | Starting backtest via CLI
+2025-10-20 13:38:27,768 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 13:38:27,770 | INFO | logos.data_loader | Downloading BTC-USD [1d] from Yahoo Finance
