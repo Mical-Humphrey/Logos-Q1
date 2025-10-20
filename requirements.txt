@@ -7,3 +7,4 @@ yfinance>=0.2
 matplotlib>=3.9
 scipy>=1.13
 pytest>=8.0
+pyyaml>=6.0.3

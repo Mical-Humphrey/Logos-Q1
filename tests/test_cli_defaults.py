@@ -1,11 +1,13 @@
 from argparse import Namespace
 import json
+import logging
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
 from logos.cli import Settings, cmd_backtest
+from logos.run_manager import RunContext
 
 
 @pytest.fixture
@@ -25,9 +27,26 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
     run_dir = tmp_path / "runs" / "test_run"
     (run_dir / "logs").mkdir(parents=True)
 
-    monkeypatch.setattr("logos.cli._create_run_dir", lambda symbol, strategy: str(run_dir))
-    monkeypatch.setattr("logos.cli.setup_logging", lambda level: None)
-    monkeypatch.setattr("logos.cli.ensure_dirs", lambda: None)
+    def fake_new_run(symbol: str, strategy: str) -> RunContext:  # pragma: no cover - test helper
+        log_file = run_dir / "logs" / "run.log"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        log_file.write_text("", encoding="utf-8")
+        return RunContext(
+            run_id="test_run",
+            run_dir=run_dir,
+            logs_dir=run_dir / "logs",
+            config_file=run_dir / "config.yaml",
+            metrics_file=run_dir / "metrics.json",
+            trades_file=run_dir / "trades.csv",
+            equity_png=run_dir / "equity.png",
+            run_log_file=log_file,
+            log_handler=logging.NullHandler(),
+        )
+
+    monkeypatch.setattr("logos.cli.new_run", fake_new_run)
+    monkeypatch.setattr("logos.cli.close_run_context", lambda ctx: None)
+    monkeypatch.setattr("logos.cli.setup_app_logging", lambda level: None)
+    monkeypatch.setattr("logos.cli.ensure_dirs", lambda extra=None: None)
 
     dates = pd.date_range("2024-01-01", periods=4, freq="D")
     price_df = pd.DataFrame({"Close": [100.0, 101.0, 102.0, 103.0]}, index=dates)

@@ -21,18 +21,25 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import os
-import shutil
-from datetime import datetime, timezone
 from typing import Sequence
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from .config import Settings, load_settings
-from .utils import ensure_dirs, parse_params, setup_logging
+from .logging_setup import setup_app_logging
+from .paths import ensure_dirs
+from .run_manager import (
+    capture_env,
+    close_run_context,
+    new_run,
+    save_equity_plot,
+    write_config,
+    write_metrics,
+    write_trades,
+)
+from .utils import parse_params
 from .data_loader import get_prices
 from .strategies import STRATEGIES
 from .backtest.engine import run_backtest
@@ -70,57 +77,15 @@ def periods_per_year(asset_class: str, interval: str) -> int:
 # -----------------------------------------------------------------------------
 # Plotting helper
 # -----------------------------------------------------------------------------
-def _plot_equity(equity: pd.Series, output_path: str) -> str:
-    """Save the equity curve PNG into the provided run directory."""
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+def _plot_equity(equity: pd.Series) -> plt.Figure:
+    """Render the equity curve and return the Matplotlib figure."""
     fig, ax = plt.subplots(figsize=(10, 4))
     equity.plot(ax=ax, label="Equity Curve")
     ax.set_title("Equity Curve")
     ax.set_xlabel("Date"); ax.set_ylabel("Equity")
     ax.legend(loc="best")
-    fig.tight_layout(); fig.savefig(output_path); plt.close(fig)
-    return output_path
-
-
-def _create_run_dir(symbol: str, strategy: str) -> str:
-    """Create a timestamped run directory and return its path."""
-    ensure_dirs()
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
-    safe_symbol = symbol.replace("/", "-").replace("=", "-")
-    dirname = f"{ts}_{safe_symbol}_{strategy}"
-    run_dir = os.path.join("runs", dirname)
-    os.makedirs(run_dir, exist_ok=True)
-    os.makedirs(os.path.join(run_dir, "logs"), exist_ok=True)
-
-    latest = os.path.join("runs", "latest")
-    if os.path.lexists(latest):
-        if os.path.islink(latest):
-            os.unlink(latest)
-        elif os.path.isdir(latest):
-            shutil.rmtree(latest)
-        else:
-            os.remove(latest)
-    try:
-        os.symlink(os.path.basename(run_dir), latest)
-    except OSError as err:
-        logger.warning("Could not update latest symlink: %s", err)
-
-    return run_dir
-
-
-def _write_config_yaml(path: str, config: dict[str, object]) -> None:
-    """Persist a minimal YAML representation of the effective configuration."""
-    lines = ["# Effective run configuration"]
-    for key, value in config.items():
-        lines.append(f"{key}: {value}")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write("\n".join(lines) + "\n")
-
-
-def _write_metrics_json(path: str, metrics: dict[str, object]) -> None:
-    serializable = {k: (float(v) if hasattr(v, "__float__") else v) for k, v in metrics.items()}
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(serializable, handle, indent=2)
+    fig.tight_layout()
+    return fig
 
 
 # -----------------------------------------------------------------------------
@@ -129,7 +94,8 @@ def _write_metrics_json(path: str, metrics: dict[str, object]) -> None:
 def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> None:
     """Run a full backtest with asset-aware costs and interval-aware metrics."""
     s = settings or load_settings()
-    setup_logging(s.log_level)
+    setup_app_logging(s.log_level)
+    ensure_dirs()
     logger.info("Starting backtest via CLI")
 
     # Resolve CLI or .env defaults
@@ -138,11 +104,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     end = args.end or s.end
     asset_class = (args.asset_class or s.asset_class).lower()
 
-    run_dir = _create_run_dir(symbol, args.strategy)
-    run_log_path = os.path.join(run_dir, "logs", "run.log")
-    run_handler = logging.FileHandler(run_log_path, mode="a")
-    run_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
-    logging.getLogger().addHandler(run_handler)
+    run_ctx = new_run(symbol, args.strategy)
 
     try:
         if args.paper:
@@ -193,21 +155,24 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "params": params or {},
             "paper_mode": bool(args.paper),
         }
-        _write_config_yaml(os.path.join(run_dir, "config.yaml"), config_payload)
-        _write_metrics_json(os.path.join(run_dir, "metrics.json"), res["metrics"])
+        env_payload = capture_env(["LOGOS_SEED", "YFINANCE_USERNAME", "YFINANCE_PASSWORD"])
+        if not any(env_payload.values()):
+            env_payload = None
 
-        trades_path = os.path.join(run_dir, "trades.csv")
-        res["trades"].to_csv(trades_path, index=False)
-        print(f"Saved trades -> {trades_path}")
+        write_config(run_ctx, config_payload, env=env_payload)
+        write_metrics(run_ctx, res["metrics"])
+        write_trades(run_ctx, res["trades"])
 
-        png_path = os.path.join(run_dir, "equity.png")
-        _plot_equity(res["equity_curve"], png_path)
+        print(f"Saved trades -> {run_ctx.trades_file}")
+
+        fig = _plot_equity(res["equity_curve"])
+        png_path = save_equity_plot(run_ctx, fig)
+        plt.close(fig)
         print(f"Saved equity plot -> {png_path}")
-        print(f"Run artifacts -> {run_dir}")
+        print(f"Run artifacts -> {run_ctx.run_dir}")
 
     finally:
-        logging.getLogger().removeHandler(run_handler)
-        run_handler.close()
+        close_run_context(run_ctx)
 
 
 # -----------------------------------------------------------------------------

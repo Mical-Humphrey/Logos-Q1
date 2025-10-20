@@ -17,10 +17,13 @@
 # =============================================================================
 from __future__ import annotations
 import logging
-import os
+from pathlib import Path
 from typing import Callable
+
 import pandas as pd
 import yfinance as yf
+
+from .paths import DATA_RAW_DIR, resolve_cache_subdir, ensure_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +34,18 @@ def _safe_symbol(symbol: str) -> str:
     return symbol.replace("/", "_").replace("=", "_").replace("-", "_")
 
 
-def _cache_path(symbol: str, interval: str, asset_tag: str) -> str:
+def _cache_path(symbol: str, interval: str, asset_tag: str) -> Path:
     """Return a cache filename that encodes symbol/interval/asset_class."""
     safe = _safe_symbol(symbol)
-    return os.path.join("input_data", "cache", asset_tag, f"{safe}_{interval}.csv")
+    cache_dir = resolve_cache_subdir(asset_tag)
+    ensure_dirs([cache_dir])
+    return cache_dir / f"{safe}_{interval}.csv"
 
 
-def _raw_fixture_path(symbol: str) -> str:
+def _raw_fixture_path(symbol: str) -> Path:
     """Return the path for a committed raw fixture if one exists."""
-    return os.path.join("input_data", "raw", f"{_safe_symbol(symbol)}.csv")
+    ensure_dirs([DATA_RAW_DIR])
+    return DATA_RAW_DIR / f"{_safe_symbol(symbol)}.csv"
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
@@ -80,14 +86,13 @@ def _load_from_yahoo(
     download_symbol: str | None = None,
 ) -> pd.DataFrame:
     """Shared Yahoo Finance downloader with caching and resampling."""
-    os.makedirs(os.path.join("input_data", "cache", asset_tag), exist_ok=True)
     cache_symbol = download_symbol or symbol
     cache = _cache_path(cache_symbol, interval, asset_tag)
 
     df = None
     if interval == "1d":
         raw_path = _raw_fixture_path(cache_symbol)
-        if os.path.exists(raw_path):
+        if raw_path.exists():
             try:
                 fixture = pd.read_csv(raw_path, parse_dates=["Date"], index_col="Date").sort_index()
                 if _covers_range(fixture, start, end):
@@ -96,7 +101,7 @@ def _load_from_yahoo(
             except Exception as ex:
                 logger.warning(f"Failed reading fixture {raw_path}: {ex}")
 
-    if df is None and os.path.exists(cache):
+    if df is None and cache.exists():
         try:
             df = pd.read_csv(cache, parse_dates=["Date"], index_col="Date").sort_index()
         except Exception as ex:
@@ -132,7 +137,7 @@ def _load_from_yahoo(
             # Only use fixtures when they already existed; new downloads populate cache.
             pass
         try:
-            os.makedirs(os.path.dirname(cache), exist_ok=True)
+            cache.parent.mkdir(parents=True, exist_ok=True)
             new.to_csv(cache)
         except Exception as ex:
             logger.warning(f"Could not write cache: {ex}")

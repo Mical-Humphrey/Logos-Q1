@@ -12,36 +12,23 @@
 #   - Keep helpers minimal and dependency-free.
 # =============================================================================
 from __future__ import annotations
-import logging
-import os
-from typing import Dict
+
+from pathlib import Path
+from typing import Dict, Iterable
+
+from .logging_setup import setup_app_logging
+from .paths import ensure_dirs as _ensure_dirs
 
 
-def ensure_dirs() -> None:
-    """Create core project directories following the new layout."""
-    os.makedirs("logos/logs", exist_ok=True)
-
-    os.makedirs("input_data/raw", exist_ok=True)
-    for asset in ("equity", "crypto", "forex"):
-        os.makedirs(os.path.join("input_data", "cache", asset), exist_ok=True)
-
-    os.makedirs("runs", exist_ok=True)
-    os.makedirs(os.path.join("runs", "lessons"), exist_ok=True)
-    os.makedirs("notebooks", exist_ok=True)
+def ensure_dirs(extra: Iterable[Path] | None = None) -> None:
+    """Proxy to `logos.paths.ensure_dirs` kept for backwards compatibility."""
+    _ensure_dirs(extra)
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Configure logging to both a file and the console using shared app log."""
-    ensure_dirs()
-    log_file = os.path.join("logos", "logs", "app.log")
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        handlers=[
-            logging.FileHandler(log_file, mode="a"),
-            logging.StreamHandler(),
-        ],
-    )
+    """Proxy to the shared logging configurator for legacy callers."""
+    setup_app_logging(level)
+
 
 def parse_params(param_str: str | None) -> Dict[str, float | int | str]:
     """Parse a simple 'k=v,k=v' string into a dict with best-effort typing.

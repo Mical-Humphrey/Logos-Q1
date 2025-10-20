@@ -1,15 +1,20 @@
-# .gitignore
-.venv/
+# Byte-compiled / cache
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-.ipynb_checkpoints/
-logs/*.png
-logs/*.csv
-logs/*.log
+
+# Virtual environments
+.venv/
+venv/
 .env
-copilot_changes.patch
-input_data/*.csv
-input_data/cache/*
-runs/**
-!runs/.gitkeep
+
+# Data caches and run artifacts
+data/cache/
+runs/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
