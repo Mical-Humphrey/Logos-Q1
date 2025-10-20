@@ -49,9 +49,9 @@ class LessonContext:
     settings: Settings
     plot: bool
     explain_math: bool
-    lesson_dir: str
-    run_dir: str
-    plots_dir: str
+    lesson_dir: Path
+    run_dir: Path
+    plots_dir: Path
     timestamp: str
     transcript: List[str] = field(default_factory=list)
     glossary: List[Dict[str, str]] = field(default_factory=list)
@@ -84,10 +84,11 @@ class LessonContext:
             line = f"  {entry['name']:<22} | {entry['symbol']:<8} | {entry['definition']} | {entry['units']}"
             self.narrate(line)
 
-    def add_plot(self, path: str) -> None:
+    def add_plot(self, path: Path | str) -> None:
         """Track saved plots and keep the learner informed."""
-        self.saved_plots.append(path)
-        self.narrate(f"Plot saved -> {path}")
+        location = str(path)
+        self.saved_plots.append(location)
+        self.narrate(f"Plot saved -> {location}")
 
 
 # Registry mapping lesson names to callables and descriptions for CLI listings.
@@ -120,18 +121,18 @@ def lesson_catalog() -> List[Tuple[str, str]]:
     return [(name, LESSON_DESCRIPTIONS.get(name, "")) for name in available_lessons()]
 
 
-def _prepare_run_dirs(lesson_name: str) -> Tuple[str, str, str, str]:
+def _prepare_run_dirs(lesson_name: str) -> tuple[Path, Path, Path, str]:
     """Create lesson/run directories and return (lesson_dir, run_dir, plots_dir, timestamp)."""
     ensure_dirs()
-    lessons_root = os.path.join("runs", "lessons")
-    os.makedirs(lessons_root, exist_ok=True)
-    lesson_dir = os.path.join(lessons_root, lesson_name)
-    os.makedirs(lesson_dir, exist_ok=True)
+    lessons_root = Path("runs") / "lessons"
+    lessons_root.mkdir(parents=True, exist_ok=True)
+    lesson_dir = lessons_root / lesson_name
+    lesson_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    run_dir = os.path.join(lesson_dir, stamp)
-    os.makedirs(run_dir, exist_ok=True)
-    plots_dir = os.path.join(run_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
+    run_dir = lesson_dir / stamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir = run_dir / "plots"
+    plots_dir.mkdir(parents=True, exist_ok=True)
     return lesson_dir, run_dir, plots_dir, stamp
 
 
@@ -236,31 +237,31 @@ def _write_glossary(ctx: LessonContext) -> Optional[str]:
     """Persist glossary JSON for the latest run and copy to lesson root."""
     if not ctx.glossary:
         return None
-    run_path = os.path.join(ctx.run_dir, "glossary.json")
-    with open(run_path, "w", encoding="utf-8") as handle:
+    run_path = ctx.run_dir / "glossary.json"
+    with run_path.open("w", encoding="utf-8") as handle:
         json.dump(ctx.glossary, handle, indent=2)
-    lesson_path = os.path.join(ctx.lesson_dir, "glossary.json")
+    lesson_path = ctx.lesson_dir / "glossary.json"
     shutil.copyfile(run_path, lesson_path)
     logger.info("Saved tutor glossary -> %s", run_path)
-    return run_path
+    return str(run_path)
 
 
 def _write_explain_md(ctx: LessonContext) -> Optional[str]:
     """Persist markdown of math derivations when requested."""
     if not ctx.explain_math or not ctx.math_notes:
         return None
-    path = os.path.join(ctx.run_dir, "explain.md")
-    with open(path, "w", encoding="utf-8") as handle:
+    path = ctx.run_dir / "explain.md"
+    with path.open("w", encoding="utf-8") as handle:
         handle.write("# Math Derivations\n\n")
         for block in ctx.math_notes:
             handle.write(block + "\n\n")
     logger.info("Saved tutor explain.md -> %s", path)
-    return path
+    return str(path)
 
 
-def _write_transcript(ctx: LessonContext, path: str) -> None:
+def _write_transcript(ctx: LessonContext, path: Path) -> None:
     """Persist the lesson transcript to disk."""
-    with open(path, "w", encoding="utf-8") as handle:
+    with path.open("w", encoding="utf-8") as handle:
         handle.write("\n".join(ctx.transcript))
     logger.info("Saved tutor transcript -> %s", path)
 
@@ -342,7 +343,7 @@ def _plot_mean_reversion(
     ax_z.grid(alpha=0.2)
 
     fig.tight_layout()
-    plot_path = os.path.join(ctx.plots_dir, f"mean_reversion_{ctx.timestamp}.png")
+    plot_path = ctx.plots_dir / f"mean_reversion_{ctx.timestamp}.png"
     fig.savefig(plot_path, dpi=150)
     if ctx.plot:
         plt.show()
@@ -409,7 +410,7 @@ def _plot_momentum(
     ax.grid(alpha=0.2)
 
     fig.tight_layout()
-    plot_path = os.path.join(ctx.plots_dir, f"momentum_{ctx.timestamp}.png")
+    plot_path = ctx.plots_dir / f"momentum_{ctx.timestamp}.png"
     fig.savefig(plot_path, dpi=150)
     if ctx.plot:
         plt.show()
@@ -515,7 +516,7 @@ def _plot_pairs(
     ax_bot.grid(alpha=0.2)
 
     fig.tight_layout()
-    plot_path = os.path.join(ctx.plots_dir, f"pairs_trading_{ctx.timestamp}.png")
+    plot_path = ctx.plots_dir / f"pairs_trading_{ctx.timestamp}.png"
     fig.savefig(plot_path, dpi=150)
     if ctx.plot:
         plt.show()
@@ -896,7 +897,7 @@ def run_lesson(
 
     glossary_path = _write_glossary(ctx)
     explain_path = _write_explain_md(ctx)
-    transcript_path = os.path.join(ctx.run_dir, "transcript.txt")
+    transcript_path = ctx.run_dir / "transcript.txt"
 
     if glossary_path:
         ctx.narrate(f"Glossary saved -> {glossary_path}")

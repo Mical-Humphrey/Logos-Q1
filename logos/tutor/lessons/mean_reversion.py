@@ -37,7 +37,7 @@ def _load_fixture() -> pd.DataFrame:
 
 
 def build_glossary(explain_math: bool) -> Dict[str, Any]:
-    g = {
+    g: Dict[str, Any] = {
         "zscore": "Standardized price deviation from moving average.",
         "lookback": "Window length for moving average and std.",
         "entry_threshold": "Absolute z-score threshold for entry.",
