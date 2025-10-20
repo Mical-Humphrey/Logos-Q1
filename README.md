@@ -218,12 +218,46 @@ Use these commands in CI or before switching to a new machine to ensure consiste
 
 ---
 
+## Phase 3: Visual Dashboard
+
+Logos-Q1 now includes a **read-only Streamlit dashboard** for exploring backtests, monitoring live sessions, and analyzing performance.
+
+### Quick Start
+
+Launch the dashboard with:
+
+```bash
+streamlit run logos/ui/streamlit/app.py
+```
+
+The dashboard will open in your browser at `http://localhost:8501`.
+
+### Features
+
+- **📈 Overview** — KPI tiles, recent backtests, and live session status
+- **🔍 Backtests** — Detailed analysis with metrics, equity charts, and trade tables
+- **📡 Live Monitor** — Real-time account, positions, and log streaming with auto-refresh
+- **🧪 Strategy Lab** — Explore strategies, parameters, and example commands
+- **⚙️ Settings** — Configuration viewer and dashboard preferences
+- **📚 Tutor Viewer** — Browse lesson transcripts and materials
+
+### Key Characteristics
+
+- **Read-Only**: Never writes or modifies any files
+- **Fast**: mtime-based caching for quick data access
+- **Safe**: Gracefully handles missing or partial data
+- **Modular**: Reusable components across pages
+
+For detailed documentation, see [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
+
+---
+
 ## Roadmap Snapshot
 | Phase | Status | Focus |
 | --- | --- | --- |
 | Phase 1 | ✅ Complete | Educational backtesting foundation. |
 | Phase 2 | 🚧 In Progress | Live execution scaffolding, broker integrations, safety validation. |
-| Phase 3 | 🔜 Planned | Streamlit dashboard for live monitoring and reporting. |
+| Phase 3 | ✅ Complete | Streamlit dashboard for live monitoring and reporting. |
 | Phase 4 | 🔜 Planned | Portfolio construction, ML alpha research, advanced risk modeling. |
 | Phase 5 | 🔜 Planned | Deployment automation (desktop bundle, cloud orchestration). |
 
