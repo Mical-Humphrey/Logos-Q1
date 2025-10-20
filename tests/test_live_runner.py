@@ -11,6 +11,7 @@ import pytest
 from logos.live.broker_base import OrderIntent
 from logos.live.broker_paper import PaperBrokerAdapter
 from logos.live.data_feed import Bar, MemoryBarFeed
+from logos.live.artifacts import load_account, load_orders, load_positions, load_trades
 from logos.live.order_sizing import SizingConfig
 from logos.live.risk import RiskLimits
 from logos.live.runner import LiveRunner, LoopConfig
@@ -239,11 +240,6 @@ def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
 
 
 def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
-    def _data_rows(path: Path) -> list[list[str]]:
-        with path.open("r", encoding="utf-8") as fh:
-            reader = csv.reader(fh)
-            return [row for row in reader if row and not row[0].startswith("#")]
-
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     initial_bars = [
         Bar(dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"),
@@ -319,17 +315,24 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
         events = [json.loads(line) for line in fh]
     assert any(event.get("type") == "state" for event in events)
 
-    for artifact in [
-        session_paths.orders_file,
-        session_paths.trades_file,
-        session_paths.positions_file,
+    orders_df = load_orders(session_paths.orders_file, session_id=session_paths.session_id, strategy="momentum")
+    trades_df = load_trades(session_paths.trades_file, session_id=session_paths.session_id, strategy="momentum")
+    positions_df = load_positions(session_paths.positions_file, session_id=session_paths.session_id, strategy="momentum")
+    account_df = load_account(
         session_paths.account_file,
-    ]:
-        rows = _data_rows(artifact)
-        assert rows, f"Expected data rows in {artifact.name}"
-        data_rows = [row for row in rows if row[0] != "ts"]
-        assert data_rows, f"Expected data rows beyond headers in {artifact.name}"
-        assert data_rows[0][1] == session_paths.session_id
+        session_id=session_paths.session_id,
+        strategy="momentum",
+        symbol="MSFT",
+    )
+
+    assert not orders_df.empty
+    assert not trades_df.empty
+    assert not positions_df.empty
+    assert not account_df.empty
+    assert orders_df["session_id"].iloc[0] == session_paths.session_id
+    assert trades_df["strategy"].iloc[0] == "momentum"
+    assert set(positions_df["symbol"]) == {"MSFT"}
+    assert account_df["symbol"].iloc[-1] == "MSFT"
 
     summary_text = session_paths.session_report.read_text(encoding="utf-8").strip()
     summary_lines = summary_text.splitlines()

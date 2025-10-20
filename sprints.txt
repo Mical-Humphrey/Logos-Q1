@@ -241,207 +241,187 @@ Sprint C18 — Release Wrap
   - All Phase 3 Definition of Done checks pass.
 
 
-  Phase 4 — Portfolio, ML Alpha Research, and LLM “Brain”
-Goal
+Phase 4 — Portfolio, Automated ML Loop, and LLM “Brain”
+Goals
 
-Add a portfolio engine, advanced risk modeling, and a governed LLM “Brain” that proposes bounded parameter tweaks. Preserve determinism, enforce guardrails, and require approvals for any live change.
-Scope
+Portfolio: robust multi-asset allocation with constraints and cost-aware rebalancing.
+Automated ML loop: daily deterministic training → validation gates → safe promotion (staging/champion) → online monitoring → one-command rollback.
+LLM “Brain”: propose bounded parameter tweaks; proposals must pass the same gates and require explicit approval for live use.
+Scope and principles
 
-Portfolio construction: multi-asset allocation, constraints, volatility targeting, turnover and cost-aware rebalancing.
-Risk modeling: covariance estimators (EWMA, Ledoit-Wolf), drawdown controls, capital allocation limits, exposure caps.
-ML alpha research: feature pipelines, label schemas, model training/evaluation with walk-forward/TSCV; strictly offline/deterministic by default.
-LLM Brain: periodic proposals for parameter tweaks within boundaries; proposals saved as artifacts and applied only after gates (backtest checks) and human approval (default).
-Architecture (new packages/modules)
+Determinism and atomicity: every run writes to its own timestamped folder; only after all artifacts exist do we update pointers/symlinks.
+File-system model registry: current (champion), staging (candidate), historical.
+Shadow-first deployment: staging evaluated online with zero order impact until promoted explicitly or canary metrics pass.
+Single source of truth for gates: both model promotions and LLM parameter proposals pass through the same validator (no shortcuts).
+CI-friendly: no network calls; stub LLM and tiny fixture datasets.
+Architecture (modules and CLIs)
+
+Portfolio (carry-over, unchanged in spirit)
 
 logos/portfolio/
-allocator.py (HRP, mean-variance, risk parity; constraint handling)
-risk_model.py (realized vol, EWMA vol, Ledoit-Wolf covariances, beta)
-optimizer.py (quadratic programming with box/turnover constraints; heuristic fallback)
-constraints.py (exposure caps, sector/asset-class limits, max position, max turnover)
-position_manager.py (target → orders diff for live/backtest; rebalancing cadence)
+allocator.py (HRP, risk parity, mean-variance w/ Ledoit–Wolf)
+risk_model.py (realized/EWMA vol, shrinkage covariance)
+optimizer.py (box/turnover constraints; heuristic fallback)
+constraints.py (exposure caps, sector limits, max position/turnover)
+position_manager.py (target → orders diff; slippage/fees-aware)
+CLI: python -m logos.portfolio backtest …
+Automated ML loop (new focus)
+
 logos/alpha/ml/
-features.py (returns, z-scores, momentum windows, volatility, rolling stats)
-labels.py (next-period return, classification +/- with thresholds)
-pipelines.py (fit/transform pipeline; feature scaling; leakage guards)
-models.py (sklearn baselines: LogisticRegression, RandomForest; optional XGBoost if present)
-evaluation.py (walk-forward, time-series CV, OOS metrics, feature importance summary)
+train.py (or train_meta_model.py): deterministic training; atomic run dir; gates
+promote.py: explicit champion switch with audit
+monitor.py: online model/system health; writes status.json
+rollback.py: repoint champion to prior run with audit
+features.py, labels.py, pipelines.py, models.py, evaluation.py (from earlier plan; now integrated)
+CLIs
+python -m logos.alpha.ml.train --config configs/ml/daily.yaml
+python -m logos.alpha.ml.promote --from runs/ml/<ts>/ --to data/cache/models/current --i-acknowledge-risk
+python -m logos.alpha.ml.monitor --once
+python -m logos.alpha.ml.rollback --to runs/ml/<ts_prev>/
+LLM “Brain” (proposal engine)
+
 logos/brain/
-schemas.py (Pydantic proposal schema: bounds, rationale, confidence, risk flags)
-prompts/ (prompt templates; versioned)
-policies.py (parameter bounds, rate limits, budget)
-llm_agent.py (provider-agnostic LLM client; retries; redaction; budget tracking)
-proposer.py (collects recent metrics/runs; forms question; parses response → Proposal)
-validator.py (sanity checks, bounds enforcement, backtest gates; risk/circuit-breakers)
-scheduler.py (cron-like loop; writes proposals; optional auto-apply in paper mode)
-state.py (JSON state: last call time, budget, cooldowns)
-CLI
-python -m logos.portfolio backtest ... (portfolio-level backtest)
-python -m logos.alpha.ml train/eval ...
-python -m logos.brain propose --strategy mean_reversion --paper --max-delta 10% --explain
-python -m logos.brain apply --proposal <path> [--paper | --live --i-acknowledge-risk]
-Paths & Files (align with Phase 2/3; add new)
+schemas.py (Proposal: deltas within bounds, rationale, confidence, risk flags)
+policies.py (bounds, max delta, cooldowns, budgets)
+prompts/, llm_agent.py (provider-agnostic; stub for CI; retries/backoff)
+proposer.py (collects latest metrics; emits proposal.yaml and explain.md)
+validator.py (shared gates with ML loop; quick backtest sims on tiny data)
+scheduler.py (cron-friendly; sandbox-only by default)
+CLIs
+python -m logos.brain propose --strategy <name> --paper --max-delta 10% --explain
+python -m logos.brain apply --proposal runs/brain/proposals/<ts>/proposal.yaml --paper | --live --i-acknowledge-risk
+Paths & files (registry, atomic runs, monitoring)
 
-New data/cache:
-data/cache/features/ (feature matrices; parquet/csv)
-data/cache/models/ (trained models; joblib/pickle with metadata.json)
-Portfolio runs:
-runs/portfolio/<id>/{config.yaml, metrics.json, weights.csv, trades.csv, equity.png, logs/run.log}
-Brain artifacts:
-runs/brain/proposals/<YYYY-MM-DD_HHMM>_{scope}/
-proposal.yaml (strategy params deltas; rationale; bounds; confidence)
-explain.md (LLM explanation; redacted)
-validation.json (gates result; metrics deltas; risk flags)
-sim/ (quick backtest artifacts for the proposal)
-logs/run.log
-runs/brain/latest (pointer)
-Env/Secrets
-.env.example: OPENAI_API_KEY or provider keys; BRAIN_BUDGET_TOKENS_PER_DAY; BRAIN_COOLDOWN_SECS; BRAIN_PROVIDER
-logos/paths helpers to add (read-only for UI; write used by engines):
-RUNS_PORTFOLIO_DIR = RUNS_DIR / "portfolio"
-RUNS_BRAIN_DIR = RUNS_DIR / "brain"
-RUNS_BRAIN_PROPOSALS_DIR = RUNS_BRAIN_DIR / "proposals"
-Security, Safety, and Governance
+data/cache/models/
+current/ -> runs/ml/<champion_ts>/ (symlink)
+staging/ -> runs/ml/<candidate_ts>/ (symlink)
+historical stored under runs/ml/
+runs/ml/<YYYYMMDD_HHMMSS>/
+features.parquet, model.pkl, metadata.json, metrics.json, validation.json, train.log
+Write to a temp dir, then rename(); update staging symlink atomically on success
+runs/ml/promotions/<YYYYMMDD_HHMMSS>/promotion.json (audit trail)
+runs/monitoring/status.json (model-health + system-health; OK/WARN/CRIT with reasons)
+runs/brain/proposals/<YYYYMMDD_HHMMSS>_{scope}/
+proposal.yaml, explain.md, validation.json, sim/*, logs/run.log
+logos/logs/ml_train.log (stdout/stderr capture from cron/systemd)
+Scheduler (daily automation)
 
-Default mode is sandbox: proposals only; no auto-apply.
-Hard bounds on parameters (policies.py) with per-parameter min/max, max step size, and rate-limited changes.
-Budgeting: tokens/day and cooldowns; emergency kill-switch.
-No secrets in logs; redact prompts/responses; store hashes only if needed.
-Human-in-the-loop required for live apply; paper mode can auto-apply after gates pass.
-Implementation Plan
+Cron/systemd recommended. Example (daily 03:10 UTC):
+10 3 * * * /home/ubuntu/.venv/bin/python -m logos.alpha.ml.train --config configs/ml/daily.yaml >> logos/logs/ml_train.log 2>&1
+Training contract and gates (deterministic)
 
-Portfolio engine (multi-asset)
-Allocator: HRP, risk parity, and mean-variance with Ledoit-Wolf covariance.
-Constraints: long-only/box limits, per-asset max weight, sector caps, turnover limit.
-Risk model: realized vol, EWMA(λ configurable), Ledoit-Wolf shrinkage, drawdown estimator.
-Position manager: compare current weights to targets; produce orders with notional/lot sizing; respect max turnover/costs.
-CLI backtest producing portfolio run artifacts.
-Acceptance:
-Can backtest 3+ assets with deterministic small datasets; weights.csv matches constraints; metrics.json includes Portfolio Sharpe, MaxDD, Turnover, AvgWeight, TrackingError.
-ML alpha research (deterministic)
-Feature/label pipelines: minimal leakage-safe windows, standard scaling, train/valid/test splits by time, walk-forward.
-Models: sklearn baselines with fixed seeds; optional XGBoost behind an extra requirement.
-Evaluation: OOS metrics (AUC, accuracy for classification; IC, Sharpe of signal), plot importance (if available), export model + metadata.
-Artifacts to data/cache/models/ and runs/<id> for experiments.
-Acceptance:
-Deterministic training on fixture data; serialized model with metadata.json; evaluation report in metrics.json; tests verify feature windowing and determinism.
-Brain (LLM parameter proposer)
-Schema: Proposal with fields: scope (strategy or portfolio), params_before, params_after (deltas), bounds_applied, rationale, confidence, risk_flags, created_at, version.
-Policies: bounds per param; max-delta; daily token budget; cooldown; allow/deny-lists.
-LLM client (provider-agnostic): supports OPENAI-like API; retries/backoff; timeouts; token accounting; redaction.
-Proposer: collect latest metrics/runs, prepare context window, prompt templates in prompts/, parse JSON response strictly into Proposal; on parse fail → reject.
-Validator: enforce bounds; run quick deterministic backtest on tiny dataset to compare baseline vs proposal; require gates e.g. Sharpe_delta >= 0.05, MaxDD not worse than threshold; exposure sanity checks.
-Scheduler: cron-like loop; by default sandbox-only writes artifacts; optional auto-apply in paper mode when gates pass; live applies require CLI with explicit flags.
-Artifacts under runs/brain/proposals/... as described.
-Acceptance:
-CLI propose writes proposal.yaml + explain.md + validation.json + sim artifacts; proposals respect bounds; validator blocks unsafe suggestions; sandbox mode enabled by default.
-Live integration hooks (read-only until approved)
-Live runner reads an “effective config” layer that can accept an approved proposal.yaml to override parameters at session start (not mid-bar).
-Audit: effective config written to runs/live/sessions/<id>/config.yaml with proposal_ref if applied.
-Acceptance:
-In paper mode, apply --proposal <path> on session start and log overrides; live requires --i-acknowledge-risk.
-UI (Phase 3 extension, read-only)
-Add dashboard tiles for Portfolio and Brain:
-Portfolio: list portfolio runs; show weights table + equity.
-Brain: proposals list with status (proposed/validated/approved/applied); render explain.md, bounds applied, and validation metrics.
-Acceptance:
-Overview shows counts; Backtests/Portfolio pages display artifacts; Brain page shows proposal drill-down. No write actions.
-Performance & Quality
+Train script responsibilities:
+Fix RNG seeds and time splits (walk-forward or last-N-days OOS)
+Emit:
+metrics.json (train/valid/OOS: AUC/Acc for cls; IC/R²/MSE; OOS Sharpe of signal)
+metadata.json (git SHA, data span, feature list + hashes, label schema, seeds, versions)
+validation.json (gate pass/fail, deltas vs champion, comments)
+Write to temp dir then rename atomically to runs/ml/<ts>
+On success, atomically point data/cache/models/staging -> runs/ml/<ts>
+Example gates vs champion (tunable in config):
+Sharpe_oos >= champion_Sharpe_oos + 0.05
+MaxDD_oos <= champion_MaxDD_oos + 2%
+IC_oos >= 0.02
+Stability: PSI for key features < 0.2
+Sanity: at least N_eff signals/trades in OOS
+If gates pass → create promotion_ticket.json (or flag in validation.json)
+Shadow/canary and promotion (safe by default)
 
-Deterministic seeds; fixtures; no network in CI (Brain provides stub LLM that returns fixed proposal for tests).
-Portfolio optimizer must handle small N (<=50 assets) in <500ms on fixtures; graceful fallback if solver not present.
-ML pipeline avoids data leakage; caches features deterministically; documents provenance in metadata.json.
-Brain proposals are small bounded diffs; prompt templates versioned.
-Testing
+Live runner supports shadow eval:
+Load both champion (current/) and staging (staging/) models
+Log both signals; champion alone affects orders
+Canary window: require staging’s real-time proxy metrics to be healthy (Sharpe on recent bars, bounded disagreement rate, etc.)
+Promotion (explicit):
+python -m logos.alpha.ml.promote --from runs/ml/<ts>/ --to data/cache/models/current --i-acknowledge-risk
+Writes runs/ml/promotions/<ts_now>/promotion.json (who/when/why, deltas, gate results)
+Monitoring and alerting
 
-Unit tests:
-Portfolio: constraint satisfaction (weights sum to 1, box limits respected), turnover limiter, cost-aware order diffs.
-Risk model: EWMA and Ledoit-Wolf sanity; max drawdown calc consistent with existing metrics.
-ML: feature windowing correctness; deterministic model training; evaluation metrics in expected ranges on fixtures.
-Brain: proposal schema validation; bounds enforcement; stub LLM parser; validator gating (accept/reject logic); budget/cooldown enforcement.
-Integration tests:
-Portfolio backtest end-to-end produces full artifact set.
-Brain propose → validate → artifacts written; optional apply in paper session writes proposal_ref in config.
+logos.alpha.ml.monitor produces runs/monitoring/status.json with:
+Model-health:
+Feature drift (PSI/KS vs training dist)
+Prediction drift (score mean/variance; calibration: Brier for cls; MAE for reg)
+Live OOS proxy metrics (rolling Sharpe/IC over last K bars)
+Disagreement vs champion (flip rate)
+System-health:
+Data freshness and completeness
+Latency breakdowns (polling → features → predict → decide)
+State mismatches, broker rejects/timeouts
+Heartbeats (runner + monitor liveness timestamps)
+Levels: OK, WARN, CRIT; append reasons list. Optional email/Slack later; file-first now.
+Rollback (one command)
+
+Keep last N (e.g., 5) champions.
+python -m logos.alpha.ml.rollback --to runs/ml/<ts_prev>/
+Atomically repoints current/ to the chosen run; writes an audit entry.
+LLM “Brain” integration changes (governance tightened)
+
+All parameter proposals must:
+Stay within policies.py bounds (min/max, max step size)
+Respect budgets (tokens/day) and cooldowns
+Pass the same validator gates on a quick backtest before any apply
+Default to sandbox (proposal artifacts only); live apply requires explicit CLI flags
+Shadow evaluation: if applied to a paper live session, log “champion vs proposal-adjusted” signals side-by-side before enabling real effect.
+Tests
+
+Unit:
+Feature windowing and label alignment (no look-ahead), deterministic seeds
+PSI/KS calculators; calibration metrics; gate logic (pass/fail around thresholds)
+Portfolio: constraint satisfaction, turnover/cost handling
+Brain: schema/bounds validation; stub LLM parser
+Integration:
+ML: end-to-end train on tiny fixture → artifacts + validation.json
+Shadow: runner logs champion and staging signals; promotion flips effective model
+Brain: propose → validate → sim artifacts; apply blocked without gates
+Golden tests:
+Tiny dataset with frozen seeds and versions; assert identical metrics.json across runs
 CI:
-No real LLM/network calls; use stub provider.
-All tests pass: pytest -q.
+No network; stub LLM provider; tiny fixtures; all tests pass via pytest -q
+UI (Phase 3 extension; read-only)
+
+Add pages/cards for:
+Models: show current/staging pointers, latest metrics, validation gates
+Monitoring: render runs/monitoring/status.json (badges for OK/WARN/CRIT)
+Brain: proposals list and drill-down (rationale, bounds, validation)
+No write actions from UI.
 Documentation
 
-docs/PORTFOLIO.md: allocators, risk models, constraints, CLI usage, artifacts.
-docs/ALPHA_ML.md: feature/label design, models, evaluation, determinism.
-docs/BRAIN.md: governance, bounds, budgets, prompts, proposal lifecycle, CLI examples, approval workflow and safety checklist.
-Update README and MANUAL with Phase 4 sections and safety notes.
+docs/PORTFOLIO.md (allocators, constraints, CLI)
+docs/ALPHA_ML.md (training contract, gates, registry, shadow, promotion, rollback)
+docs/BRAIN.md (policies, governance, prompts, proposal lifecycle)
+Update README/MANUAL with a “Phase 4 Automated ML Loop” section and safety checklist
+
 Definition of Done (Phase 4)
 
-Portfolio backtest CLI runs on fixtures and writes: config.yaml, metrics.json, weights.csv, trades.csv, equity.png, logs/run.log under runs/portfolio/<id>.
-ML pipelines train deterministically on fixtures; serialize models with metadata; evaluation metrics emitted.
-Brain proposer generates bounded proposals, validates via quick backtest gates, and persists artifacts; default sandbox mode; no secrets leaked.
-Live runner can start with an approved proposal.yaml in paper mode and records proposal_ref in effective config; live requires explicit flags.
-Streamlit dashboard (Phase 3) shows portfolio runs and brain proposals read-only.
-All tests pass locally and in CI without network calls.
-Smaller, Focused Sprints (1–2 days each)
+Daily cron/systemd trains deterministically and writes complete artifacts to runs/ml/<ts>; staging symlink updated atomically on pass.
+Shadow mode live runner logs champion and staging; only champion affects orders until explicit promotion or canary success.
+Promote/rollback CLIs repoint symlinks atomically and write audits.
+Monitor writes runs/monitoring/status.json with model vs system breakdown; WARN/CRIT levels trigger clear reasons.
+LLM “Brain” proposals are bounded, validated by the same gates, and default to sandbox; no secrets leaked in artifacts.
+Portfolio backtest CLI produces portfolio artifacts and metrics as in Phase 4 Part A.
+CI passes with stubs and fixtures; no external network.
+Smaller, focused sprints (1–2 days each)
 
-Sprint D0 — Portfolio Skeleton
+Track A — Portfolio
 
-Files: allocator.py, risk_model.py, constraints.py, optimizer.py, position_manager.py; CLI stub.
-Acceptance: weights computation pipeline skeleton; unit tests compile.
-Sprint D1 — Risk Model Primitives
+A0 Risk primitives (realized/EWMA vol, Ledoit–Wolf) + tests
+A1 Allocators v1 (risk parity, MV) + box constraints
+A2 Turnover/cost-aware rebalance + order diffs
+A3 Portfolio backtest CLI + artifacts and metrics
+Track B — Automated ML loop
 
-Implement realized/EWMA vol, Ledoit-Wolf covariance; tests with synthetic returns.
-Acceptance: correct shapes, positive semidefinite covariance, deterministic outputs.
-Sprint D2 — Allocators v1 (Risk Parity + MV)
+B0 Train contract + atomic run dir + gating; write staging symlink
+B1 Model registry symlinks (current/staging) + promotion audit
+B2 Shadow wiring in live runner (dual predictions, champion-only orders)
+B3 Monitor (PSI/KS, calibration, proxy metrics, system health) → status.json
+B4 Rollback CLI and tests
+B5 Golden-tests and determinism hardening (fixtures, seeds, versions)
+B6 Cron/systemd job + docs + ml_train.log capture
+Track C — LLM “Brain”
 
-Implement risk parity and mean-variance with shrinkage; box constraints.
-Acceptance: weights sum to ~1, within bounds; simple 3-asset fixture passes.
-Sprint D3 — Turnover & Cost-Aware Rebalance
+C0 Policies/bounds schema + proposer/validator integration (shared gates)
+C1 Stub LLM + prompts; proposal artifacts; sandbox-only
+C2 Optional paper auto-apply after gates; live apply requires explicit flags
+Track D — UI & Docs
 
-Position diff with turnover limit and cost slippage inputs.
-Acceptance: rebalancing respects max turnover and cost penalties.
-Sprint D4 — Portfolio Backtest CLI + Artifacts
-
-End-to-end backtest producing runs/portfolio/<id> artifacts.
-Acceptance: metrics.json includes Portfolio Sharpe, MaxDD, Turnover; weights.csv written.
-Sprint D5 — ML Feature/Label Pipelines
-
-features.py, labels.py, pipelines.py with leakage guards.
-Acceptance: deterministic feature matrices on fixtures; tests pass.
-Sprint D6 — Models + Evaluation
-
-models.py (sklearn baselines) and evaluation.py (walk-forward / TSCV).
-Acceptance: serialized model + metadata; OOS metrics computed; tests pass.
-Sprint D7 — Brain Schemas & Policies
-
-Pydantic proposal schema; bounds config; budget/cooldown tracking.
-Acceptance: schema validates; bounds enforced; tests for deltas.
-Sprint D8 — LLM Client + Prompts (Stub + Provider)
-
-llm_agent.py with provider-agnostic interface; stub provider for CI; prompt templates.
-Acceptance: stub returns deterministic proposal; no secrets in logs.
-Sprint D9 — Proposer + Validator + Artifacts
-
-proposer.py, validator.py; write proposal.yaml, explain.md, validation.json, sim/ artifacts.
-Acceptance: proposals generated and validated on fixtures; failing gates reject.
-Sprint D10 — Scheduler & CLI
-
-scheduler.py loop; CLI for propose/apply; paper-mode auto-apply optional.
-Acceptance: cron-style run produces new proposal folders; apply respects flags and approval.
-Sprint D11 — Live Hook (Read-Only Apply)
-
-Runner reads approved proposal at session start; records proposal_ref; no mid-session changes.
-Acceptance: paper session loads overrides from proposal; logs override summary.
-Sprint D12 — UI Extension (Read-Only)
-
-Streamlit pages: Portfolio viewer, Brain proposals list/drill-down.
-Acceptance: pages render fixtures; no write actions.
-Sprint D13 — Docs & Runbook
-
-PORTFOLIO.md, ALPHA_ML.md, BRAIN.md; safety checklist and approval workflow.
-Acceptance: docs build; links from README/MANUAL.
-Sprint D14 — Final QA & Release
-
-End-to-end smoke with fixtures: portfolio backtest, ML training, brain proposal, UI view.
-Acceptance: Definition of Done met; tests/CI green; tag release notes.
-Non-Goals (Phase 4)
-
-No automatic live parameter changes without human approval by default.
-No deep learning stacks; keep ML to classical models unless explicitly enabled.
-No persistent external DB; continue using filesystem artifacts and JSON/CSV for reproducibility.
+D0 Dashboard extensions (Models, Monitoring, Brain) read-only
+D1 PORTFOLIO.md, ALPHA_ML.md, BRAIN.md; README/MANUAL updates
