@@ -35,3 +35,207 @@ Sprint B (Adapters & Polish)
 - Expand reporting (session markdown, summaries) and ensure config validator enforces safety toggles.
 - Refresh documentation/runbook to match the finished live pipeline.
 - Harden tests and CI workflows around live-mode features, ensuring `pytest` stays green in isolation.
+
+
+
+Phase 3 — Visual Dashboard (Streamlit + Plotly)
+===============================================
+
+Goal
+- Build a read-only Streamlit dashboard that surfaces backtests, live sessions, metrics, and logs from the filesystem. No trading actions in Phase 3 (view-only). The UI must be modular, fast, and safe to run locally.
+
+Scope
+- Use Streamlit for the GUI, Plotly for charts, and import canonical paths from logos.paths (add any missing helpers).
+- Read artifacts from runs/, data/cache/, and logos/logs/ only; never mutate artifacts from the UI.
+
+Implementation Plan (Read-only UI)
+- Package: logos/ui/streamlit/
+  - __init__.py
+  - app.py (main entry; streamlit run logos/ui/streamlit/app.py)
+  - state.py (session_state: selected symbol/run, refresh interval, theme)
+  - data_access.py (pure readers using logos.paths; legacy-aware)
+  - components/
+    - metrics_card.py (CAGR, Sharpe, MaxDD, WinRate, Exposure)
+    - equity_chart.py (Plotly equity + drawdown overlay)
+    - trades_table.py (paginated trades view with filters/download)
+    - log_viewer.py (tail file with autorefresh + regex filter)
+  - pages/
+    - 00_Overview.py (KPI tiles, recent runs, latest live session)
+    - 10_Backtests.py (run explorer; compare runs)
+    - 20_Live_Monitor.py (session status, PnL, positions, fills, log tail)
+    - 30_Strategy_Lab.py (strategy docs/param schema; no execute)
+    - 40_Settings.py (safe .env/config view; theme + refresh)
+    - (Optional) 50_Tutor_Viewer.py (render lessons transcript/plots)
+
+Paths & Files (read-only; align with Phase 2)
+- Backtests: runs/<backtest_id>/{metrics.json, trades.csv, equity.png, config.yaml, logs/run.log}
+  - Legacy equity images: runs/equity_{SYMBOL}_{STRAT}.png (display if present)
+- Live: runs/live/sessions/<id>/{orders.csv, trades.csv, positions.csv, account.csv, session.md, plots/*.png, logs/run.log, state.json}
+  - runs/live/latest_session (symlink or pointer file)
+- Logs: logos/logs/live.log and logos/logs/app.log
+- Tutor: runs/lessons/<lesson>/<timestamp>/{transcript.md|.txt, glossary.json, plots/*.png}
+
+Performance & Quality
+- Backtests page loads under 500ms for typical runs (<50k rows).
+- Live Monitor avoids full rereads; cache by mtime and use small deltas.
+- Handle partial file writes without crashing; show retry/empty-state.
+- Accessibility: responsive layout, keyboard navigation, alt text, consistent colors.
+- Security: never display secrets; redact any values with KEY/SECRET/TOKEN.
+
+Testing
+- tests/ui/test_data_access.py: validate loaders on fixtures in tests/fixtures/runs/…
+- tests/ui/test_pages_import.py: import all pages and assert layout functions render without raising using fixtures/mocks.
+
+Documentation
+- docs/DASHBOARD.md: how to run, screenshots per page, file/metrics expectations and empty-state behavior.
+- Update README.md and docs/MANUAL.html with “Phase 3 Dashboard” section and a short gif/screenshot.
+
+Definition of Done (Phase 3)
+- streamlit run logos/ui/streamlit/app.py launches without errors.
+- Overview shows KPIs, recent backtests, and (if present) latest live session with PnL and log tail.
+- Backtests page: run picker, metrics cards, equity with drawdown, trades table with filters/download, compare mode with overlay + metric deltas.
+- Live Monitor: with a dummy/recorded session fixture, displays account snapshot, positions, trades, and live.log tail; autorefresh updates PnL chart and log tail.
+- Strategy Lab lists strategies from logos/strategies and renders docstrings/param schemas and example CLIs.
+- Settings shows redacted env/config and allows changing UI refresh interval and theme.
+- Missing paths or empty runs produce clear empty-state cards—no stack traces.
+- Tests pass: pytest -q (UI tests + existing suite).
+- Docs updated: docs/DASHBOARD.md plus README & MANUAL references.
+
+Smaller, Focused Sprints (1–2 days each)
+
+Sprint C0 — Prep & Skeleton
+- Tasks:
+  - Add Streamlit and Plotly to requirements if missing.
+  - Scaffold logos/ui/streamlit/{__init__.py, app.py, state.py, data_access.py, components/, pages/}.
+  - Ensure logos.paths exposes helpers for RUNS_DIR, LOGOS_DIR/logs, etc.
+- Acceptance:
+  - streamlit run logos/ui/streamlit/app.py shows a placeholder home page.
+  - Imports from logos.paths succeed.
+
+Sprint C1 — Data Access: Backtests (Base)
+- Tasks:
+  - Implement list_backtests(), load_backtest_metrics(), load_backtest_equity().
+  - Handle standardized and legacy filenames; warn on legacy.
+- Acceptance:
+  - A simple script loads metrics/equity for a fixture run without errors.
+  - Unit tests for these functions pass.
+
+Sprint C2 — Data Access: Trades + Live Stubs
+- Tasks:
+  - Implement load_backtest_trades().
+  - Stub list_live_sessions() and load_live_snapshot() returning empty frames when absent.
+- Acceptance:
+  - Trades load for fixture; live stubs return empty-state safely.
+  - Tests updated and passing.
+
+Sprint C3 — Components v1: Metrics + Equity
+- Tasks:
+  - Build components/metrics_card.py (CAGR, Sharpe, MaxDD, WinRate, Exposure).
+  - Build components/equity_chart.py with drawdown overlay (Plotly).
+- Acceptance:
+  - Demo page renders metrics cards and equity chart from fixtures under 500ms.
+
+Sprint C4 — Components v2: Trades Table + Log Viewer
+- Tasks:
+  - Build trades_table.py (pagination, side/date filters, CSV download).
+  - Build log_viewer.py (tail last N lines with optional regex filter).
+- Acceptance:
+  - Demo page shows filtered trades; download button saves CSV; log tail works on a sample log.
+
+Sprint C5 — Page: 00_Overview (MVP)
+- Tasks:
+  - KPI tiles: # backtests, # strategies (from filesystem), last run time.
+  - Recent backtests table.
+  - Latest live session panel (empty-state if none).
+- Acceptance:
+  - Overview renders with fixtures; empty-state shows friendly text.
+
+Sprint C6 — Page: 10_Backtests (Single Run)
+- Tasks:
+  - Sidebar filters (symbol/strategy/date) and run picker.
+  - Show metrics cards + equity chart for selected run.
+- Acceptance:
+  - Selecting a run updates cards and chart; no compare yet.
+
+Sprint C7 — Page: 10_Backtests (Compare Mode)
+- Tasks:
+  - Add “Compare runs” toggle; select Run A and Run B.
+  - Overlay equities; show side-by-side metric deltas.
+- Acceptance:
+  - Overlay works smoothly; metrics deltas are correct for fixtures.
+
+Sprint C8 — Live Data Access (Real)
+- Tasks:
+  - Implement list_live_sessions() and load_live_snapshot() using Phase 2 paths (orders.csv, trades.csv, positions.csv, account.csv).
+  - Implement tail_log() with safe partial-read handling; mtime-based caching.
+- Acceptance:
+  - With live fixtures, returns data frames and log lines quickly and safely.
+
+Sprint C9 — Page: 20_Live_Monitor (MVP)
+- Tasks:
+  - Panels: account snapshot, open positions, recent fills, log tail.
+  - Autorefresh interval in state (2/5/10s); show last refresh time.
+- Acceptance:
+  - Live page updates panels with fixtures; no PnL chart yet.
+
+Sprint C10 — Live Monitor: PnL Timeline
+- Tasks:
+  - Compute PnL time series from trades/positions; Plotly line.
+  - Cache with short TTL; avoid full rereads each tick.
+- Acceptance:
+  - PnL timeline updates on refresh; performance under 500ms with fixtures.
+
+Sprint C11 — Page: 30_Strategy_Lab
+- Tasks:
+  - Enumerate strategies from logos/strategies; render docstrings and param schema; example CLIs.
+- Acceptance:
+  - Strategies list appears; params render; no execute button.
+
+Sprint C12 — Page: 40_Settings
+- Tasks:
+  - Show safe subset of .env and logos.config (redact KEY/SECRET/TOKEN).
+  - Theme toggle and refresh interval controls.
+- Acceptance:
+  - Redactions verified; state persists within session.
+
+Sprint C13 — (Optional) 50_Tutor_Viewer
+- Tasks:
+  - Render transcript (.md or .txt) and plots from runs/lessons/<lesson>/<ts>/.
+  - Graceful empty-state if lessons absent.
+- Acceptance:
+  - Viewer displays lesson artifacts for fixtures.
+
+Sprint C14 — Caching & Partial-Write Hardening
+- Tasks:
+  - st.cache_data with TTLs (2–5s live); invalidate by file mtime.
+  - Defensive reads (retry-on-partial, consistent parsing).
+- Acceptance:
+  - No crashes during simulated file writes; logs show retries.
+
+Sprint C15 — Accessibility & Layout Polish
+- Tasks:
+  - Responsive layout, keyboard navigation, alt text, consistent colors.
+  - Improve default Plotly themes; add dark/light mapping.
+- Acceptance:
+  - Manual checks on common laptop widths; no clipped content.
+
+Sprint C16 — Tests & CI
+- Tasks:
+  - Add tests/ui/test_data_access.py and tests/ui/test_pages_import.py with fixtures.
+  - Wire CI job to run UI tests in headless mode (no network).
+- Acceptance:
+  - pytest -q green locally and in CI.
+
+Sprint C17 — Docs & Screenshots
+- Tasks:
+  - docs/DASHBOARD.md with instructions and screenshots/GIFs.
+  - Update README.md and docs/MANUAL.html with a “Phase 3 Dashboard” section.
+- Acceptance:
+  - Docs build and link correctly; images render.
+
+Sprint C18 — Release Wrap
+- Tasks:
+  - Final smoke: Overview, Backtests (single + compare), Live Monitor, Strategy Lab, Settings, (Tutor Viewer if present).
+  - Tag and changelog entry; note view-only scope and safe defaults.
+- Acceptance:
+  - All Phase 3 Definition of Done checks pass.

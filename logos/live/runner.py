@@ -10,7 +10,7 @@ from typing import Callable, Iterable, List, Optional
 from logos.logging_setup import attach_live_runtime_handler, detach_handler
 
 from .broker_base import BrokerAdapter, OrderIntent, OrderState
-from .data_feed import Bar, DataFeed
+from .data_feed import Bar, DataFeed, FetchError
 from .report import append_account, append_order, append_position, append_trade, write_session_summary
 from .risk import RiskContext, RiskDecision, RiskLimits, check_circuit_breakers, check_order_limits, compute_drawdown_bps
 from .session_manager import SessionPaths
@@ -89,7 +89,12 @@ class LiveRunner:
             if not decision.allowed:
                 logger.warning("Halting loop due to circuit breaker: %s", decision.reason)
                 break
-            bars = self.feed.fetch_bars(self.loop_config.symbol, self.loop_config.interval, last_bar_dt)
+            try:
+                bars = self.feed.fetch_bars(self.loop_config.symbol, self.loop_config.interval, last_bar_dt)
+            except FetchError as exc:
+                logger.error("Data feed failure: %s", exc)
+                append_event({"type": "feed_error", "reason": str(exc)}, self.session.state_events_file)
+                break
             if not bars:
                 logger.debug("No new bars for %s", self.loop_config.symbol)
                 break

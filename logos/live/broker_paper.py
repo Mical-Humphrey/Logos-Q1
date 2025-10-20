@@ -5,7 +5,7 @@ from __future__ import annotations
 import itertools
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 from .broker_base import (
     AccountSnapshot,
@@ -43,6 +43,9 @@ class PaperBrokerAdapter(BrokerAdapter):
         self._positions: Dict[str, Dict[str, float]] = {}
         self._marks: Dict[str, float] = {}
         self._symbol_meta: Dict[str, SymbolMeta] = {}
+        self._realized_pnl: float = 0.0
+        self._fees_paid: float = 0.0
+        self._events: List[Dict[str, Union[float, str]]] = []
 
     # ------------------------------------------------------------------
     # BrokerAdapter API
@@ -87,6 +90,18 @@ class PaperBrokerAdapter(BrokerAdapter):
     def poll_fills(self) -> List[Fill]:
         fills, self._fills = self._fills, []
         return fills
+
+    def get_realized_pnl(self) -> float:
+        return self._realized_pnl
+
+    def get_fees_paid(self) -> float:
+        return self._fees_paid
+
+    def get_events(self) -> List[Dict[str, Union[float, str]]]:
+        return list(self._events)
+
+    def order_history(self, order_id: str) -> Iterable[Order]:
+        return self._journal.history(order_id)
 
     def get_positions(self) -> List[Position]:
         out: List[Position] = []
@@ -167,11 +182,22 @@ class PaperBrokerAdapter(BrokerAdapter):
             ts=ts,
         )
         self._fills.append(fill)
+        self._events.append(
+            {
+                "ts": ts,
+                "type": "fill",
+                "order_id": order.order_id,
+                "price": fill_price,
+                "qty": qty,
+                "fees": fees,
+            }
+        )
         return True
 
     def _apply_fill(self, symbol: str, signed_qty: float, price: float, fees: float) -> None:
         self._cash -= price * signed_qty
         self._cash -= fees
+        self._fees_paid += fees
         pos = self._positions.setdefault(symbol, {"qty": 0.0, "avg_price": 0.0, "realized": 0.0})
         prev_qty = pos.get("qty", 0.0)
         avg_price = pos.get("avg_price", 0.0)
@@ -186,16 +212,15 @@ class PaperBrokerAdapter(BrokerAdapter):
         else:
             closed = min(abs(prev_qty), abs(signed_qty))
             if closed > 0:
-                if prev_qty > 0:
-                    realized += (price - avg_price) * closed
-                else:
-                    realized += (avg_price - price) * closed
+                direction = 1 if prev_qty > 0 else -1
+                realized += (price - avg_price) * closed * direction
             if abs(new_qty) > 1e-9 and abs(signed_qty) > abs(prev_qty):
                 pos["avg_price"] = price
             else:
                 pos["avg_price"] = 0.0 if abs(new_qty) <= 1e-9 else pos["avg_price"]
         pos["qty"] = new_qty
         pos["realized"] = pos.get("realized", 0.0) + realized
+        self._realized_pnl += realized
 
     # ------------------------------------------------------------------
     # Bootstrap helpers
@@ -204,6 +229,7 @@ class PaperBrokerAdapter(BrokerAdapter):
         """Prime the simulator with pre-existing positions (for restarts)."""
 
         self._positions = {}
+        self._realized_pnl = 0.0
         for symbol, data in positions.items():
             qty = float(data.get("qty", 0.0))
             avg_price = float(data.get("avg_price", 0.0))
@@ -212,6 +238,7 @@ class PaperBrokerAdapter(BrokerAdapter):
             realized = float(data.get("realized", 0.0))
             self._positions[symbol] = {"qty": qty, "avg_price": avg_price, "realized": realized}
             self._marks[symbol] = avg_price
+            self._realized_pnl += realized
         cash_offset = sum(pos["qty"] * pos["avg_price"] for pos in self._positions.values())
         self._cash = self.starting_cash - cash_offset
 
