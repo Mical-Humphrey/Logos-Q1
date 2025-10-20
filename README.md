@@ -207,6 +207,123 @@ Use these commands in CI or before switching to a new machine to ensure consiste
 
 ---
 
+## Deterministic Regression Harness
+Phase 2 ships a reproducible regression runner that exercises the translator, brokers, feeds, risk
+guards, and artifact writers under a fixed seed and dataset.
+
+- Fixture bundle: `tests/fixtures/live/regression_default`
+- Fixed seed: `--seed 7` (prepends a deterministic run id: `0007-<label>`)
+- Clock: `MockTimeProvider` pinned to `2024-01-01T09:29Z` → `09:32Z`
+
+```bash
+# Paper broker reference run (matches smoke baselines)
+python -m logos.live.regression --adapter-mode paper \
+  --label regression-smoke --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+
+# CCXT dry-run adapter rehearsal (emits adapter_logs.jsonl)
+python -m logos.live.regression --adapter-mode adapter --adapter ccxt \
+  --label ccxt-dry-run --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+
+# Alpaca dry-run adapter rehearsal (same seed + dataset)
+python -m logos.live.regression --adapter-mode adapter --adapter alpaca \
+  --label alpaca-dry-run --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+```
+
+Resulting artifacts (snapshot, equity curve, metrics, adapter logs) are indexed — together with
+sha256 checksums — in `docs/PHASE2-ARTIFACTS.md`.
+
+---
+
+## Safety Checklist (Paper & Dry-Run)
+- Confirm `.env` contains `MODE=paper` and desired broker identifiers before launching the live
+  loop.
+- Run `python -m logos.config_validate` to verify credentials, directories, and risk defaults.
+- Stage kill-switch and monitoring: create/touch the file passed via `--kill-switch-file` and tail
+  `logos/logs/live.log` in a dedicated terminal.
+- Start the runner (paper or dry-run). On launch the guard evaluation order is:
+  1. Max notional & position caps (`RiskLimits.max_notional`, `RiskLimits.max_position`).
+  2. Per-symbol position caps (`RiskLimits.symbol_position_limits`).
+  3. Session drawdown breaker (`RiskLimits.max_drawdown_bps`).
+  4. Consecutive reject breaker (`RiskLimits.max_consecutive_rejects`).
+  5. Stale data threshold (`RiskLimits.stale_data_threshold_s`).
+  6. Kill switch file check.
+- Every halt writes a structured event to `state.jsonl` and a summary bullet to `session.md`.
+- To rehearse recovery, re-run the same command; the runner reloads `state.json`, rehydrates FIFO
+  inventory, and resumes after guards pass.
+Detailed drill scripts live in `docs/LIVE-RUNBOOK.md` (Safety Checklist section).
+
+---
+
+## QA Stack Commands
+Run these in the project root with the virtual environment activated:
+
+```bash
+# Unit + integration suite with coverage
+coverage run -m pytest -q
+coverage report -m
+
+# Linting & formatting gatekeepers
+ruff check .
+black --check .   # known formatting backlog documented in CHANGELOG
+
+# Static types (requires pandas & yaml stubs; see CHANGELOG for open items)
+mypy .
+
+# Deterministic regression smoke matrix (paper + adapters)
+python -m logos.live.regression --help
+```
+
+---
+
+## Artifact Layout & Checksum Verification
+- Live sessions write to `runs/live/sessions/<session_id>/` (state snapshots, CSVs, Markdown
+  summary, logs).
+- Regression rehearsals land in `runs/live/reg_cli/0007-<label>/` as described above.
+- Daily trade consolidations live under `runs/live/trades/` with `<symbol>_<YYYYMMDD>.csv` naming.
+- Repository-wide logs stream to `logos/logs/`.
+- Validate artifacts with `sha256sum <file>`; expected digests are recorded in
+  `docs/PHASE2-ARTIFACTS.md` alongside baseline references in `tests/fixtures/regression/smoke/`.
+
+---
+
+## Baseline Refresh Governance
+1. Run the regression matrix (paper, CCXT, Alpaca) and confirm diffs are intentional.
+2. Request peer review; consensus is required before promoting new baselines.
+3. Refresh via
+   ```bash
+   python -m logos.live.regression --refresh-baseline --confirm-refresh \
+     --dataset tests/fixtures/live/regression_default --seed 7
+   ```
+4. Commit updated artifacts under `tests/fixtures/regression/smoke/` and update
+   `docs/PHASE2-ARTIFACTS.md` with new checksums.
+5. Document rationale and scope in `CHANGELOG.md` and link the review issue.
+
+---
+
+## Phase 2 Traceability
+The following matrix links Phase 2 requirements to operating procedures and evidence:
+
+| ID | Scope | Evidence |
+| --- | --- | --- |
+| FR-001 | Translator emits quantized orders | `docs/LIVE-RUNBOOK.md` §Deterministic Translator Drill; `tests/test_live_runner.py` |
+| FR-002 | Deterministic paper broker | `docs/LIVE-RUNBOOK.md` §Paper Broker Audit; `runs/live/reg_cli/0007-regression-smoke/` |
+| FR-003 | Deterministic feeds & freshness | `docs/LIVE-RUNBOOK.md` §Feed Replay Checklist; `tests/test_cached_feed.py` |
+| FR-004 | Risk guard enforcement & halts | Safety Checklist above; `tests/test_risk.py`, `tests/test_live_runner.py` |
+| FR-005 | Session persistence & restart | `docs/LIVE-RUNBOOK.md` §Recovery Playbook; `runs/live/sessions/` examples |
+| FR-006 | Artifact bundle | Artifact Layout section; `tests/test_live_artifacts.py` |
+| FR-007 | Dry-run adapters | Regression matrix commands (CCXT/Alpaca) & adapter logs; `docs/PHASE2-ARTIFACTS.md` |
+| FR-008 | Offline CI hardening | QA Stack commands (pytest/coverage offline); `docs/LIVE-RUNBOOK.md` §Environment Guards |
+| SC-001 | Deterministic rehearsal in <15 min | Regression Harness section; `docs/LIVE-RUNBOOK.md` §Timeline Expectations |
+| SC-002 | Guardrail rehearsal scripts | Safety Checklist + `docs/LIVE-RUNBOOK.md` §Guard Simulations |
+| SC-003 | Offline test posture | QA Stack commands; `tests/test_readme_commands.py` |
+| SC-004 | Documentation coverage | This README + `docs/MANUAL.html`, `docs/LIVE-RUNBOOK.md`, `CHANGELOG.md` |
+
 ## Documentation & Learning Map
 | Artifact | Description |
 | --- | --- |

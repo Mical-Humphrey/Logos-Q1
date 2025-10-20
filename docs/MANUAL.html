@@ -159,6 +159,78 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 </ul>
 </div>
 
+<h2>8) Deterministic Regression Matrix</h2>
+<div class="card">
+<p>Phase 2 adds a deterministic regression CLI that validates translator, brokers, feeds, risk guards, and artifact writers under a fixed seed and dataset.</p>
+<ul>
+  <li>Dataset: <code>tests/fixtures/live/regression_default</code></li>
+  <li>Seed: <code>7</code> (prepending run id <code>0007-&lt;label&gt;</code>)</li>
+  <li>Clock: <code>MockTimeProvider</code> iterating minute bars (09:29Z–09:32Z)</li>
+</ul>
+<pre><code>python -m logos.live.regression --adapter-mode paper \
+  --label regression-smoke --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+
+python -m logos.live.regression --adapter-mode adapter --adapter ccxt \
+  --label ccxt-dry-run --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+
+python -m logos.live.regression --adapter-mode adapter --adapter alpaca \
+  --label alpaca-dry-run --seed 7 \
+  --dataset tests/fixtures/live/regression_default \
+  --output-dir runs/live/reg_cli
+</code></pre>
+<p>Resulting artifacts and sha256 checksums are catalogued in <code>docs/PHASE2-ARTIFACTS.md</code>.</p>
+</div>
+
+<h2>9) Safety Checklist & Guard Order</h2>
+<div class="card">
+<ol>
+  <li>Confirm <code>MODE=paper</code> (or explicit <code>--live --i-acknowledge-risk</code> combo).</li>
+  <li>Run <code>python -m logos.config_validate</code> to catch misconfigurations.</li>
+  <li>Provision the kill switch file and monitor <code>logos/logs/live.log</code>.</li>
+  <li>Launch the runner; guards execute in this priority: notional &rsaquo; per-symbol exposure &rsaquo; drawdown &rsaquo; consecutive rejects &rsaquo; stale data &rsaquo; kill switch.</li>
+  <li>Halts append structured events to <code>state.jsonl</code> and summaries to <code>session.md</code>.</li>
+  <li>Restart via the same command — FIFO inventory + seed are reloaded from <code>state.json</code>.</li>
+</ol>
+<p>For drill scripts and advanced rehearsals, see <code>docs/LIVE-RUNBOOK.md</code>.</p>
+</div>
+
+<h2>10) QA Stack & Offline CI</h2>
+<div class="card">
+<pre><code>coverage run -m pytest -q
+coverage report -m
+ruff check .
+black --check .   # formatting backlog tracked in CHANGELOG
+mypy .            # install pandas-stubs + types-PyYAML first
+</code></pre>
+<p>The regression CLI (commands above) completes the matrix for paper, CCXT, and Alpaca dry-runs. All
+commands operate offline using bundled fixtures when <code>LIVE_DISABLE_NETWORK=1</code> is set.</p>
+</div>
+
+<h2>11) Artifact Layout & Checksums</h2>
+<div class="card">
+<ul>
+  <li>Live sessions: <code>runs/live/sessions/&lt;session_id&gt;/</code> (state, CSVs, <code>session.md</code>, logs).</li>
+  <li>Regression CLI: <code>runs/live/reg_cli/0007-&lt;label&gt;/</code>.</li>
+  <li>Daily trade rolls: <code>runs/live/trades/&lt;symbol&gt;_&lt;YYYYMMDD&gt;.csv</code>.</li>
+  <li>Baselines: <code>tests/fixtures/regression/smoke/</code>.</li>
+</ul>
+<p>Verify integrity with <code>sha256sum</code>; canonical digests live in <code>docs/PHASE2-ARTIFACTS.md</code>.</p>
+</div>
+
+<h2>12) Baseline Refresh Governance</h2>
+<div class="card">
+<ol>
+  <li>Run the regression matrix and gather diffs + adapter logs.</li>
+  <li>Open a review issue; secure approval before promotion.</li>
+  <li>Execute <code>python -m logos.live.regression --refresh-baseline --confirm-refresh</code> (same dataset/seed).</li>
+  <li>Commit updated fixtures, refresh <code>docs/PHASE2-ARTIFACTS.md</code>, and document rationale in <code>CHANGELOG.md</code>.</li>
+</ol>
+</div>
+
 <hr/>
 <p>Return to <a href="index.html">🏠 Home</a> or explore <a href="SYSTEM_DESIGN.html">⚙️ System Design</a>.</p>
 </div>
