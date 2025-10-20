@@ -195,7 +195,7 @@ class LiveRunner:
                 last_bar_ts=bar.dt.timestamp(),
                 now_ts=ts,
             )
-            decision = check_order_limits(signed_qty, bar.close, self.risk_limits, ctx)
+            decision = check_order_limits(self.loop_config.symbol, signed_qty, bar.close, self.risk_limits, ctx)
             if not decision.allowed:
                 logger.warning("Order rejected by risk: %s", decision.reason)
                 self._state.consecutive_rejects += 1
