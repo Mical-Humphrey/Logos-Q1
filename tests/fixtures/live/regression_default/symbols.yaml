@@ -1,0 +1,9 @@
+---
+AAPL:
+  venue_symbol: "AAPL"
+  price_precision: 2
+  quantity_precision: 0
+  lot_size: 1
+  min_notional: 1
+  max_notional: 250000
+  aliases: []

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 from itertools import count
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .broker_base import (
     AccountSnapshot,
@@ -20,23 +23,46 @@ from .broker_base import (
 from .time import TimeProvider, SystemTimeProvider
 
 
-def _serialize(obj):  # type: ignore[no-untyped-def]
-    if dataclasses.is_dataclass(obj):
-        return dataclasses.asdict(obj)
-    if isinstance(obj, dict):
-        return {key: _serialize(value) for key, value in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_serialize(value) for value in obj]
-    return obj
+def _decimal_to_str(value: float | None) -> str | None:
+    if value is None:
+        return None
+    dec = Decimal(str(value)).quantize(Decimal("0.00000001"))
+    text = format(dec, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text or "0"
+
+
+def _intent_fingerprint(intent: OrderIntent) -> str:
+    payload = {
+        "symbol": intent.symbol,
+        "side": intent.side,
+        "quantity": _decimal_to_str(intent.quantity),
+        "order_type": intent.order_type,
+        "limit_price": _decimal_to_str(intent.limit_price),
+        "time_in_force": intent.time_in_force,
+    }
+    data = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
+def _validation_pass() -> Dict[str, object]:
+    return {"status": "accepted", "reason": None}
+
+
+def _validation_fail(reason: str) -> Dict[str, object]:
+    return {"status": "rejected", "reason": reason}
 
 
 @dataclass
 class CCXTBrokerAdapter(BrokerAdapter):
-    """Dry-run CCXT adapter that validates intents and records actions."""
+    """Dry-run CCXT adapter with deterministic structured logging."""
 
     exchange: str
     api_key: Optional[str] = None
     api_secret: Optional[str] = None
+    run_id: str = "run-unknown"
+    seed: int = 0
     time_provider: TimeProvider = field(default_factory=SystemTimeProvider)
     dry_run: bool = True
 
@@ -48,43 +74,84 @@ class CCXTBrokerAdapter(BrokerAdapter):
     # ------------------------------------------------------------------
     def get_symbol_meta(self, symbol: str) -> SymbolMeta:
         meta = SymbolMeta(symbol=symbol)
-        self._log("symbol_meta", symbol=symbol, meta=_serialize(meta))
+        self._append_log(
+            action="get_symbol_meta",
+            order_id="N/A",
+            intent=None,
+            extra_request={"symbol": symbol},
+            response=_validation_pass(),
+        )
         return meta
 
     def place_order(self, intent: OrderIntent) -> Order:
         if not self.dry_run:
             raise NotImplementedError("Live CCXT integration not implemented")
-        self._validate_intent(intent)
         order_id = self._next_id()
+        valid, reason = self._validate_intent(intent)
+        response = _validation_pass() if valid else _validation_fail(reason)
+        self._append_log(
+            action="place_order",
+            order_id=order_id,
+            intent=intent,
+            response=response,
+        )
+        if not valid:
+            raise ValueError(reason)
         order = Order(order_id=order_id, intent=intent, state=OrderState.SUBMITTED)
         self._orders[order_id] = order
-        self._log("order_submitted", order=_serialize(order))
         return order
 
     def replace_order(self, order_id: str, intent: OrderIntent) -> Order:
         if order_id not in self._orders:
             raise ValueError(f"Unknown order_id {order_id}")
-        self._validate_intent(intent)
-        order = self._orders[order_id]
-        order.intent = intent
-        order.state = OrderState.SUBMITTED
-        self._log("order_replaced", order=_serialize(order))
-        return order
+        valid, reason = self._validate_intent(intent)
+        response = _validation_pass() if valid else _validation_fail(reason)
+        self._append_log(
+            action="replace_order",
+            order_id=order_id,
+            intent=intent,
+            response=response,
+        )
+        if not valid:
+            raise ValueError(reason)
+        existing = self._orders[order_id]
+        updated = dataclasses.replace(existing, intent=intent, state=OrderState.SUBMITTED)
+        self._orders[order_id] = updated
+        return updated
 
     def cancel_order(self, order_id: str) -> Order:
         if order_id not in self._orders:
             raise ValueError(f"Unknown order_id {order_id}")
         order = self._orders[order_id]
-        order.state = OrderState.CANCELED
-        self._log("order_cancelled", order=_serialize(order))
-        return order
+        response = _validation_pass()
+        self._append_log(
+            action="cancel_order",
+            order_id=order_id,
+            intent=order.intent,
+            response=response,
+        )
+        updated = dataclasses.replace(order, state=OrderState.CANCELED)
+        self._orders[order_id] = updated
+        return updated
 
     def poll_fills(self) -> list[Fill]:
-        self._log("poll_fills", fills=[])
+        self._append_log(
+            action="poll_fills",
+            order_id="N/A",
+            intent=None,
+            extra_request={},
+            response=_validation_pass(),
+        )
         return []
 
     def get_positions(self) -> list[Position]:
-        self._log("positions", positions=[])
+        self._append_log(
+            action="get_positions",
+            order_id="N/A",
+            intent=None,
+            extra_request={},
+            response=_validation_pass(),
+        )
         return []
 
     def get_account(self) -> AccountSnapshot:
@@ -94,14 +161,36 @@ class CCXTBrokerAdapter(BrokerAdapter):
             buying_power=0.0,
             ts=self.time_provider.utc_now().timestamp(),
         )
-        self._log("account_snapshot", account=_serialize(snapshot))
+        self._append_log(
+            action="get_account",
+            order_id="N/A",
+            intent=None,
+            extra_request={"equity": snapshot.equity, "cash": snapshot.cash},
+            response=_validation_pass(),
+        )
         return snapshot
 
     def reconcile(self) -> None:
-        self._log("reconcile", info="noop")
+        self._append_log(
+            action="reconcile",
+            order_id="N/A",
+            intent=None,
+            extra_request={},
+            response=_validation_pass(),
+        )
 
     def on_market_data(self, symbol: str, price: float, ts: float) -> None:
-        self._log("market_data", symbol=symbol, price=price, ts=ts)
+        self._append_log(
+            action="market_data",
+            order_id="N/A",
+            intent=None,
+            extra_request={
+                "symbol": symbol,
+                "price": _decimal_to_str(price),
+                "ts": ts,
+            },
+            response=_validation_pass(),
+        )
 
     # ------------------------------------------------------------------
     @property
@@ -115,22 +204,54 @@ class CCXTBrokerAdapter(BrokerAdapter):
     def _next_id(self) -> str:
         return f"CCXT-DRY-{next(self._seq):06d}"
 
-    def _validate_intent(self, intent: OrderIntent) -> None:
+    def _validate_intent(self, intent: OrderIntent) -> Tuple[bool, str]:
         if intent.quantity <= 0:
-            raise ValueError("Order quantity must be positive")
+            return False, "non_positive_quantity"
         if intent.side not in {"buy", "sell"}:
-            raise ValueError(f"Unsupported side '{intent.side}'")
+            return False, "unsupported_side"
         if intent.order_type not in {"market", "limit"}:
-            raise ValueError(f"Unsupported order type '{intent.order_type}'")
+            return False, "unsupported_order_type"
         if intent.order_type == "limit" and intent.limit_price is None:
-            raise ValueError("Limit orders require limit_price")
+            return False, "limit_price_required"
+        return True, ""
 
-    def _log(self, event: str, **payload: object) -> None:
+    def _append_log(
+        self,
+        *,
+        action: str,
+        order_id: str,
+        intent: OrderIntent | None,
+        response: Dict[str, object],
+        extra_request: Dict[str, object] | None = None,
+    ) -> None:
+        now = self.time_provider.utc_now()
+        request_payload = {
+            "action": action,
+            "order_type": intent.order_type if intent else None,
+            "time_in_force": intent.time_in_force if intent else None,
+            "symbol": intent.symbol if intent else extra_request.get("symbol") if extra_request else None,
+            "side": intent.side if intent else extra_request.get("side") if extra_request else None,
+            "quantity": _decimal_to_str(intent.quantity) if intent else extra_request.get("quantity") if extra_request else None,
+            "price": _decimal_to_str(intent.limit_price) if intent and intent.limit_price is not None else extra_request.get("price") if extra_request else None,
+        }
+        if extra_request:
+            request_payload.update(extra_request)
         entry = {
-            "adapter": f"ccxt:{self.exchange}",
-            "event": event,
-            "ts": self.time_provider.utc_now().isoformat(),
-            "payload": _serialize(payload),
+            "adapter": "ccxt",
+            "action": action,
+            "venue": self.exchange,
+            "run_id": self.run_id,
+            "seed": self.seed,
+            "clock": now.isoformat(),
+            "order_id": order_id,
+            "symbol": request_payload.get("symbol"),
+            "side": request_payload.get("side"),
+            "qty": request_payload.get("quantity"),
+            "price": request_payload.get("price"),
+            "intent_hash": _intent_fingerprint(intent) if intent is not None else None,
+            "request": request_payload,
+            "response": response,
         }
         self._logs.append(entry)
+
 
