@@ -1,0 +1,37 @@
+Phase 2
+========
+
+Implementation Plan
+- Order generation: build the strategy-to-order translator that respects symbol metadata, precision, notional caps, and sizing rules.
+- Paper broker completion: implement deterministic fills, FIFO inventory, realized/unrealized PnL, order-state lifecycle, and event logging.
+- Data feeds: deliver minute-bar feeds (cache replay for tests, yfinance polling for equities, CCXT public polling for crypto) with freshness checks and retry/backoff.
+- Risk and circuit breakers: wire max-notional, exposure, drawdown, reject, stale-data, and kill-switch guards into the runner with focused tests.
+- State and reporting: persist state.json/state.jsonl for restart support, reconcile open orders, and emit full session artifacts (orders.csv, trades.csv, positions.csv, account.csv, session.md).
+- Runner integration: connect the completed components and prove an end-to-end paper session using deterministic fixtures.
+- Broker adapters: finalize CCXT and Alpaca connectors for dry runs and credential validation, leaving IB as a documented stub.
+- Docs and runbook: refresh README, manual, and live runbook to reflect the finished live workflow.
+- Test suite: keep `pytest -q` passing with the new live-mode coverage and without network credentials.
+
+Definition of Done
+- `python -m logos.live trade ...` runs end-to-end in paper mode using deterministic feeds, produces the full session artifact set, and exercises all risk guards (kill switch, breaker thresholds, restart flow) with test coverage.
+- Strategy order generation reuses backtest signals, emitting quantized `OrderIntent`s that respect market metadata and sizing caps.
+- Paper broker, risk module, and data feeds are covered by unit tests; CCXT and Alpaca adapters validate configuration and support dry-run execution paths.
+- The config validator blocks unsafe live runs and verifies credential readiness for live adapters.
+- Documentation and runbook describe the live workflow, safety checklist, and recovery steps.
+- Full test suite passes locally without relying on external networks or real credentials.
+
+Sprint Plan
+
+Sprint A (Core Loop Completion)
+- Implement and test strategy-to-order translation.
+- Finish paper broker fill logic, inventory tracking, and PnL accounting.
+- Build deterministic minute-bar feeds (cache replay and mockable providers), including freshness checks and retries.
+- Integrate risk/circuit breakers with targeted tests.
+- Finalize state persistence, restart reconciliation, and artifact writers.
+- Demonstrate an end-to-end paper session using deterministic inputs, producing the expected artifacts.
+
+Sprint B (Adapters & Polish)
+- Complete CCXT and Alpaca dry-run adapters with credential validation and error handling; document IB as a future task.
+- Expand reporting (session markdown, summaries) and ensure config validator enforces safety toggles.
+- Refresh documentation/runbook to match the finished live pipeline.
+- Harden tests and CI workflows around live-mode features, ensuring `pytest` stays green in isolation.

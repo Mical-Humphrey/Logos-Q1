@@ -4,9 +4,10 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-from .paths import APP_LOG_FILE, ensure_dirs
+from .paths import APP_LOG_FILE, LIVE_LOG_FILE, ensure_dirs
 
 _configured = False
+_live_handler: Optional[logging.Handler] = None
 
 
 def _resolve_level(level: Union[str, int, None]) -> int:
@@ -59,3 +60,19 @@ def detach_handler(handler: logging.Handler) -> None:
 	root = logging.getLogger()
 	root.removeHandler(handler)
 	handler.close()
+
+
+def attach_live_runtime_handler(level: Union[str, int] = "INFO") -> logging.Handler:
+	"""Attach (or update) the shared live trading log handler."""
+	global _live_handler
+	ensure_dirs([LIVE_LOG_FILE.parent])
+	resolved = _resolve_level(level)
+	if _live_handler is not None:
+		_live_handler.setLevel(resolved)
+		return _live_handler
+	handler = logging.FileHandler(LIVE_LOG_FILE, mode="a", encoding="utf-8")
+	handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s"))
+	handler.setLevel(resolved)
+	logging.getLogger().addHandler(handler)
+	_live_handler = handler
+	return handler

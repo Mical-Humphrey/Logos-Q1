@@ -1,140 +1,233 @@
 # Logos-Q1
 
-> “Learn like a student. Trade like a professional.”
+> "Learn like a student. Trade like a professional."
 
 ---
 
-## 🔷 Overview
-**Logos-Q1** is a **quantitative trading research and execution system** designed for two parallel purposes:
+## Overview
+Logos-Q1 is a quantitative trading laboratory that balances **education** and **execution**. Every subsystem is written to be readable and instructive, yet modular enough to wire into real data feeds and brokers as your workflow grows.
 
-1. **Education** — a readable, well-documented codebase that teaches the core mathematics and logic behind algorithmic trading.
-2. **Execution** — a fully modular, pluggable framework that can connect to live markets and trade autonomously as a **solo quant developer** system.
-
-Every line of code in Logos-Q1 is structured to be *understood, extended, and trusted* — making it both a learning laboratory and a professional tool for real-world trading.
-
----
-
-## ⚙️ Core Features
-| Layer | Description |
-|--------|--------------|
-| **CLI / GUI Interface** | Command-line interface for research; GUI planned for execution and dashboards. |
-| **Data Loader** | Pulls equities, crypto, and FX data via Yahoo Finance or live exchange APIs. |
-| **Strategy Engine** | Modular strategies (Mean Reversion, Momentum, Pairs Trading) — all plug-and-play. |
-| **Backtesting** | Multi-asset backtesting with equity, crypto, and FX cost models. |
-| **Execution Simulator** | Models fills, slippage, commissions, and fees with configurable parameters. |
-| **Metrics Suite** | Computes Sharpe, CAGR, Max Drawdown, Win Rate, Exposure, and custom ratios. |
-| **Educational Math Docs** | Detailed `MATH.html` explaining the quantitative principles behind every function. |
-| **Finance Docs** | `FINANCE.md` translates concepts into practical market behavior and case studies. |
+### Guiding Principles
+- **Transparency** – code is annotated, cross-linked to math/finance docs, and designed to be teachable.
+- **Modularity** – data sources, strategies, sizing, and execution layers are pluggable.
+- **Safety-first execution** – live trading uses explicit acknowledgements, risk guards, and persistent audit logs.
 
 ---
 
-## 🧠 Philosophy
-- **Transparency first.** Every function and line is annotated and explained.
-- **Modularity.** Each layer can be replaced — data, strategy, execution, GUI.
-- **Education through engineering.** The app is built so that every component *teaches itself* to the reader.
-- **Competitive edge.** Designed to be the foundation of a true quant-research and execution workstation.
+## System Layers at a Glance
+| Layer | Highlights |
+| --- | --- |
+| **CLI Tooling** | `logos.cli` (research backtests), `logos.live` (execution loop), `logos.tutor` (interactive lessons). |
+| **Data & Feeds** | File, memory, and streaming adapters across equities, crypto, and FX with deterministic fixtures for testing. |
+| **Strategy Engine** | Mean reversion, momentum, and pairs trading modules sharing sizing/risk helpers. |
+| **Backtesting Harness** | Vectorized portfolio accounting, cost models, metrics, and artifact export under `runs/`. |
+| **Live Execution (Phase 2)** | Runner loop, broker adapters (paper + CCXT/Alpaca/IB scaffolds), risk gates, session persistence, reporting. |
+| **Tutor Mode** | Narrated lessons with transcripts, glossary dumps, and optional plots. |
+| **Documentation Suite** | Rich HTML guides in `docs/` covering math, finance intuition, manual, and system design. |
 
 ---
 
-## 📈 Vision Roadmap
-| Stage | Focus | Deliverable |
-|--------|--------|-------------|
-| **Phase 1** | Educational Backtesting (Complete) | CLI backtester with strategy plugins |
-| **Phase 2** | Live Execution | Add broker/exchange connectors (CCXT, Alpaca, Interactive Brokers) |
-| **Phase 3** | Visual Dashboard | Streamlit-based GUI with live trades, metrics, and logs |
-| **Phase 4** | Advanced Research Tools | Portfolio optimization, ML alpha generation, risk modeling |
-| **Phase 5** | Deployment | Run as local desktop app or EC2 instance with cloud sync |
-
----
-
-## 🧩 Example Usage
+## Installation & Environment
 ```bash
-# Mean reversion on equities
-python -m logos.cli backtest --asset-class equity --symbol MSFT \
-  --strategy mean_reversion --start 2023-01-01 --end 2025-01-01 \
-  --params "lookback=20,z_entry=2.0"
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# Momentum on crypto
-python -m logos.cli backtest --asset-class crypto --symbol BTC-USD \
-  --strategy momentum --start 2023-01-01 --end 2025-01-01 \
-  --interval 1h --params "fast=20,slow=50"
+# Optional: copy defaults and edit
+cp .env.example .env
 
+# Regression tests
+pytest -q
+```
+`logos.config.Settings` exposes all configuration fields (mode, brokers, risk, credentials). Override via `.env` or environment variables.
 
-Educational Mode
-    Use MATH.html to learn each formula.
-    Use FINANCE.md to understand market context.
-    Use MANUAL.md for CLI and future GUI workflows.
-    Each subsystem (data, strategy, execution) can be studied independently or extended as a course module.
+---
 
-🏗️ Built With
-    Python 3.12+
-    pandas, numpy, matplotlib
-    yfinance
-    (Future: Streamlit / CCXT / SQLite / FastAPI)
+## CLI Handbook
 
-🕊️ MIT License — Logos-Q1 is open for study, extension, and responsible live trading use.
+### Backtesting (`logos.cli backtest`)
+The backtest CLI spins up a portfolio simulation using historical data. Results (metrics, CSV logs, equity curve) land in `runs/<timestamp>_<symbol>_<strategy>/`.
 
+#### Scenario: Daily equity mean reversion (paper mode)
+```bash
+python -m logos.cli backtest --symbol MSFT --strategy mean_reversion \
+  --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper
+```
+**What it does:** pulls daily MSFT bars, applies the mean reversion signal, executes with paper fills, and stores trades/metrics under `runs/`.
 
+#### Scenario: Crypto hourly momentum with custom sizing & fees
+```bash
+python -m logos.cli backtest --symbol BTC-USD --strategy momentum \
+  --asset-class crypto --interval 1h --dollar-per-trade 5000 --fee-bps 15 --paper
+```
+**What it does:** simulates buying BTC-USD every hour with a 5k notional sizing rule and 15 bps fees.
 
-Command Examples
+#### Scenario: FX intraday run with explicit cost model
+```bash
+python -m logos.cli backtest --symbol EURUSD=X --strategy mean_reversion \
+  --asset-class forex --interval 30m --slip-bps 8 --commission 0.0 \
+  --fx-pip-size 0.0001 --start 2023-06-01 --end 2023-08-31
+```
+**What it does:** evaluates a EURUSD strategy with 30-minute bars, custom slippage, and pip sizing.
 
-— Daily equity backtest, paper mode, saves artifacts under runs/<timestamp>_MSFT_mean_reversion/.
-    python -m logos.cli backtest --symbol MSFT --strategy mean_reversion --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper
+#### Scenario: Pairs trade with custom window & threshold
+```bash
+python -m logos.cli backtest --symbol AAPL --strategy pairs_trading \
+  --params window=20,threshold=1.5 --paper
+```
+**What it does:** runs the pairs engine (AAPL hedged with default partner) using a 20-day window and 1.5 z-score threshold.
 
-— Crypto hourly momentum test with custom sizing/fees.
-    python -m logos.cli backtest --symbol BTC-USD --strategy momentum --asset-class crypto --interval 1h --dollar-per-trade 5000 --fee-bps 15 --paper
+#### Scenario: Use `.env` sizing defaults for a momentum run
+```bash
+python -m logos.cli backtest --symbol TSLA --strategy momentum \
+  --start 2024-01-01 --end 2024-03-31
+```
+**What it does:** reuses sizing/fee defaults from `logos.config.Settings`, so command line arguments stay minimal.
 
-— FX intraday run with explicit cost model.
-    python -m logos.cli backtest --symbol EURUSD=X --strategy mean_reversion --asset-class forex --interval 30m --slip-bps 8 --commission 0.0 --fx-pip-size 0.0001 --start 2023-06-01 --end 2023-08-31
+#### Scenario: High-frequency crypto smoke test (5-minute bars)
+```bash
+python -m logos.cli backtest --symbol BTC-USD --strategy mean_reversion \
+  --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper
+```
+**What it does:** verifies your strategy behaves under shorter intervals and produces artifacts for quick inspection.
 
-— Pairs trade using custom window/threshold parameters.
-    python -m logos.cli backtest --symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --paper
+#### Scenario: Momentum with tighter windows and smaller sizing
+```bash
+python -m logos.cli backtest --symbol MSFT --strategy momentum \
+  --params fast=20,slow=50 --paper --dollar-per-trade 2000
+```
+**What it does:** illustrates how to override the default moving-average windows and reduce position size.
 
-— Momentum run using .env defaults for costs and interval.
-    python -m logos.cli backtest --symbol TSLA --strategy momentum --start 2024-01-01 --end 2024-03-31
+#### Scenario: FX pairs lesson via CLI wrapper
+```bash
+python -m logos.cli backtest --symbol EURUSD --strategy pairs_trading \
+  --asset-class forex --params hedge_ratio=0.95 --paper
+```
+**What it does:** demonstrates the hedged pairs variant developed for the education transcripts.
 
-— High-frequency crypto smoke test (5-minute bars).
-    python -m logos.cli backtest --symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper
+#### Scenario: Synthetic demo dataset regression
+```bash
+python -m logos.cli backtest --symbol DEMO --strategy mean_reversion \
+  --paper --start 2023-01-01 --end 2023-01-15
+```
+**What it does:** runs against bundled fixture data; handy for continuous integration or smoke tests.
 
-— Momentum run with custom moving-average windows and smaller sizing.
-    python -m logos.cli backtest --symbol MSFT --strategy momentum --params fast=20,slow=50 --paper --dollar-per-trade 2000
+---
 
-— Forex pairs lesson run via CLI wrapper.
-    python -m logos.cli backtest --symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --paper
+### Live Trading (`logos.live trade`)
+The live runner coordinates data feeds, broker adapters, and risk gates. Paper mode is enabled by default; live submission requires an acknowledgement flag.
 
-Tutor Mode Commands
+#### Session lifecycle
+1. **Environment prep:** set `MODE=paper` (or `MODE=live` once ready) and choose a default `BROKER` in `.env`. Supply broker credentials (`CCXT_API_KEY`, `ALPACA_KEY_ID`, etc.) if applicable.
+2. **Validate config:** `python -m logos.config_validate` ensures all required settings and directories exist.
+3. **Run paper session:**
+   ```bash
+   python -m logos.live trade --symbol BTC-USD --strategy momentum \
+     --interval 1m --params '{"fast":10,"slow":30}' --risk.max-dd-bps 400 \
+     --kill-switch-file /tmp/logos.kill
+   ```
+4. **Go live intentionally:** add `--live --i-acknowledge-risk` only when supervision and risk controls are ready.
 
-— List available Tutor lessons and exit.
-    python -m logos.tutor --list
+#### Safety Controls
+| Guardrail | Flag / Setting | Purpose |
+| --- | --- | --- |
+| Acknowledgement | `--i-acknowledge-risk` | Opt-in required before sending real orders. |
+| Mode gate | `MODE=paper|live` | Prevents accidental live trading without environment toggle. |
+| Notional cap | `--max-notional` / `RISK_MAX_NOTIONAL` | Limits order size by dollar value. |
+| Position cap | `--risk.max-position` / `RISK_MAX_POSITION` | Controls net exposure in units. |
+| Drawdown breaker | `--risk.max-dd-bps` / `RISK_MAX_DD_BPS` | Stops when equity drawdown breaches threshold. |
+| Reject breaker | `--risk.max-rejects` | Halts after repeated broker rejections. |
+| Kill switch | `--kill-switch-file` | Touch the file externally to end the session safely. |
+| Stale data check | `RISK_STALE_DATA_THRESHOLD_S` | Stops if feed latency is too high. |
 
-— Narrated mean-reversion lesson with transcript and glossary output.
-    python -m logos.tutor --lesson mean_reversion
+#### Session Artifacts
+| Path | Contents |
+| --- | --- |
+| `runs/live/sessions/<session_id>/state.json` | Persisted equity, positions, last bar timestamp. |
+| `runs/live/sessions/<session_id>/state.jsonl` | Append-only event log (rejections, state checkpoints). |
+| `orders.csv`, `trades.csv`, `positions.csv`, `account.csv` | Auditable record of decisions, fills, and broker snapshots. |
+| `session.md` | Markdown summary emitted when the runner stops. |
+| `logs/run.log` | Per-session log file attached via `session_manager`. |
+| `logos/logs/live.log` | Shared live-mode log stream across sessions. |
 
-— Mean-reversion lesson with annotated plots and formula derivations.
-    python -m logos.tutor --lesson mean_reversion --plot --explain-math
+#### Broker Adapter Status
+| Adapter | Status | Notes |
+| --- | --- | --- |
+| `PaperBrokerAdapter` | ✅ Ready | Deterministic fills with FIFO lots; ideal for rehearsals and tests. |
+| `CCXTBrokerAdapter` | 🛠️ Scaffolded | Credential plumbing exists; execution wiring is pending. |
+| `AlpacaBrokerAdapter` | 🛠️ Scaffolded | REST endpoints stubbed; requires API integration. |
+| `InteractiveBrokersAdapter` | 🛠️ Scaffolded | Gateway placeholders ready for future plumbing. |
 
-— Momentum lesson emphasizing regime shifts with visuals.
-    python -m logos.tutor --lesson momentum --plot
+> Strategies connect to the live loop via an `order_generator` hook. The CLI currently uses a placeholder generator until backtest strategies are gated for production order intent output.
 
-— Pairs trading lesson with spread/z-score panels and math notes.
-    python -m logos.tutor --lesson pairs_trading --plot --explain-math
+---
 
-Maintenance and Diagnostics
+### Tutor Mode (`logos.tutor`)
+Tutor mode narrates strategies step-by-step with optional plots and math derivations. Transcripts and glossaries are stored under `runs/lessons/`.
 
-— Full CLI/Tutor option reference (like a man page).
-    python -m logos.cli backtest --help
-    python -m logos.tutor --help
+```bash
+# List available lessons
+python -m logos.tutor --list
 
-— Run deterministic regression suite.
-    pytest -q
+# Narrated mean reversion walkthrough
+python -m logos.tutor --lesson mean_reversion
 
-— Quick synthetic smoke test on bundled fixture data.
-    python -m logos.cli backtest --symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-01-15
+# Add charts and math derivations
+python -m logos.tutor --lesson mean_reversion --plot --explain-math
 
-— Verify directory scaffolding after checkout
-    python - <<'PY'
+# Momentum lesson with visuals
+python -m logos.tutor --lesson momentum --plot
+
+# Pairs trading deep dive with formulas
+python -m logos.tutor --lesson pairs_trading --plot --explain-math
+```
+
+Each lesson covers signal logic, entry/exit rationale, risk framing, and includes glossary definitions for classroom use.
+
+---
+
+### Diagnostics & Utilities
+```bash
+# Full CLI/tutor option reference (man-page style)
+python -m logos.cli backtest --help
+python -m logos.tutor --help
+
+# Validate configuration and directory scaffolding
+python -m logos.config_validate
+
+# Verify the path helpers are provisioned
+python - <<'PY'
 from logos.paths import ensure_dirs
-
 ensure_dirs()
 print("dirs ok")
 PY
+```
+
+Use these commands in CI or before switching to a new machine to ensure consistent environments.
+
+---
+
+## Documentation & Learning Map
+| Artifact | Description |
+| --- | --- |
+| `docs/index.html` | Entry point linking to all documentation pages. |
+| `docs/MANUAL.html` | Operations manual with install steps, backtests, and live workflow walk-throughs. |
+| `docs/MATH.html` | Mathematical derivations for indicators and metrics. |
+| `docs/FINANCE.html` | Market intuition, case studies, and playbooks. |
+| `docs/SYSTEM_DESIGN.html` | Architecture diagrams, module responsibilities, and roadmap context. |
+
+---
+
+## Roadmap Snapshot
+| Phase | Status | Focus |
+| --- | --- | --- |
+| Phase 1 | ✅ Complete | Educational backtesting foundation. |
+| Phase 2 | 🚧 In Progress | Live execution scaffolding, broker integrations, safety validation. |
+| Phase 3 | 🔜 Planned | Streamlit dashboard for live monitoring and reporting. |
+| Phase 4 | 🔜 Planned | Portfolio construction, ML alpha research, advanced risk modeling. |
+| Phase 5 | 🔜 Planned | Deployment automation (desktop bundle, cloud orchestration). |
+
+---
+
+## License
+MIT License — Logos-Q1 is open for study, extension, and responsible live trading use.

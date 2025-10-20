@@ -21,8 +21,15 @@ RUNS_DIR = PROJECT_ROOT / "runs"
 RUNS_LESSONS_DIR = RUNS_DIR / "lessons"
 RUNS_LATEST_LINK = RUNS_DIR / "latest"
 
+RUNS_LIVE_DIR = RUNS_DIR / "live"
+RUNS_LIVE_SESSIONS_DIR = RUNS_LIVE_DIR / "sessions"
+RUNS_LIVE_TRADES_DIR = RUNS_LIVE_DIR / "trades"
+RUNS_LIVE_REPORTS_DIR = RUNS_LIVE_DIR / "reports"
+RUNS_LIVE_LATEST_LINK = RUNS_LIVE_DIR / "latest_session"
+
 APP_LOGS_DIR = LOGOS_DIR / "logs"
 APP_LOG_FILE = APP_LOGS_DIR / "app.log"
+LIVE_LOG_FILE = APP_LOGS_DIR / "live.log"
 
 
 def _default_cache_dirs() -> list[Path]:
@@ -42,6 +49,10 @@ def _default_dirs() -> list[Path]:
         *_default_cache_dirs(),
         RUNS_DIR,
         RUNS_LESSONS_DIR,
+        RUNS_LIVE_DIR,
+        RUNS_LIVE_SESSIONS_DIR,
+        RUNS_LIVE_TRADES_DIR,
+        RUNS_LIVE_REPORTS_DIR,
     ]
 
 
@@ -65,6 +76,10 @@ def runs_latest_symlink() -> Path:
     return RUNS_LATEST_LINK
 
 
+def runs_live_latest_symlink() -> Path:
+    return RUNS_LIVE_LATEST_LINK
+
+
 def env_seed(default: int = 7) -> int:
     value = os.getenv("LOGOS_SEED")
     try:
@@ -75,3 +90,17 @@ def env_seed(default: int = 7) -> int:
 
 def safe_slug(value: str) -> str:
     return value.replace("/", "-").replace("=", "-").replace(" ", "-")
+
+
+def live_cache_dir(asset_class: str) -> Path:
+    """Return the live cache directory for the given asset class."""
+    base = resolve_cache_subdir(asset_class)
+    live_dir = base / "live"
+    live_dir.mkdir(parents=True, exist_ok=True)
+    return live_dir
+
+
+def live_cache_path(asset_class: str, symbol: str, interval: str) -> Path:
+    """Return a cache file path for live bars."""
+    safe = safe_slug(symbol)
+    return live_cache_dir(asset_class) / f"{safe}_{interval}.csv"

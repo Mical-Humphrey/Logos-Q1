@@ -89,7 +89,7 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <h2>3) Running Backtests</h2>
 <div class="card">
 <p>Example command:</p>
-<pre><code>python -m logos.backtest --symbol TSLA --strategy momentum --asset-class equity --start 2020-01-01 --end 2024-12-31 --paper</code></pre>
+<pre><code>python -m logos.cli backtest --symbol TSLA --strategy momentum --asset-class equity --start 2020-01-01 --end 2024-12-31 --paper</code></pre>
 <ul>
   <li>Use <code>--asset-class</code> to switch between <code>equity</code>, <code>crypto</code>, or <code>forex</code>.</li>
   <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
@@ -97,7 +97,40 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 </ul>
 </div>
 
-<h2>4) Exploring Results</h2>
+<h2>4) Live Trading Workflow</h2>
+<div class="card">
+<p>The <code>logos.live</code> module stitches together feeds, brokers, risk checks, and logging so you can graduate from backtests to supervised execution.</p>
+<ol>
+  <li><b>Prepare the environment</b>: copy <code>.env.example</code> to <code>.env</code>, set <code>MODE=paper</code> or <code>MODE=live</code>, choose a broker (<code>BROKER=paper</code>, <code>ccxt</code>, etc.), and supply credentials as needed.</li>
+  <li><b>Validate configuration</b>: run <code>python -m logos.config_validate</code> to confirm required keys, risk limits, and directory scaffolding are in place.</li>
+  <li><b>Dry-run with paper broker</b>: 
+    <pre><code>python -m logos.live trade --symbol BTC-USD --strategy momentum \
+  --interval 1m --params '{"fast":10,"slow":30}' --risk.max-dd-bps 400 \
+  --kill-switch-file /tmp/logos.kill</code></pre>
+  </li>
+  <li><b>Enable live orders</b> only after supervision is ready: add <code>--live</code> and <code>--i-acknowledge-risk</code>. The CLI refuses to submit if acknowledgement is missing.</li>
+</ol>
+<p><b>Safety controls</b> are enforced ahead of every order:</p>
+<table>
+  <tr><th>Control</th><th>Flag / Setting</th><th>Description</th></tr>
+  <tr><td>Mode gate</td><td><code>MODE=paper|live</code></td><td>Environment variable that prevents accidental live orders.</td></tr>
+  <tr><td>Acknowledgement</td><td><code>--i-acknowledge-risk</code></td><td>Required whenever <code>--live</code> is used.</td></tr>
+  <tr><td>Notional limit</td><td><code>--max-notional</code> / <code>RISK_MAX_NOTIONAL</code></td><td>Caps order size in currency terms.</td></tr>
+  <tr><td>Position cap</td><td><code>--risk.max-position</code> / <code>RISK_MAX_POSITION</code></td><td>Restricts net exposure.</td></tr>
+  <tr><td>Drawdown breaker</td><td><code>--risk.max-dd-bps</code></td><td>Stops the loop when equity drawdown exceeds your threshold.</td></tr>
+  <tr><td>Reject breaker</td><td><code>--risk.max-rejects</code></td><td>Halts after repeated broker rejections.</td></tr>
+  <tr><td>Kill switch</td><td><code>--kill-switch-file</code></td><td>Touch the file from another process to shut down the runner safely.</td></tr>
+</table>
+<p>During every iteration the runner persists artifacts under <code>runs/live/sessions/&lt;session_id&gt;/</code>:</p>
+<ul>
+  <li><code>state.json</code> and <code>state.jsonl</code> track equity, positions, last bar timestamps, and structured events.</li>
+  <li><code>orders.csv</code>, <code>trades.csv</code>, <code>positions.csv</code>, and <code>account.csv</code> provide auditable history for compliance or post-mortems.</li>
+  <li><code>logs/run.log</code> captures per-session logging; a shared <code>logos/logs/live.log</code> streams the consolidated view.</li>
+</ul>
+<p><span class="note">If a session stops unexpectedly, re-run the CLI with the same parameters: the runner resumes from <code>state.json</code>, rehydrates positions, and continues once risk checks pass.</span></p>
+</div>
+
+<h2>5) Exploring Results</h2>
 <div class="card">
 <ul>
 <li><b>Equity curve</b>: visualizes growth of simulated portfolio.</li>
@@ -110,14 +143,14 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 </details>
 </div>
 
-<h2>5) Education Mode</h2>
+<h2>6) Education Mode</h2>
 <div class="card">
 <p><b>Education mode</b> now walks you through real trading lessons using the live engine:</p>
 <pre><code>python -m logos.tutor --lesson mean_reversion --plot</code></pre>
 <p>This narrates each step (SMA, z-score, entries/exits, Sharpe, drawdown) and saves a transcript in <code>runs/lessons/</code>. Swap <code>--lesson</code> for <code>momentum</code> or <code>pairs_trading</code> to explore other playbooks.</p>
 </div>
 
-<h2>6) Troubleshooting</h2>
+<h2>7) Troubleshooting</h2>
 <div class="card">
 <ul>
 <li><b>RuntimeWarning</b>: NaN in subtract — often due to incomplete data window. Solution: ensure enough bars before indicators initialize.</li>
