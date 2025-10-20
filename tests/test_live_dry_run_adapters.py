@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 
 import pytest
@@ -32,17 +33,27 @@ def test_alpaca_dry_run_logs_are_deterministic() -> None:
     assert order.order_id == "ALPACA-DRY-000001"
 
     log_entry = adapter.logs[-1]
-    assert log_entry["adapter"] == "alpaca"
-    assert log_entry["venue"] == "alpaca-paper"
-    assert log_entry["run_id"] == "run-001"
-    assert log_entry["seed"] == 42
-    assert log_entry["symbol"] == "AAPL"
-    assert log_entry["qty"] == "10"
-    assert log_entry["price"] == "150.5"
-    assert log_entry["response"] == {"status": "accepted", "reason": None}
-    assert isinstance(log_entry["intent_hash"], str) and len(log_entry["intent_hash"]) == 16
+    req = log_entry["request"]
+    resp = log_entry["response"]
 
-    # Deterministic: re-running with identical inputs yields identical log payload.
+    assert log_entry["adapter"] == "alpaca"
+    assert log_entry["adapter_mode"] == "dry-run"
+    assert log_entry["client_order_id"] == resp["client_order_id"]
+    assert req["run_id"] == "run-001"
+    assert req["seed"] == 42
+    assert req["venue"] == "alpaca"
+    assert req["symbol"] == "AAPL"
+    assert req["order_type"] == "limit"
+    assert req["time_in_force"] == "gtc"
+    assert req["qty"] == "10"
+    assert req["price"] == "150.5"
+    assert len(req["intent_hash"]) == 64
+    assert len(resp["validation_hash"]) == 64
+    assert resp["normalized_payload"] == req
+    assert resp["adapter_mode"] == "dry-run"
+    assert resp["accepted"] is True
+    assert len(resp["client_order_id"]) <= 48
+
     clock_clone = _clock()
     adapter_clone = AlpacaBrokerAdapter(
         base_url="alpaca-paper",
@@ -54,6 +65,29 @@ def test_alpaca_dry_run_logs_are_deterministic() -> None:
     )
     adapter_clone.place_order(_limit_intent())
     assert adapter_clone.logs[-1] == log_entry
+
+
+def test_alpaca_rejects_invalid_time_in_force() -> None:
+    clock = _clock()
+    adapter = AlpacaBrokerAdapter(
+        base_url="alpaca-paper",
+        key_id="KEY",
+        secret_key="SECRET",
+        run_id="run-002",
+        seed=101,
+        time_provider=clock,
+    )
+    bad_intent = dataclasses.replace(_limit_intent(), time_in_force="gtd")
+
+    with pytest.raises(ValueError) as exc:
+        adapter.place_order(bad_intent)
+    assert "invalid_time_in_force" in str(exc.value)
+
+    log_entry = adapter.logs[-1]
+    resp = log_entry["response"]
+    assert resp["accepted"] is False
+    assert resp["reason"] == "invalid_time_in_force"
+    assert resp["normalized_payload"]["time_in_force"] == "gtd"
 
 
 def test_ccxt_dry_run_rejects_and_logs_reason() -> None:
@@ -70,11 +104,16 @@ def test_ccxt_dry_run_rejects_and_logs_reason() -> None:
         adapter.place_order(bad_intent)
 
     log_entry = adapter.logs[-1]
+    req = log_entry["request"]
+    resp = log_entry["response"]
     assert log_entry["adapter"] == "ccxt"
-    assert log_entry["venue"] == "binance"
-    assert log_entry["order_id"] == "CCXT-DRY-000001"
-    assert log_entry["response"] == {"status": "rejected", "reason": "non_positive_quantity"}
-    assert log_entry["intent_hash"] is not None
+    assert log_entry["adapter_mode"] == "dry-run"
+    assert log_entry["order_id"] is None
+    assert req["venue"] == "binance"
+    assert resp["accepted"] is False
+    assert resp["reason"] == "qty_not_positive"
+    assert len(resp["client_order_id"]) <= 48
+    assert resp["normalized_payload"] == req
 
 
 def test_ccxt_cancel_uses_existing_order_payload() -> None:
@@ -92,5 +131,6 @@ def test_ccxt_cancel_uses_existing_order_payload() -> None:
     place_log, cancel_log = adapter.logs[-2:]
     assert place_log["order_id"] == order.order_id
     assert cancel_log["order_id"] == order.order_id
-    assert cancel_log["symbol"] == "BTC/USD"
-    assert cancel_log["response"] == {"status": "accepted", "reason": None}
+    assert cancel_log["adapter_mode"] == "dry-run"
+    assert cancel_log["response"]["accepted"] is True
+    assert cancel_log["response"]["normalized_payload"]["client_order_id"] == place_log["response"]["client_order_id"]

@@ -152,29 +152,41 @@ def _positions_payload(positions: Iterable) -> Mapping[str, Mapping[str, float]]
     return payload
 
 
-def _write_adapter_logs(paths: SeededRunPaths, entries: List[dict], mode: str) -> Path:
+def _write_adapter_logs(paths: SeededRunPaths, entries: List[dict]) -> Path:
     log_path = paths.artifacts_dir / ADAPTER_LOG_FILENAME
     if not entries:
         log_path.write_text("[]\n", encoding="utf-8")
         return log_path
-    enriched = []
-    for entry in entries:
-        payload = dict(entry)
-        payload.setdefault("adapter_mode", mode)
-        enriched.append(payload)
-    serialized = "\n".join(json.dumps(item, sort_keys=True) for item in enriched)
+    serialized = "\n".join(json.dumps(dict(item), sort_keys=True) for item in entries)
     log_path.write_text(serialized + "\n", encoding="utf-8")
     return log_path
 
 
-def _select_adapter(config: RegressionConfig, clock: MockTimeProvider) -> Tuple[str, object | None]:
+def _drain_adapter_logs(adapter: object) -> List[dict]:
+    drain = getattr(adapter, "drain_logs", None)
+    if callable(drain):
+        return list(drain())
+    logs_attr = getattr(adapter, "logs", None)
+    if logs_attr is None:
+        return []
+    if callable(logs_attr):
+        logs = list(logs_attr())
+    else:
+        logs = list(logs_attr)
+    reset = getattr(adapter, "reset_logs", None)
+    if callable(reset):
+        reset()
+    return logs
+
+
+def _select_adapter(config: RegressionConfig, clock: MockTimeProvider) -> Tuple[str, str | None, object | None]:
     if config.adapter_mode == "paper":
-        return "paper", None
+        return "paper", None, None
     if config.adapter_mode != "adapter":
         raise ValueError(f"Unknown adapter mode: {config.adapter_mode}")
-    adapter = (config.adapter_name or "").lower()
-    if adapter == "alpaca":
-        return "alpaca", AlpacaBrokerAdapter(
+    adapter_name = (config.adapter_name or "").lower()
+    if adapter_name == "alpaca":
+        return "dry-run", "alpaca", AlpacaBrokerAdapter(
             base_url="alpaca-paper",
             key_id="dry-run",
             secret_key="dry-run",
@@ -182,8 +194,8 @@ def _select_adapter(config: RegressionConfig, clock: MockTimeProvider) -> Tuple[
             seed=config.seed,
             time_provider=clock,
         )
-    if adapter == "ccxt":
-        return "ccxt", CCXTBrokerAdapter(
+    if adapter_name == "ccxt":
+        return "dry-run", "ccxt", CCXTBrokerAdapter(
             exchange="ccxt-dry",
             run_id=config.label,
             seed=config.seed,
@@ -230,10 +242,10 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
     if not decision.allowed:
         raise RuntimeError(f"Regression guard rejected order: {decision.reason}")
 
-    adapter_key, adapter = _select_adapter(config, clock)
+    adapter_mode_label, adapter_name, adapter = _select_adapter(config, clock)
     adapter_logs: List[dict] = []
 
-    if adapter_key == "paper":
+    if adapter_mode_label == "paper":
         broker = _configure_paper_broker(metadata, account, config.symbol, clock)
         order = broker.place_order(broker_intent)
 
@@ -283,11 +295,9 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
         account_payload = _account_payload(final_snapshot.cash, final_snapshot.equity, broker, final_positions)
         positions_payload = _positions_payload(final_positions)
     else:
-        assert adapter is not None
+        assert adapter is not None and adapter_name is not None
         adapter.place_order(broker_intent)
-        if hasattr(adapter, "logs"):
-            adapter_logs.extend(list(getattr(adapter, "logs")))
-        logged = len(adapter_logs)
+        adapter_logs.extend(_drain_adapter_logs(adapter))
 
         equity_curve = [
             {
@@ -302,11 +312,7 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
         for bar in bars:
             clock.current = bar.dt
             adapter.on_market_data(bar.symbol, bar.close, bar.dt.timestamp())
-            if hasattr(adapter, "logs"):
-                current_logs = list(getattr(adapter, "logs"))
-                if len(current_logs) > logged:
-                    adapter_logs.extend(current_logs[logged:])
-                    logged = len(current_logs)
+            adapter_logs.extend(_drain_adapter_logs(adapter))
             equity_curve.append({"ts": bar.dt, "equity": float(account.equity), "cash": float(account.cash)})
             exposures.append(0.0)
 
@@ -325,13 +331,14 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
             }
             for symbol, pos in account.positions.items()
         }
+        adapter_logs.extend(_drain_adapter_logs(adapter))
 
     config_payload = {
         "symbol": config.symbol,
         "seed": config.seed,
         "label": config.label,
-        "adapter_mode": adapter_key,
-        "adapter_name": config.adapter_name,
+        "adapter_mode": adapter_mode_label,
+        "adapter_name": adapter_name,
         "dataset": str(config.dataset_dir),
     }
 
@@ -352,8 +359,8 @@ def _run_pipeline(paths: SeededRunPaths, config: RegressionConfig) -> Regression
     )
 
     adapter_log_path: Path | None = None
-    if adapter_key != "paper":
-        adapter_log_path = _write_adapter_logs(paths, adapter_logs, adapter_key)
+    if adapter_mode_label != "paper":
+        adapter_log_path = _write_adapter_logs(paths, adapter_logs)
 
     return RegressionArtifacts(snapshot=paths.snapshot_file, equity_curve=equity_path, metrics=metrics_path, adapter_logs=adapter_log_path)
 
