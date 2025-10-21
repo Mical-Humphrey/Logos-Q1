@@ -82,7 +82,9 @@ def test_get_prices_blocks_synthetic_without_flag(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(data_loader, "ensure_dirs", lambda *args, **kwargs: None)
     monkeypatch.setattr(data_loader, "_load_fixture", lambda *args, **kwargs: None)
-    monkeypatch.setattr(data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame())
+    monkeypatch.setattr(
+        data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame()
+    )
 
     with pytest.raises(data_loader.SyntheticDataNotAllowed):
         data_loader.get_prices(
@@ -106,7 +108,9 @@ def test_get_prices_allows_synthetic_with_flag(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(data_loader, "ensure_dirs", lambda *args, **kwargs: None)
     monkeypatch.setattr(data_loader, "_load_fixture", lambda *args, **kwargs: None)
-    monkeypatch.setattr(data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame())
+    monkeypatch.setattr(
+        data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame()
+    )
 
     called: dict[str, bool] = {"synthetic": False}
 

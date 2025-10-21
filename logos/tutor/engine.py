@@ -539,9 +539,7 @@ def _lesson_mean_reversion(ctx: LessonContext) -> None:
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,
-    ).tail(
-        60
-    )
+    ).tail(60)
     _summarize_data(ctx, prices)
     close = prices["Close"].astype(float)
 
@@ -669,9 +667,7 @@ def _lesson_momentum(ctx: LessonContext) -> None:
         interval="1d",
         asset_class="crypto",
         allow_synthetic=True,
-    ).tail(
-        90
-    )
+    ).tail(90)
     _summarize_data(ctx, prices)
     close = prices["Close"].astype(float)
 
@@ -771,9 +767,7 @@ def _lesson_pairs(ctx: LessonContext) -> None:
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,
-    ).tail(
-        90
-    )
+    ).tail(90)
     prices_b = get_prices(
         sym_b,
         start,
@@ -781,9 +775,7 @@ def _lesson_pairs(ctx: LessonContext) -> None:
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,
-    ).tail(
-        90
-    )
+    ).tail(90)
     closes = pd.DataFrame({sym_a: prices_a["Close"], sym_b: prices_b["Close"]}).dropna()
     _summarize_data(ctx, closes)
 

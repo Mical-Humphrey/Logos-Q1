@@ -125,6 +125,16 @@ python -m logos.cli backtest --symbol DEMO --strategy mean_reversion \
 ```
 **What it does:** runs against bundled fixture data; handy for continuous integration or smoke tests.
 
+### Synthetic Data Policy & Provenance
+- Synthetic bars are **disabled by default**. Any attempt to reach fixture generators without `--allow-synthetic` exits early with guidance and no artifacts written.
+- Enable synthetic data explicitly with `--allow-synthetic` when rehearsing demos or fixtures. The CLI logs the acknowledgement and tags the run as synthetic.
+- Every run now emits provenance alongside metrics:
+  - `metrics.json` gains a `provenance` block explaining window, timezone, seeds, synthetic usage, and adapter context.
+  - `provenance.json` holds the full audit payload: git SHA (when available), data lineage (fixture/cache paths, download symbol, resampling), CLI arguments, environment flags, and adapter entrypoint metadata.
+  - `session.md` is the human-readable summary; synthetic runs are prefixed with `# SYNTHETIC RUN` and enumerate generator/fixture details.
+- Expect these files under `runs/<timestamp>_<symbol>_<strategy>/` for CLI backtests and `runs/live/reg_cli/<seed>-<label>/` for regression harness outputs.
+- Tests in `tests/test_cli_provenance.py` assert that real runs omit synthetic labeling and that metrics/session artifacts reflect the correct provenance fields.
+
 ---
 
 ### Live Trading (`logos.live trade`)
@@ -249,7 +259,9 @@ python -m logos.live.regression --adapter-mode adapter --adapter alpaca \
 ```
 
 Resulting artifacts (snapshot, equity curve, metrics, adapter logs) are indexed — together with
-sha256 checksums — in `docs/PHASE2-ARTIFACTS.md`.
+sha256 checksums — in `docs/PHASE2-ARTIFACTS.md`. Each regression run also writes `provenance.json`
+and `session.md`, mirroring the CLI provenance contract so baseline comparisons cover data lineage
+and human-readable notes.
 
 ---
 

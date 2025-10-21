@@ -92,6 +92,8 @@ def _parse_iso_duration(value: str) -> timedelta:
         _usage_error(
             f"Window '{value}' is not a supported ISO-8601 duration. Use formats like P90D or P12W."
         )
+        raise AssertionError("unreachable")
+    assert match is not None
     weeks = int(match.group("weeks")) if match.group("weeks") else 0
     days = int(match.group("days")) if match.group("days") else 0
     total_days = weeks * 7 + days
@@ -351,7 +353,10 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         synthetic_used = bool(price_meta.get("synthetic"))
         data_source_label = str(price_meta.get("data_source") or "unknown")
         fixture_paths = sorted(
-            {str(item) for item in cast(list[str], price_meta.get("fixture_paths") or [])}
+            {
+                str(item)
+                for item in cast(list[str], price_meta.get("fixture_paths") or [])
+            }
         )
         cache_paths = sorted(
             {str(item) for item in cast(list[str], price_meta.get("cache_paths") or [])}

@@ -1,6 +1,6 @@
 import json
+import logging
 from argparse import Namespace
-from types import SimpleNamespace
 from typing import Dict
 
 import pandas as pd
@@ -36,15 +36,18 @@ def _prep_run_context(tmp_path, name: str) -> RunContext:
         trades_file=run_dir / "trades.csv",
         equity_png=run_dir / "equity.png",
         run_log_file=logs_dir / "run.log",
-        log_handler=SimpleNamespace(),
+        log_handler=logging.NullHandler(),
     )
 
 
-def _install_common_patches(monkeypatch, cli_mod, run_ctx: RunContext, price_meta: Dict[str, object]) -> None:
+def _install_common_patches(
+    monkeypatch, cli_mod, run_ctx: RunContext, price_meta: Dict[str, object]
+) -> None:
     monkeypatch.setattr(cli_mod, "setup_app_logging", lambda level: None)
     monkeypatch.setattr(cli_mod, "ensure_dirs", lambda extra=None: None)
     monkeypatch.setattr(cli_mod, "close_run_context", lambda ctx: None)
     monkeypatch.setattr(cli_mod, "capture_env", lambda keys: {"LOGOS_SEED": "123"})
+
     def _fake_save_plot(ctx, fig):
         run_ctx.equity_png.write_text("", encoding="utf-8")
         return run_ctx.equity_png
@@ -54,7 +57,9 @@ def _install_common_patches(monkeypatch, cli_mod, run_ctx: RunContext, price_met
     monkeypatch.setattr(cli_mod, "last_price_metadata", lambda: dict(price_meta))
 
     data_index = pd.date_range("2024-01-01", periods=5, freq="D")
-    price_df = pd.DataFrame({"Close": [100.0, 101.0, 102.0, 103.0, 104.0]}, index=data_index)
+    price_df = pd.DataFrame(
+        {"Close": [100.0, 101.0, 102.0, 103.0, 104.0]}, index=data_index
+    )
     price_df.index.name = "Date"
     monkeypatch.setattr(cli_mod, "get_prices", lambda *args, **kwargs: price_df)
 
@@ -64,7 +69,9 @@ def _install_common_patches(monkeypatch, cli_mod, run_ctx: RunContext, price_met
     monkeypatch.setitem(cli_mod.STRATEGIES, "mean_reversion", _fake_strategy)
 
     equity = pd.Series([1.0, 1.01, 1.02, 1.03, 1.04], index=data_index)
-    trades = pd.DataFrame({"time": [data_index[1]], "side": [1], "shares": [10], "ref_close": [101.0]})
+    trades = pd.DataFrame(
+        {"time": [data_index[1]], "side": [1], "shares": [10], "ref_close": [101.0]}
+    )
     metrics = {
         "CAGR": 0.05,
         "Sharpe": 1.1,

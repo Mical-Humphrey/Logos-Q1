@@ -94,6 +94,7 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
   <li>Provide either <code>--start</code>/<code>--end</code> (YYYY-MM-DD) or a single <code>--window</code> ISO-8601 duration (e.g. <code>P90D</code>). Mixing the two will become invalid once the validator is wired.</li>
   <li>Use <code>--tz</code> to interpret date inputs in a specific timezone (default: <code>UTC</code>). ISO timestamps with offsets are respected.</li>
   <li>Pass <code>--allow-env-dates</code> if you intentionally want to fall back to <code>.env</code> <code>START_DATE</code>/<code>END_DATE</code>. The CLI will log when this legacy path is used.</li>
+  <li>Synthetic fixtures are blocked unless you pass <code>--allow-synthetic</code>; without it the CLI aborts with a clear error before writing artifacts. When you enable the flag the run is tagged as synthetic everywhere (metrics, provenance, session markdown).</li>
   <li>If neither option is supplied the CLI exits early (code 2) with a remediation hint, and it does so before any run directories or downloads are created.</li>
   <li>Use <code>--asset-class</code> to switch between <code>equity</code>, <code>crypto</code>, or <code>forex</code>.</li>
   <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
@@ -138,8 +139,10 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <div class="card">
 <ul>
 <li><b>Equity curve</b>: visualizes growth of simulated portfolio.</li>
-<li><b>Metrics</b>: summarized in <code>runs/summary.json</code>.</li>
+<li><b>Metrics</b>: summarized in <code>metrics.json</code>; a nested <code>provenance</code> block records window, timezone, seeds, adapters, and whether synthetic data was used.</li>
 <li><b>Trade log</b>: CSV with timestamps, prices, position sizes, PnL.</li>
+<li><b>Provenance</b>: <code>provenance.json</code> captures the full audit trail (git SHA, CLI args, data lineage, adapters, synthetic generator metadata).</li>
+<li><b>Session summary</b>: <code>session.md</code> is a human-readable digest; synthetic runs render with a banner so reviewers cannot miss the data origin.</li>
 </ul>
 <details>
 <summary>Pro tip</summary>
@@ -187,6 +190,7 @@ python -m logos.live.regression --adapter-mode adapter --adapter alpaca \
   --output-dir runs/live/reg_cli
 </code></pre>
 <p>Resulting artifacts and sha256 checksums are catalogued in <code>docs/PHASE2-ARTIFACTS.md</code>.</p>
+<p>Those regression outputs follow the same provenance contract as CLI runs: expect <code>provenance.json</code>, <code>session.md</code>, and the enriched <code>metrics.json</code> under <code>runs/live/reg_cli/&lt;seed&gt;-&lt;label&gt;/</code>.</p>
 </div>
 
 <h2>9) Safety Checklist & Guard Order</h2>

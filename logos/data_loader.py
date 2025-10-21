@@ -304,7 +304,9 @@ def _load_from_yahoo(
 
     df = None
     if interval == "1d":
-        fixture = _load_fixture(cache_symbol, interval, asset_tag, download_symbol, meta)
+        fixture = _load_fixture(
+            cache_symbol, interval, asset_tag, download_symbol, meta
+        )
         if fixture is not None and _covers_range(fixture, start, end):
             meta["data_source"] = "fixture"
             df = fixture

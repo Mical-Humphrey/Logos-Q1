@@ -147,9 +147,7 @@ def write_metrics(
     }
     if provenance:
         serializable["provenance"] = provenance
-    ctx.metrics_file.write_text(
-        json.dumps(serializable, indent=2), encoding="utf-8"
-    )
+    ctx.metrics_file.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
 
 
 def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None:
