@@ -532,7 +532,14 @@ def _lesson_mean_reversion(ctx: LessonContext) -> None:
     )
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices = get_prices(symbol, start, end, interval="1d", asset_class="equity").tail(
+    prices = get_prices(
+        symbol,
+        start,
+        end,
+        interval="1d",
+        asset_class="equity",
+        allow_synthetic=True,
+    ).tail(
         60
     )
     _summarize_data(ctx, prices)
@@ -655,7 +662,14 @@ def _lesson_momentum(ctx: LessonContext) -> None:
     ctx.narrate(f"[Lesson: Momentum] Tracking trend-following crossovers on {symbol}.")
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices = get_prices(symbol, start, end, interval="1d", asset_class="crypto").tail(
+    prices = get_prices(
+        symbol,
+        start,
+        end,
+        interval="1d",
+        asset_class="crypto",
+        allow_synthetic=True,
+    ).tail(
         90
     )
     _summarize_data(ctx, prices)
@@ -750,10 +764,24 @@ def _lesson_pairs(ctx: LessonContext) -> None:
     )
 
     start, end = ctx.settings.start, ctx.settings.end
-    prices_a = get_prices(sym_a, start, end, interval="1d", asset_class="equity").tail(
+    prices_a = get_prices(
+        sym_a,
+        start,
+        end,
+        interval="1d",
+        asset_class="equity",
+        allow_synthetic=True,
+    ).tail(
         90
     )
-    prices_b = get_prices(sym_b, start, end, interval="1d", asset_class="equity").tail(
+    prices_b = get_prices(
+        sym_b,
+        start,
+        end,
+        interval="1d",
+        asset_class="equity",
+        allow_synthetic=True,
+    ).tail(
         90
     )
     closes = pd.DataFrame({sym_a: prices_a["Close"], sym_b: prices_b["Close"]}).dropna()

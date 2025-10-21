@@ -39,13 +39,16 @@ from .run_manager import (
     capture_env,
     close_run_context,
     new_run,
+    resolve_git_sha,
     save_equity_plot,
     write_config,
     write_metrics,
+    write_provenance,
+    write_session_markdown,
     write_trades,
 )
 from .utils import parse_params
-from .data_loader import get_prices
+from .data_loader import SyntheticDataNotAllowed, get_prices, last_price_metadata
 from .strategies import STRATEGIES
 from .backtest.engine import BacktestResult, run_backtest
 
@@ -262,18 +265,29 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     window_spec = validation.window
     asset_class = (args.asset_class or s.asset_class).lower()
 
-    run_ctx = new_run(symbol, args.strategy)
+    allow_synthetic = bool(getattr(args, "allow_synthetic", False))
+    if allow_synthetic:
+        logger.info("Synthetic data generation permitted via --allow-synthetic flag")
 
+    try:
+        df = get_prices(
+            symbol,
+            start,
+            end,
+            interval=args.interval,
+            asset_class=asset_class,
+            allow_synthetic=allow_synthetic,
+        )
+    except SyntheticDataNotAllowed as err:
+        _usage_error(str(err))
+    price_meta: Dict[str, object] = last_price_metadata() or {}
+
+    run_ctx = new_run(symbol, args.strategy)
     try:
         if args.paper:
             logger.info(
                 "Paper trading mode enabled: no live broker interactions will be attempted"
             )
-
-        # Load data with requested interval (resampling if yfinance cannot natively)
-        df = get_prices(
-            symbol, start, end, interval=args.interval, asset_class=asset_class
-        )
 
         # Strategy function and params
         strat_func = cast(StrategyFunction, STRATEGIES[args.strategy])
@@ -318,6 +332,9 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "fx_pip_size": args.fx_pip_size,
             "params": params or {},
             "paper_mode": bool(args.paper),
+            "allow_synthetic": allow_synthetic,
+            "data_source": price_meta.get("data_source"),
+            "synthetic": bool(price_meta.get("synthetic")),
         }
         captured_env = capture_env(
             ["LOGOS_SEED", "YFINANCE_USERNAME", "YFINANCE_PASSWORD"]
@@ -326,9 +343,102 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             captured_env if any(captured_env.values()) else None
         )
 
+        seeds = {
+            key: value
+            for key, value in captured_env.items()
+            if key.upper().endswith("SEED") and value
+        }
+        synthetic_used = bool(price_meta.get("synthetic"))
+        data_source_label = str(price_meta.get("data_source") or "unknown")
+        fixture_paths = sorted(
+            {str(item) for item in cast(list[str], price_meta.get("fixture_paths") or [])}
+        )
+        cache_paths = sorted(
+            {str(item) for item in cast(list[str], price_meta.get("cache_paths") or [])}
+        )
+
+        data_details: Dict[str, object] = {
+            "source": data_source_label,
+            "synthetic": synthetic_used,
+        }
+        if fixture_paths:
+            data_details["fixture_paths"] = fixture_paths
+        if cache_paths:
+            data_details["cache_paths"] = cache_paths
+        download_symbol = price_meta.get("download_symbol")
+        if isinstance(download_symbol, str) and download_symbol:
+            data_details["download_symbol"] = download_symbol
+        resampled_from = price_meta.get("resampled_from")
+        if isinstance(resampled_from, str) and resampled_from:
+            data_details["resampled_from"] = resampled_from
+        synthetic_reason = price_meta.get("synthetic_reason")
+        if isinstance(synthetic_reason, str) and synthetic_reason:
+            data_details["synthetic_reason"] = synthetic_reason
+        generator = price_meta.get("generator")
+        if isinstance(generator, str) and generator:
+            data_details["generator"] = generator
+        row_count = price_meta.get("row_count")
+        if isinstance(row_count, int):
+            data_details["row_count"] = row_count
+        first_ts = price_meta.get("first_timestamp")
+        if isinstance(first_ts, str):
+            data_details["first_timestamp"] = first_ts
+        last_ts = price_meta.get("last_timestamp")
+        if isinstance(last_ts, str):
+            data_details["last_timestamp"] = last_ts
+
+        window_payload: Dict[str, object] = {"start": start, "end": end}
+        if window_spec:
+            window_payload["window"] = window_spec
+
+        cli_args_map: Dict[str, object] = {
+            key: getattr(args, key) for key in sorted(vars(args))
+        }
+
+        metrics_provenance: Dict[str, object] = {
+            "synthetic": synthetic_used,
+            "window": window_payload,
+            "timezone": tz_name,
+        }
+        if seeds:
+            metrics_provenance["seeds"] = seeds
+
+        provenance_payload: Dict[str, object] = {
+            "run_id": run_ctx.run_id,
+            "git_sha": resolve_git_sha() or "unknown",
+            "generated_at": datetime.now(ZoneInfo("UTC")).isoformat(),
+            "data_source": "synthetic" if synthetic_used else "real",
+            "data_details": data_details,
+            "window": {**window_payload, "timezone": tz_name},
+            "seeds": seeds,
+            "cli_args": cli_args_map,
+            "env_flags": validation.env_sources,
+            "adapter": {"entrypoint": "logos.cli", "mode": "backtest"},
+            "allow_synthetic": allow_synthetic,
+        }
+
         write_config(run_ctx, config_payload, env=env_payload)
-        write_metrics(run_ctx, res["metrics"])
+        write_metrics(run_ctx, res["metrics"], provenance=metrics_provenance)
         write_trades(run_ctx, res["trades"])
+        write_provenance(run_ctx, provenance_payload)
+
+        session_lines = [
+            "# SYNTHETIC RUN" if synthetic_used else "# Session Summary",
+            "",
+            f"- Symbol: `{symbol}`",
+            f"- Strategy: `{args.strategy}`",
+            f"- Window: {start} → {end} ({tz_name})",
+            f"- Data Source: {'SYNTHETIC' if synthetic_used else 'REAL'} ({data_source_label})",
+        ]
+        if synthetic_used and isinstance(synthetic_reason, str) and synthetic_reason:
+            session_lines.append(f"- Synthetic reason: {synthetic_reason}")
+        if isinstance(generator, str) and generator:
+            session_lines.append(f"- Generator: {generator}")
+        if fixture_paths:
+            session_lines.append(f"- Fixtures: {', '.join(fixture_paths)}")
+        if cache_paths and not synthetic_used:
+            session_lines.append(f"- Cache: {', '.join(cache_paths)}")
+        write_session_markdown(run_ctx, session_lines)
 
         print(f"Saved trades -> {run_ctx.trades_file}")
 
@@ -392,6 +502,11 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
         help=(
             "Permit fallback to .env START_DATE/END_DATE. Future runs will log when used."
         ),
+    )
+    p.add_argument(
+        "--allow-synthetic",
+        action="store_true",
+        help="Permit synthetic data generation when fixtures/downloads are unavailable.",
     )
 
     # NEW: asset class and interval

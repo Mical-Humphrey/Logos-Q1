@@ -59,11 +59,21 @@ AdapterMode = str
 METRIC_ABS_TOLERANCE = 1e-9
 
 
+def _relative_to_project(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return resolved.as_posix()
+
+
 @dataclass(frozen=True)
 class RegressionArtifacts:
     snapshot: Path
     equity_curve: Path
     metrics: Path
+    provenance: Path
+    session: Path
     adapter_logs: Path | None = None
 
 
@@ -430,6 +440,16 @@ def _run_pipeline(
         "clock_timezone": "UTC",
     }
 
+    dataset_reference = _relative_to_project(config.dataset_dir)
+    metrics_provenance: Dict[str, object] = {
+        "source": "fixture",
+        "dataset": dataset_reference,
+        "adapter_mode": adapter_mode_label,
+        "synthetic": False,
+    }
+    if adapter_name:
+        metrics_provenance["adapter_name"] = adapter_name
+
     write_snapshot(
         paths,
         account=account_payload,
@@ -444,7 +464,58 @@ def _run_pipeline(
         equity_curve=equity_curve,
         trades=trade_payloads,
         exposures=exposures,
+        metrics_provenance=metrics_provenance,
     )
+
+    dataset_details = {
+        "dataset": dataset_reference,
+        "symbol": config.symbol,
+        "bars": len(bars),
+        "first_timestamp": bars[0].dt.isoformat(),
+        "last_timestamp": bars[-1].dt.isoformat(),
+        "account_fixture": ACCOUNT_FILENAME,
+        "bars_fixture": BARS_FILENAME,
+        "metadata_fixture": SYMBOLS_FILENAME,
+    }
+    adapter_payload: Dict[str, object] = {
+        "entrypoint": "logos.live.regression",
+        "mode": adapter_mode_label,
+    }
+    if adapter_name:
+        adapter_payload["name"] = adapter_name
+
+    provenance_payload: Dict[str, object] = {
+        "run_id": paths.run_id,
+        "label": config.label,
+        "seed": config.seed,
+        "generated_at": clock_origin.isoformat(),
+        "git_sha": "deterministic-fixture",
+        "data_source": "fixture",
+        "data_details": dataset_details,
+        "adapter": adapter_payload,
+        "allow_synthetic": False,
+    }
+
+    paths.provenance_file.write_text(
+        json.dumps(provenance_payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
+
+    session_lines = [
+        "# Regression Session",
+        "",
+        f"- Run ID: `{paths.run_id}`",
+        f"- Label: `{config.label}`",
+        f"- Seed: {config.seed}",
+        f"- Dataset: `{dataset_reference}`",
+        f"- Symbol: `{config.symbol}`",
+        f"- Bars: {len(bars)}",
+        f"- Adapter Mode: {adapter_mode_label}",
+        "- Data Source: fixture",
+        f"- Generated: {clock_origin.isoformat()}",
+    ]
+    if adapter_name:
+        session_lines.insert(-2, f"- Adapter Name: {adapter_name}")
+    paths.session_file.write_text("\n".join(session_lines) + "\n", encoding="utf-8")
 
     adapter_log_path: Path | None = None
     if adapter_mode_label != "paper":
@@ -454,6 +525,8 @@ def _run_pipeline(
         snapshot=paths.snapshot_file,
         equity_curve=equity_path,
         metrics=metrics_path,
+        provenance=paths.provenance_file,
+        session=paths.session_file,
         adapter_logs=adapter_log_path,
     )
 
@@ -537,6 +610,8 @@ def run_regression(
         "snapshot": artifacts.snapshot,
         "equity_curve": artifacts.equity_curve,
         "metrics": artifacts.metrics,
+        "provenance": artifacts.provenance,
+        "session": artifacts.session,
     }
     if artifacts.adapter_logs is not None:
         tracked["adapter_logs"] = artifacts.adapter_logs
@@ -610,6 +685,8 @@ def main(argv: List[str] | None = None) -> int:
         ("snapshot", result.artifacts.snapshot),
         ("equity_curve", result.artifacts.equity_curve),
         ("metrics", result.artifacts.metrics),
+        ("provenance", result.artifacts.provenance),
+        ("session", result.artifacts.session),
     ]
     if result.artifacts.adapter_logs is not None:
         tracked.append(("adapter_logs", result.artifacts.adapter_logs))

@@ -68,3 +68,83 @@ def test_get_prices_writes_cache_in_new_structure(monkeypatch):
     assert cache_file.exists()
 
     cache_file.unlink(missing_ok=True)
+
+
+def test_get_prices_blocks_synthetic_without_flag(monkeypatch, tmp_path):
+    symbol = "UNITTEST_SYN"
+
+    monkeypatch.setattr(data_loader, "DATA_RAW_DIR", tmp_path / "raw", raising=False)
+    monkeypatch.setattr(
+        data_loader,
+        "resolve_cache_subdir",
+        lambda asset: (tmp_path / "cache" / asset),
+        raising=False,
+    )
+    monkeypatch.setattr(data_loader, "ensure_dirs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_loader, "_load_fixture", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame())
+
+    with pytest.raises(data_loader.SyntheticDataNotAllowed):
+        data_loader.get_prices(
+            symbol,
+            "2024-01-01",
+            "2024-01-05",
+            interval="1h",
+            asset_class="equity",
+        )
+
+
+def test_get_prices_allows_synthetic_with_flag(monkeypatch, tmp_path):
+    symbol = "UNITTEST_SYN_OK"
+
+    monkeypatch.setattr(data_loader, "DATA_RAW_DIR", tmp_path / "raw", raising=False)
+    monkeypatch.setattr(
+        data_loader,
+        "resolve_cache_subdir",
+        lambda asset: (tmp_path / "cache" / asset),
+        raising=False,
+    )
+    monkeypatch.setattr(data_loader, "ensure_dirs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_loader, "_load_fixture", lambda *args, **kwargs: None)
+    monkeypatch.setattr(data_loader.yf, "download", lambda *args, **kwargs: pd.DataFrame())
+
+    called: dict[str, bool] = {"synthetic": False}
+
+    def _fake_synth(sym, start, end, interval, meta=None):
+        called["synthetic"] = True
+        if meta is not None:
+            meta["synthetic"] = True
+            meta["data_source"] = "synthetic"
+            meta["generator"] = data_loader.GENERATOR_VERSION
+        idx = pd.date_range(start=start, periods=3, freq="D")
+        return pd.DataFrame(
+            {
+                "Open": 1.0,
+                "High": 1.0,
+                "Low": 1.0,
+                "Close": 1.0,
+                "Adj Close": 1.0,
+                "Volume": 1.0,
+            },
+            index=idx,
+        )
+
+    monkeypatch.setattr(data_loader, "_generate_synthetic_ohlcv", _fake_synth)
+
+    df = data_loader.get_prices(
+        symbol,
+        "2024-01-01",
+        "2024-01-05",
+        interval="1h",
+        asset_class="equity",
+        allow_synthetic=True,
+    )
+
+    assert called["synthetic"] is True
+    assert not df.empty
+
+    meta = data_loader.last_price_metadata()
+    assert meta is not None
+    assert meta["synthetic"] is True
+    assert meta["data_source"] == "synthetic"
+    assert meta["generator"] == data_loader.GENERATOR_VERSION

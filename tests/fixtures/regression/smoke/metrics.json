@@ -4,6 +4,12 @@
   "hit_rate": 0.0,
   "max_drawdown": 0.0,
   "pnl": 6.30000000000291,
+  "provenance": {
+    "adapter_mode": "paper",
+    "dataset": "tests/fixtures/live/regression_default",
+    "source": "fixture",
+    "synthetic": false
+  },
   "run_id": "0007-regression-smoke",
   "seed": 7,
   "sharpe": 18.026022129517163,

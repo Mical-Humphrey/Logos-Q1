@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,6 +26,7 @@ from .logging_setup import attach_run_file_handler, detach_handler
 
 # Timestamp format: 2025-10-19_1702
 TS_FMT = "%Y-%m-%d_%H%M%S"
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 @dataclass
@@ -38,6 +40,17 @@ class RunContext:
     equity_png: Path
     run_log_file: Path
     log_handler: logging.Handler
+
+
+def resolve_git_sha() -> str | None:
+    """Return the current repository HEAD SHA if available."""
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT
+        ).decode("utf-8")
+    except Exception:
+        return None
+    return sha.strip()
 
 
 def _compose_run_id(symbol: str, strategy: str, when: Optional[datetime] = None) -> str:
@@ -125,12 +138,18 @@ def write_config(
     )
 
 
-def write_metrics(ctx: RunContext, metrics: Dict[str, Any]) -> None:
+def write_metrics(
+    ctx: RunContext, metrics: Dict[str, Any], provenance: Dict[str, Any] | None = None
+) -> None:
     serializable = {
         key: (float(value) if hasattr(value, "__float__") else value)
         for key, value in metrics.items()
     }
-    ctx.metrics_file.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
+    if provenance:
+        serializable["provenance"] = provenance
+    ctx.metrics_file.write_text(
+        json.dumps(serializable, indent=2), encoding="utf-8"
+    )
 
 
 def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None:
@@ -148,6 +167,21 @@ def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None
             with ctx.trades_file.open("w", newline="", encoding="utf-8") as fh:
                 row_writer = csv.writer(fh)
                 row_writer.writerows(rows)  # type: ignore[arg-type]
+
+
+def write_provenance(ctx: RunContext, payload: Dict[str, Any]) -> Path:
+    """Persist provenance metadata alongside run artifacts."""
+    path = ctx.run_dir / "provenance.json"
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def write_session_markdown(ctx: RunContext, lines: list[str]) -> Path:
+    """Write a concise markdown summary for the run."""
+    path = ctx.run_dir / "session.md"
+    content = "\n".join(lines).rstrip() + "\n"
+    path.write_text(content, encoding="utf-8")
+    return path
 
 
 def save_equity_plot(ctx: RunContext, fig: Any) -> Path:

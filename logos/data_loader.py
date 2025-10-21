@@ -17,8 +17,9 @@
 # =============================================================================
 from __future__ import annotations
 import logging
+from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Dict, cast
+from typing import Any, Callable, Dict, cast
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,32 @@ from .paths import DATA_RAW_DIR, resolve_cache_subdir, ensure_dirs
 logger = logging.getLogger(__name__)
 
 SUPPORTED_NATIVE = {"1d", "60m", "1h", "30m", "15m", "10m", "5m"}
+
+GENERATOR_VERSION = "synthetic-ohlcv-v1"
+
+_LAST_PRICE_METADATA: dict[str, Any] | None = None
+
+
+class SyntheticDataNotAllowed(RuntimeError):
+    """Raised when synthetic data generation is attempted without permission."""
+
+    def __init__(self, symbol: str, interval: str, start: str, end: str) -> None:
+        message = (
+            "Synthetic data generation is disabled. Re-run with --allow-synthetic "
+            f"to enable synthetic prices for {symbol} [{interval}] between {start} and {end}."
+        )
+        super().__init__(message)
+        self.symbol = symbol
+        self.interval = interval
+        self.start = start
+        self.end = end
+
+
+def last_price_metadata() -> dict[str, Any] | None:
+    """Return metadata about the most recent price load invocation."""
+    if _LAST_PRICE_METADATA is None:
+        return None
+    return deepcopy(_LAST_PRICE_METADATA)
 
 
 def _safe_symbol(symbol: str) -> str:
@@ -70,7 +97,11 @@ def _candidate_fixture_paths(
 
 
 def _load_fixture(
-    symbol: str, interval: str, asset_tag: str, download_symbol: str | None
+    symbol: str,
+    interval: str,
+    asset_tag: str,
+    download_symbol: str | None,
+    meta: dict[str, Any] | None,
 ) -> pd.DataFrame | None:
     for path in _candidate_fixture_paths(symbol, interval, asset_tag, download_symbol):
         if not path.exists():
@@ -79,6 +110,8 @@ def _load_fixture(
             df = pd.read_csv(path, parse_dates=["Date"], index_col="Date").sort_index()
             df = _ensure_adj_close(df)
             logger.info(f"Loaded fixture data for {symbol} [{interval}] from {path}")
+            if meta is not None:
+                meta.setdefault("fixture_paths", []).append(str(path))
             return df
         except Exception as exc:
             logger.warning(f"Failed reading fixture {path}: {exc}")
@@ -161,7 +194,11 @@ def _expand_daily_to_intraday(df: pd.DataFrame, interval: str) -> pd.DataFrame:
 
 
 def _generate_synthetic_ohlcv(
-    symbol: str, start: str, end: str, interval: str
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str,
+    meta: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Produce deterministic pseudo-random OHLCV data when remote data is unavailable."""
     freq = interval.lower()
@@ -208,6 +245,11 @@ def _generate_synthetic_ohlcv(
     logger.warning(
         f"Generated synthetic {interval} data for {symbol} between {start} and {end}"
     )
+    if meta is not None:
+        meta["synthetic"] = True
+        meta["data_source"] = "synthetic"
+        meta.setdefault("synthetic_reason", "unspecified")
+        meta["generator"] = GENERATOR_VERSION
     return df
 
 
@@ -218,16 +260,28 @@ def _fallback_prices(
     interval: str,
     asset_tag: str,
     download_symbol: str | None,
+    *,
+    allow_synthetic: bool,
+    meta: dict[str, Any],
 ) -> pd.DataFrame:
     """Attempt to satisfy the request using fixtures or synthetic data."""
-    fixture = _load_fixture(symbol, interval, asset_tag, download_symbol)
+    fixture = _load_fixture(symbol, interval, asset_tag, download_symbol, meta)
     if fixture is None and interval != "1d":
-        base = _load_fixture(symbol, "1d", asset_tag, download_symbol)
+        base = _load_fixture(symbol, "1d", asset_tag, download_symbol, meta)
         if base is not None:
+            meta["resampled_from"] = "1d"
             fixture = _expand_daily_to_intraday(base, interval)
     if fixture is not None:
+        if meta.get("resampled_from") == "1d" and interval != "1d":
+            meta["data_source"] = "fixture_resampled"
+        else:
+            meta["data_source"] = "fixture"
         return fixture
-    return _generate_synthetic_ohlcv(symbol, start, end, interval)
+    if not allow_synthetic:
+        meta.setdefault("synthetic_reason", "no_fixture")
+        raise SyntheticDataNotAllowed(symbol, interval, start, end)
+    meta.setdefault("synthetic_reason", "no_fixture")
+    return _generate_synthetic_ohlcv(symbol, start, end, interval, meta)
 
 
 def _load_from_yahoo(
@@ -237,20 +291,30 @@ def _load_from_yahoo(
     interval: str,
     asset_tag: str,
     download_symbol: str | None = None,
+    *,
+    allow_synthetic: bool,
+    meta: dict[str, Any],
 ) -> pd.DataFrame:
     """Shared Yahoo Finance downloader with caching and resampling."""
     cache_symbol = download_symbol or symbol
     cache = _cache_path(cache_symbol, interval, asset_tag)
+    meta.setdefault("cache_paths", [])
+    meta.setdefault("fixture_paths", [])
+    meta["download_symbol"] = cache_symbol
 
     df = None
     if interval == "1d":
-        fixture = _load_fixture(cache_symbol, interval, asset_tag, download_symbol)
+        fixture = _load_fixture(cache_symbol, interval, asset_tag, download_symbol, meta)
         if fixture is not None and _covers_range(fixture, start, end):
+            meta["data_source"] = "fixture"
             df = fixture
 
     if df is None and cache.exists():
         try:
             df = pd.read_csv(cache, parse_dates=["Date"], index_col="Date").sort_index()
+            if df is not None:
+                meta["cache_paths"].append(str(cache))
+                meta["data_source"] = "cache"
         except Exception as ex:
             logger.warning(f"Failed reading cache {cache}: {ex}")
 
@@ -280,13 +344,24 @@ def _load_from_yahoo(
             logger.warning(
                 f"Yahoo Finance returned no rows for {dl_symbol} [{interval}]. Using fallback data."
             )
+            meta.setdefault("synthetic_reason", "download_empty")
             new = _fallback_prices(
-                symbol, start, end, interval, asset_tag, download_symbol
+                symbol,
+                start,
+                end,
+                interval,
+                asset_tag,
+                download_symbol,
+                allow_synthetic=allow_synthetic,
+                meta=meta,
             )
         else:
             new.index.name = "Date"
             new = _flatten_columns(new)
             new = _ensure_adj_close(new)
+            meta["data_source"] = "download"
+            if yf_ivl != interval:
+                meta["resampled_from"] = yf_ivl
 
             if interval not in SUPPORTED_NATIVE or yf_ivl != interval:
                 new = _resample_ohlcv(new, interval)
@@ -321,7 +396,10 @@ def _load_from_yahoo(
         logger.warning(
             f"No rows available after clipping {symbol} [{interval}] to {start} -> {end}; generating synthetic data."
         )
-        df = _generate_synthetic_ohlcv(symbol, start, end, interval)
+        meta.setdefault("synthetic_reason", "clip_empty")
+        if not allow_synthetic:
+            raise SyntheticDataNotAllowed(symbol, interval, start, end)
+        df = _generate_synthetic_ohlcv(symbol, start, end, interval, meta)
     cols = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
     df = df[cols]
     df = df.sort_index()
@@ -332,18 +410,46 @@ def _load_from_yahoo(
 
 
 def _load_equity_prices(
-    symbol: str, start: str, end: str, interval: str
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str,
+    *,
+    allow_synthetic: bool,
+    meta: dict[str, Any],
 ) -> pd.DataFrame:
     """Equity loader: direct Yahoo Finance pull."""
-    return _load_from_yahoo(symbol, start, end, interval, asset_tag="equity")
+    return _load_from_yahoo(
+        symbol,
+        start,
+        end,
+        interval,
+        asset_tag="equity",
+        allow_synthetic=allow_synthetic,
+        meta=meta,
+    )
 
 
 def _load_crypto_prices(
-    symbol: str, start: str, end: str, interval: str
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str,
+    *,
+    allow_synthetic: bool,
+    meta: dict[str, Any],
 ) -> pd.DataFrame:
     """Crypto loader: prefer Yahoo Finance symbols like BTC-USD."""
     try:
-        return _load_from_yahoo(symbol, start, end, interval, asset_tag="crypto")
+        return _load_from_yahoo(
+            symbol,
+            start,
+            end,
+            interval,
+            asset_tag="crypto",
+            allow_synthetic=allow_synthetic,
+            meta=meta,
+        )
     except RuntimeError as err:
         logger.error(f"Crypto data fetch failed for {symbol}: {err}")
         raise
@@ -358,12 +464,25 @@ def _normalize_forex_symbol(symbol: str) -> tuple[str, str]:
 
 
 def _load_forex_prices(
-    symbol: str, start: str, end: str, interval: str
+    symbol: str,
+    start: str,
+    end: str,
+    interval: str,
+    *,
+    allow_synthetic: bool,
+    meta: dict[str, Any],
 ) -> pd.DataFrame:
     """Forex loader: map to Yahoo Finance '=X' tickers automatically."""
     original, yahoo_symbol = _normalize_forex_symbol(symbol)
     return _load_from_yahoo(
-        original, start, end, interval, asset_tag="forex", download_symbol=yahoo_symbol
+        original,
+        start,
+        end,
+        interval,
+        asset_tag="forex",
+        download_symbol=yahoo_symbol,
+        allow_synthetic=allow_synthetic,
+        meta=meta,
     )
 
 
@@ -373,9 +492,11 @@ def get_prices(
     end: str,
     interval: str = "1d",
     asset_class: str = "equity",
+    *,
+    allow_synthetic: bool = False,
 ) -> pd.DataFrame:
     """Download or load cached OHLCV for a symbol based on its asset class."""
-    loader_map: dict[str, Callable[[str, str, str, str], pd.DataFrame]] = {
+    loader_map: dict[str, Callable[..., pd.DataFrame]] = {
         "equity": _load_equity_prices,
         "crypto": _load_crypto_prices,
         "forex": _load_forex_prices,
@@ -386,5 +507,38 @@ def get_prices(
         asset = "forex"
 
     loader = loader_map.get(asset, _load_equity_prices)
-    df = loader(symbol, start, end, interval)
+    meta: dict[str, Any] = {
+        "symbol": symbol,
+        "start": start,
+        "end": end,
+        "interval": interval,
+        "asset_class": asset,
+        "asset_class_requested": asset_class,
+        "allow_synthetic": allow_synthetic,
+        "data_source": "unknown",
+        "synthetic": False,
+        "synthetic_reason": None,
+        "generator": None,
+        "fixture_paths": [],
+        "cache_paths": [],
+        "download_symbol": None,
+        "resampled_from": None,
+    }
+
+    df = loader(
+        symbol,
+        start,
+        end,
+        interval,
+        allow_synthetic=allow_synthetic,
+        meta=meta,
+    )
+    meta["row_count"] = int(len(df))
+    if not df.empty:
+        meta["first_timestamp"] = df.index[0].isoformat()
+        meta["last_timestamp"] = df.index[-1].isoformat()
+
+    global _LAST_PRICE_METADATA
+    _LAST_PRICE_METADATA = deepcopy(meta)
+    df.attrs["logos_price_meta"] = deepcopy(meta)
     return df

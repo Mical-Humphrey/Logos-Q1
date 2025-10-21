@@ -189,7 +189,14 @@ def test_cli_accepts_window_and_proceeds(
     fake_fig = SimpleNamespace(savefig=lambda *args, **kwargs: None)
     monkeypatch.setattr(cli_mod, "_plot_equity", lambda equity: fake_fig)
 
-    def _fake_prices(symbol, start, end, interval="1d", asset_class="equity"):
+    def _fake_prices(
+        symbol,
+        start,
+        end,
+        interval="1d",
+        asset_class="equity",
+        **_kwargs,
+    ):
         idx = pd.date_range(start=start, periods=5, freq="D")
         data = pd.DataFrame(
             {

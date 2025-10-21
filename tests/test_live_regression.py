@@ -43,6 +43,16 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
     assert result.artifacts.snapshot.exists()
     assert result.artifacts.equity_curve.exists()
     assert result.artifacts.metrics.exists()
+    assert result.artifacts.provenance.exists()
+    assert result.artifacts.session.exists()
+
+    metrics_payload = json.loads(result.artifacts.metrics.read_text(encoding="utf-8"))
+    assert metrics_payload["provenance"]["dataset"].endswith("regression_default")
+    provenance_payload = json.loads(
+        result.artifacts.provenance.read_text(encoding="utf-8")
+    )
+    assert provenance_payload["data_source"] == "fixture"
+    assert provenance_payload["data_details"]["bars"] == 3
 
 
 def test_refresh_requires_confirmation(tmp_path: Path) -> None:

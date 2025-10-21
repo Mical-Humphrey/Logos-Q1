@@ -116,12 +116,16 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
     trades_path = run_dir / "trades.csv"
     equity_path = run_dir / "equity.png"
     log_path = run_dir / "logs" / "run.log"
+    provenance_path = run_dir / "provenance.json"
+    session_path = run_dir / "session.md"
 
     assert config_path.exists()
     assert metrics_path.exists()
     assert trades_path.exists()
     assert equity_path.exists()
     assert log_path.exists()
+    assert provenance_path.exists()
+    assert session_path.exists()
 
     config_text = config_path.read_text(encoding="utf-8")
     assert "symbol: MSFT" in config_text
@@ -129,6 +133,14 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
 
     metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert metrics_payload["Sharpe"] == pytest.approx(1.25)
+    assert metrics_payload["provenance"]["synthetic"] is False
 
     trades_file = trades_path.read_text(encoding="utf-8")
     assert "ref_close" in trades_file
+
+    provenance_payload = json.loads(provenance_path.read_text(encoding="utf-8"))
+    assert provenance_payload["data_source"] == "real"
+    assert provenance_payload["adapter"]["mode"] == "backtest"
+
+    session_text = session_path.read_text(encoding="utf-8")
+    assert "Session Summary" in session_text

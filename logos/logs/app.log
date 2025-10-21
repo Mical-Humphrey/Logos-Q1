@@ -78,3 +78,40 @@
 2025-10-20 13:38:27,765 | INFO | logos.cli | Starting backtest via CLI
 2025-10-20 13:38:27,768 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
 2025-10-20 13:38:27,770 | INFO | logos.data_loader | Downloading BTC-USD [1d] from Yahoo Finance
+2025-10-20 20:29:43,821 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 20:29:43,838 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-20 20:29:44,931 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 20:30:04,220 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 20:30:04,221 | INFO | logos.data_loader | Downloading BTC-USD [5m] from Yahoo Finance
+2025-10-20 20:30:05,411 | ERROR | yfinance | 
+1 Failed download:
+2025-10-20 20:30:05,415 | ERROR | yfinance | ['BTC-USD']: YFPricesMissingError('possibly delisted; no price data found  (5m 2024-01-01 -> 2024-01-03) (Yahoo error = "5m data not available for startTime=1704067200 and endTime=1704240000. The requested range must be within the last 60 days.")')
+2025-10-20 20:30:05,428 | WARNING | logos.data_loader | Yahoo Finance returned no rows for BTC-USD [5m]. Using fallback data.
+2025-10-20 20:30:05,442 | INFO | logos.data_loader | Loaded fixture data for BTC-USD [1d] from /home/mical/code/chat_solution_system/Logos-Q1/input_data/raw/crypto_BTC_USD_1d.csv
+2025-10-20 20:30:06,890 | WARNING | logos.data_loader | No rows available after clipping BTC-USD [5m] to 2024-01-01 -> 2024-01-03; generating synthetic data.
+2025-10-20 20:30:06,891 | ERROR | logos.data_loader | Crypto data fetch failed for BTC-USD: Synthetic data generation is disabled. Re-run with --allow-synthetic to enable synthetic prices for BTC-USD [5m] between 2024-01-01 and 2024-01-03.
+2025-10-20 20:30:28,204 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 20:30:28,204 | INFO | __main__ | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-20 20:30:28,307 | INFO | logos.data_loader | Downloading BTC-USD [5m] from Yahoo Finance
+2025-10-20 20:30:29,574 | ERROR | yfinance | 
+1 Failed download:
+2025-10-20 20:30:29,575 | ERROR | yfinance | ['BTC-USD']: YFPricesMissingError('possibly delisted; no price data found  (5m 2024-01-01 -> 2024-01-03) (Yahoo error = "5m data not available for startTime=1704067200 and endTime=1704240000. The requested range must be within the last 60 days.")')
+2025-10-20 20:30:29,579 | WARNING | logos.data_loader | Yahoo Finance returned no rows for BTC-USD [5m]. Using fallback data.
+2025-10-20 20:30:29,586 | INFO | logos.data_loader | Loaded fixture data for BTC-USD [1d] from /home/mical/code/chat_solution_system/Logos-Q1/input_data/raw/crypto_BTC_USD_1d.csv
+2025-10-20 20:30:30,999 | WARNING | logos.data_loader | No rows available after clipping BTC-USD [5m] to 2024-01-01 -> 2024-01-03; generating synthetic data.
+2025-10-20 20:30:31,002 | WARNING | logos.data_loader | Generated synthetic 5m data for BTC-USD between 2024-01-01 and 2024-01-03
+2025-10-20 20:30:31,006 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 21:34:12,199 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 21:34:12,215 | INFO | logos.data_loader | Loaded fixture data for MSFT [1d] from /home/mical/code/chat_solution_system/Logos-Q1/input_data/raw/MSFT.csv
+2025-10-20 21:34:12,226 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-20 21:34:51,424 | INFO | __main__ | Starting backtest via CLI
+2025-10-20 21:34:51,424 | INFO | __main__ | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-20 21:34:51,525 | INFO | logos.data_loader | Downloading BTC-USD [5m] from Yahoo Finance
+2025-10-20 21:34:52,714 | ERROR | yfinance | 
+1 Failed download:
+2025-10-20 21:34:52,715 | ERROR | yfinance | ['BTC-USD']: YFPricesMissingError('possibly delisted; no price data found  (5m 2024-01-01 -> 2024-02-01) (Yahoo error = "5m data not available for startTime=1704067200 and endTime=1706745600. The requested range must be within the last 60 days.")')
+2025-10-20 21:34:52,721 | WARNING | logos.data_loader | Yahoo Finance returned no rows for BTC-USD [5m]. Using fallback data.
+2025-10-20 21:34:52,732 | INFO | logos.data_loader | Loaded fixture data for BTC-USD [1d] from /home/mical/code/chat_solution_system/Logos-Q1/input_data/raw/crypto_BTC_USD_1d.csv
+2025-10-20 21:34:54,143 | WARNING | logos.data_loader | No rows available after clipping BTC-USD [5m] to 2024-01-01 -> 2024-02-01; generating synthetic data.
+2025-10-20 21:34:54,147 | WARNING | logos.data_loader | Generated synthetic 5m data for BTC-USD between 2024-01-01 and 2024-02-01
+2025-10-20 21:34:54,150 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted

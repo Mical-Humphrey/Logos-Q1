@@ -34,6 +34,8 @@ class SeededRunPaths:
     config_file: Path
     equity_curve_csv: Path
     metrics_file: Path
+    provenance_file: Path
+    session_file: Path
 
 
 def run_id_from_seed(seed: int, label: str) -> str:
@@ -58,6 +60,8 @@ def prepare_seeded_run_paths(
     config_file = run_dir / "config.yaml"
     equity_curve_csv = artifacts_dir / "equity_curve.csv"
     metrics_file = artifacts_dir / "metrics.json"
+    provenance_file = run_dir / "provenance.json"
+    session_file = run_dir / "session.md"
 
     return SeededRunPaths(
         seed=seed,
@@ -69,6 +73,8 @@ def prepare_seeded_run_paths(
         config_file=config_file,
         equity_curve_csv=equity_curve_csv,
         metrics_file=metrics_file,
+        provenance_file=provenance_file,
+        session_file=session_file,
     )
 
 
@@ -137,6 +143,7 @@ def write_equity_and_metrics(
     equity_curve: Sequence[Mapping[str, object]],
     trades: Sequence[Mapping[str, object]],
     exposures: Iterable[float],
+    metrics_provenance: Mapping[str, object] | None = None,
 ) -> tuple[Path, Path]:
     rows: list[EquityRow] = [
         {
@@ -204,6 +211,8 @@ def write_equity_and_metrics(
         "turnover": turnover,
         "exposure": exposure_value,
     }
+    if metrics_provenance:
+        metrics_payload["provenance"] = dict(metrics_provenance)
 
     paths.metrics_file.write_text(
         json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8"

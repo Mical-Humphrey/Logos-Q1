@@ -139,6 +139,7 @@ def test_artifacts_and_metrics_are_deterministic(tmp_path) -> None:
     assert metrics_payload["hit_rate"] == pytest.approx(0.5)
     assert metrics_payload["turnover"] == pytest.approx(0.2)
     assert metrics_payload["exposure"] == pytest.approx(0.5)
+    assert "provenance" not in metrics_payload
     returns = pd.Series([row["equity"] for row in equity_curve]).pct_change().dropna()
     expected_sharpe = float(returns.mean() / returns.std(ddof=0) * (252**0.5))
     assert metrics_payload["sharpe"] == pytest.approx(expected_sharpe)
