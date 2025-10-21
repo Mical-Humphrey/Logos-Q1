@@ -14,6 +14,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
+from core.io.dirs import ensure_dir
+
 from logos.utils.atomic import atomic_write_text
 from logos.window import Window, UTC
 
@@ -637,7 +639,7 @@ def run_regression(
     window: Window | None = None,
 ) -> RegressionResult:
     dataset = dataset_dir or DEFAULT_FIXTURE_DIR
-    output_root.mkdir(parents=True, exist_ok=True)
+    ensure_dir(output_root)
     paths = prepare_seeded_run_paths(seed, label, base_dir=output_root)
     window_obj = window or _infer_window_from_dataset(dataset)
     config = RegressionConfig(
@@ -669,7 +671,7 @@ def run_regression(
                 raise RuntimeError(
                     "Baseline refresh requested without confirmation flag"
                 )
-            baseline_path.parent.mkdir(parents=True, exist_ok=True)
+            ensure_dir(baseline_path.parent)
             baseline_path.write_bytes(artifact.read_bytes())
             continue
         diff = _compare(baseline_path, artifact)

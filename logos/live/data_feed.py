@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Protocol
 
+from core.io.dirs import ensure_dir
+
 from .time import TimeProvider
 
 logger = logging.getLogger(__name__)
@@ -294,7 +296,7 @@ class CachedPollingFeed:
         return merged
 
     def _store_cache(self, bars: List[Bar]) -> None:
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        ensure_dir(self.cache_path.parent)
         with self.cache_path.open("w", encoding="utf-8", newline="") as fh:
             writer = csv.DictWriter(fh, fieldnames=CSV_HEADERS)
             writer.writeheader()

@@ -7,7 +7,9 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Union
 
-from .paths import APP_LOG_FILE, LIVE_LOG_FILE, ensure_dirs
+from core.io.dirs import ensure_dir
+
+from .paths import APP_LOG_FILE, LIVE_LOG_FILE
 
 _configured = False
 _live_handler: Optional[logging.Handler] = None
@@ -70,7 +72,7 @@ def _resolve_level(level: Union[str, int, None]) -> int:
 def setup_app_logging(level: Union[str, int] = "INFO") -> None:
     """Configure global application logging once."""
     global _configured
-    ensure_dirs([APP_LOG_FILE.parent])
+    ensure_dir(APP_LOG_FILE.parent)
     resolved = _resolve_level(level)
     root = logging.getLogger()
     if not _configured:
@@ -111,7 +113,7 @@ def detach_handler(handler: logging.Handler) -> None:
 def attach_live_runtime_handler(level: Union[str, int] = "INFO") -> logging.Handler:
     """Attach (or update) the shared live trading log handler."""
     global _live_handler
-    ensure_dirs([LIVE_LOG_FILE.parent])
+    ensure_dir(LIVE_LOG_FILE.parent)
     resolved = _resolve_level(level)
     if _live_handler is not None:
         _live_handler.setLevel(resolved)
@@ -123,7 +125,7 @@ def attach_live_runtime_handler(level: Union[str, int] = "INFO") -> logging.Hand
 
 
 def _build_rotating_handler(path: Path, level: Optional[int] = None) -> Handler:
-    ensure_dirs([path.parent])
+    ensure_dir(path.parent)
     handler = RotatingFileHandler(
         path,
         mode="a",

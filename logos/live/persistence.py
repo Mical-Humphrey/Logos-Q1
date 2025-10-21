@@ -12,6 +12,8 @@ from typing import IO, Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import pandas as pd
 
+from core.io.dirs import ensure_dir
+
 from logos.metrics import exposure as exposure_ratio
 from logos.metrics import hit_rate, max_drawdown, sharpe
 from logos.paths import RUNS_LIVE_DIR, safe_slug
@@ -54,8 +56,8 @@ def prepare_seeded_run_paths(
     run_id = run_id_from_seed(seed, label)
     run_dir = base / run_id
     artifacts_dir = run_dir / "artifacts"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(run_dir)
+    ensure_dir(artifacts_dir)
 
     snapshot_file = run_dir / "snapshot.json"
     config_file = run_dir / "config.yaml"
@@ -131,7 +133,7 @@ def write_snapshot(
         "fills": _to_primitive(list(fills)),
         "config": _to_primitive(dict(config)),
     }
-    paths.snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(paths.snapshot_file.parent)
     atomic_write_text(
         paths.snapshot_file,
         json.dumps(payload, indent=2, sort_keys=True),
@@ -158,7 +160,7 @@ def write_equity_and_metrics(
     ]
     rows.sort(key=lambda row: row["ts"])
 
-    paths.artifacts_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(paths.artifacts_dir)
 
     def _write_equity(fh: IO[str]) -> None:
         writer = csv.writer(fh)

@@ -4,7 +4,9 @@ import logging
 import logging.handlers
 from pathlib import Path
 
-from logos.paths import APP_LOGS_DIR, ensure_dirs
+from core.io.dirs import ensure_dir
+
+from logos.paths import APP_LOGS_DIR
 
 APP_LOG_FILE = APP_LOGS_DIR / "app.log"
 
@@ -14,7 +16,7 @@ def setup_app_logging(level: int = logging.INFO) -> logging.Logger:
     Configure a root application logger that writes to console and logos/logs/app.log
     (not per-run). Call once on startup (CLI/entrypoint).
     """
-    ensure_dirs([APP_LOGS_DIR])
+    ensure_dir(APP_LOGS_DIR)
 
     logger = logging.getLogger()  # root
     logger.setLevel(level)
@@ -49,7 +51,7 @@ def attach_run_file_handler(
     """
     Attach a file handler that logs to runs/{id}/logs/run.log for the provided logger.
     """
-    run_log_file.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(run_log_file.parent)
     fh = logging.FileHandler(run_log_file, encoding="utf-8")
     fh.setLevel(level)
     fh.setFormatter(

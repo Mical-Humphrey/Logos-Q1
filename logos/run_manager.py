@@ -15,11 +15,12 @@ import pandas as pd
 from pandas import DataFrame
 import yaml
 
+from core.io.dirs import ensure_dir, ensure_dirs
+
 from .paths import (
     RUNS_DIR,
     RUNS_LESSONS_DIR,
     RUNS_LATEST_LINK,
-    ensure_dirs,
     safe_slug,
 )
 from .logging_setup import attach_run_file_handler, detach_handler
@@ -92,12 +93,12 @@ def new_run(
     """
     Create an isolated run directory with standardized artifacts and a per-run logger attached.
     """
-    ensure_dirs([base_dir])
+    ensure_dir(base_dir)
 
     run_id = _compose_run_id(symbol, strategy, when=when)
     run_dir = base_dir / run_id
     logs_dir = run_dir / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(logs_dir)
 
     config_file = run_dir / "config.yaml"
     metrics_file = run_dir / "metrics.json"
@@ -268,7 +269,7 @@ class LessonPaths:
 
 
 def prepare_lesson_paths(lesson: str, when: Optional[datetime] = None) -> LessonPaths:
-    ensure_dirs([RUNS_LESSONS_DIR])
+    ensure_dir(RUNS_LESSONS_DIR)
     ts = (when or datetime.now(timezone.utc)).strftime(TS_FMT)
     lesson_dir = RUNS_LESSONS_DIR / lesson
     run_dir = lesson_dir / ts

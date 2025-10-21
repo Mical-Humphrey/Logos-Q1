@@ -7,13 +7,14 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from core.io.dirs import ensure_dir, ensure_dirs
+
 from logos.logging_setup import attach_run_file_handler
 from logos.paths import (
     RUNS_LIVE_LATEST_LINK,
     RUNS_LIVE_REPORTS_DIR,
     RUNS_LIVE_SESSIONS_DIR,
     RUNS_LIVE_TRADES_DIR,
-    ensure_dirs,
     runs_live_latest_symlink,
     safe_slug,
 )
@@ -49,7 +50,7 @@ def _pointer_contents(session_dir: Path) -> str:
 
 def _update_latest_pointer(session_dir: Path) -> None:
     latest = runs_live_latest_symlink()
-    ensure_dirs([latest.parent])
+    ensure_dir(latest.parent)
     latest.write_text(_pointer_contents(session_dir), encoding="utf-8")
 
 
@@ -65,7 +66,12 @@ def create_session(
     base_dir = RUNS_LIVE_SESSIONS_DIR / session_id
     logs_dir = base_dir / "logs"
     ensure_dirs(
-        [RUNS_LIVE_SESSIONS_DIR, logs_dir, RUNS_LIVE_TRADES_DIR, RUNS_LIVE_REPORTS_DIR]
+        [
+            (RUNS_LIVE_SESSIONS_DIR, True),
+            (logs_dir, True),
+            (RUNS_LIVE_TRADES_DIR, True),
+            (RUNS_LIVE_REPORTS_DIR, True),
+        ]
     )
 
     state_file = base_dir / "state.json"

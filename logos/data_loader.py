@@ -25,7 +25,9 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from .paths import DATA_RAW_DIR, resolve_cache_subdir, ensure_dirs
+from core.io.dirs import ensure_dir, ensure_dirs
+
+from .paths import DATA_RAW_DIR, resolve_cache_subdir
 from .window import Window, UTC
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ def _cache_path(symbol: str, interval: str, asset_tag: str) -> Path:
     """Return a cache filename that encodes symbol/interval/asset_class."""
     safe = _safe_symbol(symbol)
     cache_dir = resolve_cache_subdir(asset_tag)
-    ensure_dirs([cache_dir])
+    ensure_dir(cache_dir)
     return cache_dir / f"{safe}_{interval}.csv"
 
 
@@ -75,7 +77,7 @@ def _candidate_fixture_paths(
     symbol: str, interval: str, asset_tag: str, download_symbol: str | None
 ) -> list[Path]:
     """Enumerate possible fixture filenames for graceful offline fallbacks."""
-    ensure_dirs([DATA_RAW_DIR])
+    ensure_dir(DATA_RAW_DIR)
     candidates: list[Path] = []
     symbols = {symbol}
     if download_symbol:
@@ -370,7 +372,7 @@ def _load_from_yahoo(
                 new = _resample_ohlcv(new, interval)
 
         try:
-            cache.parent.mkdir(parents=True, exist_ok=True)
+            ensure_dir(cache.parent)
             new.to_csv(cache)
         except Exception as ex:
             logger.warning(f"Could not write cache: {ex}")

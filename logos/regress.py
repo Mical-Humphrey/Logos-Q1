@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
+from core.io.dirs import ensure_dir
+
 from logos.live import regression
 
 
@@ -152,8 +154,8 @@ def _run_matrix(args: argparse.Namespace) -> List[_MatrixResult]:
             label = f"phase2-{scenario.name}-{mode.dir_name}"
             output_dir = args.output_dir / scenario.name / mode.dir_name
             baseline_dir = args.baseline_root / scenario.name / mode.dir_name
-            baseline_dir.mkdir(parents=True, exist_ok=True)
-            output_dir.mkdir(parents=True, exist_ok=True)
+            ensure_dir(baseline_dir)
+            ensure_dir(output_dir)
             result = regression.run_regression(
                 output_root=output_dir,
                 baseline_dir=baseline_dir,

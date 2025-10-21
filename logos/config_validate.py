@@ -6,6 +6,8 @@ import sys
 from typing import List, Tuple
 
 from .config import load_settings
+from core.io.dirs import ensure_dirs
+
 from .paths import (
     APP_LOGS_DIR,
     APP_LOG_FILE,
@@ -13,7 +15,6 @@ from .paths import (
     RUNS_LIVE_DIR,
     RUNS_LIVE_SESSIONS_DIR,
     RUNS_LIVE_TRADES_DIR,
-    ensure_dirs,
 )
 
 

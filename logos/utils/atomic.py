@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from typing import IO, Any, Callable
 
+from core.io.dirs import ensure_dir
+
 
 def atomic_write(
     path: Path,
@@ -17,7 +19,7 @@ def atomic_write(
     """Write to a temporary file in ``path``'s directory and atomically replace it."""
 
     parent = path.parent
-    parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir(parent)
 
     tmp_path: Path | None = None
     tmp_kwargs: dict[str, Any] = {

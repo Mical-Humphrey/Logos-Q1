@@ -91,7 +91,7 @@ def resolve_cache_subdir(asset_class: str) -> Path:
     if key == "fx":
         key = "forex"
     path = DATA_CACHE_DIR / key
-    path.mkdir(parents=True, exist_ok=True)
+    core_dirs.ensure_dir(path)
     return path
 
 
@@ -119,7 +119,7 @@ def live_cache_dir(asset_class: str) -> Path:
     """Return the live cache directory for the given asset class."""
     base = resolve_cache_subdir(asset_class)
     live_dir = base / "live"
-    live_dir.mkdir(parents=True, exist_ok=True)
+    core_dirs.ensure_dir(live_dir)
     return live_dir
 
 

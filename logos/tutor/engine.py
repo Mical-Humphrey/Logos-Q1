@@ -30,6 +30,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
 import numpy as np
 import pandas as pd
 
+from core.io.dirs import ensure_dir
+
 from ..config import Settings, load_settings
 from ..data_loader import get_prices
 from ..window import Window
@@ -126,14 +128,14 @@ def _prepare_run_dirs(lesson_name: str) -> tuple[Path, Path, Path, str]:
     """Create lesson/run directories and return (lesson_dir, run_dir, plots_dir, timestamp)."""
     ensure_dirs()
     lessons_root = Path("runs") / "lessons"
-    lessons_root.mkdir(parents=True, exist_ok=True)
+    ensure_dir(lessons_root)
     lesson_dir = lessons_root / lesson_name
-    lesson_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(lesson_dir)
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     run_dir = lesson_dir / stamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(run_dir)
     plots_dir = run_dir / "plots"
-    plots_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(plots_dir)
     return lesson_dir, run_dir, plots_dir, stamp
 
 
