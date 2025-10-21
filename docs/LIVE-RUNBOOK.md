@@ -7,13 +7,26 @@ controls required to operate the system without touching real broker endpoints.
 ---
 
 ## Backtest Input Contract *(Phase 2 prerequisite)*
-- Provide either a `[--start YYYY-MM-DD --end YYYY-MM-DD]` pair or a single `--window` ISO-8601 duration (for example `P45D`) when launching backtests.
-- `--tz` specifies the timezone used to interpret date strings (default `UTC`). Offsets supplied in ISO timestamps are honoured.
+- Provide either a `[--start YYYY-MM-DD --end YYYY-MM-DD]` pair or a single `--window` ISO-8601 duration (for example `P45D`) when launching backtests. Inputs are mutually exclusive; the CLI normalizes what you provide.
+- The resolved window is always normalized to UTC and treated as `[start, end)` (inclusive start, exclusive end). Provenance files record the original timezone label alongside the UTC bounds.
+- `--tz` specifies the timezone used to interpret date strings (default `UTC`). Offsets supplied in ISO timestamps are honoured before UTC promotion.
 - Use `--allow-env-dates` only when you deliberately want the legacy `.env` fallback; the CLI logs the environment keys consumed whenever this path is exercised.
-- Empty, reversed, or otherwise invalid windows transition to hard failures once the validator hooks land later in Phase 2.
+- Empty, reversed, or otherwise invalid windows transition to hard failures once the validator hooks land later in Phase 2. Example failure: `requires either --window or --start and --end`.
 - Validation runs before any run directories are created. Missing or malformed parameters exit immediately with a descriptive fix, preventing accidental artifact creation.
 
+> **UTC conversion example:** `python -m logos.cli backtest --symbol MSFT --strategy momentum --window P5D --tz America/New_York` resolves to `start=2024-03-25T00:00:00+00:00`, `end=2024-03-30T00:00:00+00:00`.
+
 > **Migration example:** `python -m logos.cli backtest --symbol MSFT --strategy momentum` ➜ `python -m logos.cli backtest --symbol MSFT --strategy momentum --window P60D`
+
+---
+
+## Window Semantics & Indexing
+- Always supply a single window source: either `--window` or the `--start/--end` pair. The offline validator (wired into CI) stops execution before artifacts are emitted if both forms appear or if the ISO duration token is malformed.
+- Treat UTC as canonical. tz-aware bounds like `--start 2024-06-01T09:30:00-04:00 --end 2024-06-05T16:00:00-04:00` normalize to `2024-06-01T13:30:00+00:00 → 2024-06-05T20:00:00+00:00`; daylight shifts merely change how many bars load.
+- Use `.iloc` for positional loops (warm-up windows, rolling computations) and reserve `.loc` for label-based lookups against tz-aware `DatetimeIndex` columns. This contract keeps regression artifacts portable across feeds and timezones.
+- Regression fixtures and `metrics.json` now embed `window.start_utc`, `window.end_utc`, and `timezone_label` so live rehearsals can be audited against offline results.
+
+> **DST assurance:** Because the validator runs in UTC, month-end and DST edges cannot silently truncate your dataset; watch the validator output for the normalized bounds when investigating missing bars.
 
 ---
 
@@ -116,6 +129,7 @@ The runner evaluates guardrails in the following order each loop:
 - Run `ruff check .` followed by `black --check .`; legacy formatting debt is tracked in
 	`CHANGELOG.md` under Known Limitations.
 - Type checks: install stubs (`pip install pandas-stubs types-PyYAML`) before running `mypy .`.
+- Seed reproducibility: export `LOGOS_SEED=7` (or another integer) before invoking the regression CLI to align with the documented baselines and the window bounds stored in provenance.
 
 ---
 
@@ -145,4 +159,4 @@ The runner evaluates guardrails in the following order each loop:
 - `tests/test_live_runner.py`, `tests/test_live_regression.py` — integration coverage.
 - `tests/test_live_dry_run_adapters.py` — dry-run behaviour for CCXT/Alpaca.
 - `docs/PHASE2-ARTIFACTS.md` — artifact index & checksums.
-- `README.md` — high-level commands, QA stack, acceptance matrix.
+- `README.md` — window primer, indexing contract, QA stack, acceptance matrix.

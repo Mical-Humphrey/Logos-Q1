@@ -100,6 +100,23 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
   <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
   <li>Results stored in <code>runs/</code> (CSV trade log + PNG equity curve).</li>
 </ul>
+<div class="note">
+  <b>Window primer:</b> Logos promotes windows to a first-class type, normalizing all inputs to UTC and enforcing <code>[start, end)</code> semantics (inclusive start, exclusive end). Provide exactly one source (`--window` or `--start/--end`); the CLI rejects mixed inputs before any artifacts are created.
+</div>
+<ul>
+  <li><b>UTC conversion example:</b> launching <code>--window P5D</code> on <code>2024-03-30</code> with <code>--tz America/New_York</code> yields <code>start=2024-03-25T00:00:00+00:00</code>, <code>end=2024-03-30T00:00:00+00:00</code>.</li>
+  <li><b>Tz-aware bounds:</b> <code>--start 2024-06-01T09:30:00-04:00 --end 2024-06-05T16:00:00-04:00</code> normalizes to <code>2024-06-01T13:30:00+00:00 → 2024-06-05T20:00:00+00:00</code>.</li>
+  <li><b>DST & month-end:</b> the validator works in UTC, so daylight shifts or leap-day spans simply affect the number of bars fetched, not the normalized bounds; provenance files capture the original timezone label for audits.</li>
+</ul>
+</div>
+
+<h3>Indexing Contract</h3>
+<div class="card">
+<ul>
+  <li>Use <code>.iloc</code> for positional math (rolling windows, warm-up loops). Reserve <code>.loc</code> for label-based access with <code>pandas.Timestamp</code> keys on <code>DatetimeIndex</code> frames.</li>
+  <li>Ensure OHLCV frames, signals, and artifacts retain tz-aware <code>DatetimeIndex</code>; avoid object dtypes for timestamps so provenance and window checks remain deterministic.</li>
+  <li>Regression fixtures and <code>metrics.json</code> embed the resolved window bounds alongside the seed and timezone label.</li>
+</ul>
 </div>
 
 <h2>4) Live Trading Workflow</h2>
@@ -148,6 +165,7 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <summary>Pro tip</summary>
 <p>Pair Logos-Q1 backtests with <code>docs/MATH.html</code> to understand why each signal behaves differently in equities, crypto, or FX context.</p>
 </details>
+<p class="note">Set <code>LOGOS_SEED=7</code> (or any integer) before invoking CLI or live regressions when you need reproducible pseudo-random choices; provenance output now records the window bounds, timezone label, and seed together.</p>
 </div>
 
 <h2>6) Education Mode</h2>
@@ -163,6 +181,7 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <li><b>RuntimeWarning</b>: NaN in subtract — often due to incomplete data window. Solution: ensure enough bars before indicators initialize.</li>
 <li><b>Empty backtest</b>: verify <code>--start</code> / <code>--end</code> within dataset range.</li>
 <li><b>Import errors</b>: re-activate venv or reinstall requirements.</li>
+<li><b>Window contract errors</b>: <code>requires either --window or --start and --end</code> → provide one form; <code>inputs are mutually exclusive</code> → remove the extra flag; <code>invalid ISO duration</code> → use tokens like <code>P30D</code> or <code>P4W</code> (positive integers only).</li>
 </ul>
 </div>
 

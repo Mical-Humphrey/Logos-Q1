@@ -14,6 +14,10 @@ from logos.live.regression import (
     METRIC_ABS_TOLERANCE,
     run_regression,
 )
+from logos.window import Window
+
+
+FIXTURE_WINDOW = Window.from_bounds(start="2024-01-01", end="2024-01-02")
 
 
 def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
@@ -28,6 +32,7 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
         dataset_dir=DEFAULT_FIXTURE_DIR,
         label="test-paper",
         seed=101,
+        window=FIXTURE_WINDOW,
     )
 
     result = run_regression(
@@ -36,6 +41,7 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
         dataset_dir=DEFAULT_FIXTURE_DIR,
         label="test-paper",
         seed=101,
+        window=FIXTURE_WINDOW,
     )
 
     assert result.matches_baseline is True
@@ -48,11 +54,22 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
 
     metrics_payload = json.loads(result.artifacts.metrics.read_text(encoding="utf-8"))
     assert metrics_payload["provenance"]["dataset"].endswith("regression_default")
+    assert (
+        metrics_payload["provenance"]["window"]["start"]
+        == FIXTURE_WINDOW.start.isoformat()
+    )
+    assert (
+        metrics_payload["provenance"]["window"]["end"] == FIXTURE_WINDOW.end.isoformat()
+    )
     provenance_payload = json.loads(
         result.artifacts.provenance.read_text(encoding="utf-8")
     )
     assert provenance_payload["data_source"] == "fixture"
     assert provenance_payload["data_details"]["bars"] == 3
+    window_payload = provenance_payload["window"]
+    assert window_payload["start"] == FIXTURE_WINDOW.start.isoformat()
+    assert window_payload["end"] == FIXTURE_WINDOW.end.isoformat()
+    assert provenance_payload["data_details"]["window"] == window_payload
 
 
 def test_refresh_requires_confirmation(tmp_path: Path) -> None:
@@ -61,6 +78,7 @@ def test_refresh_requires_confirmation(tmp_path: Path) -> None:
             output_root=tmp_path,
             baseline_dir=BASELINE_DIR,
             update_baseline=True,
+            window=FIXTURE_WINDOW,
         )
 
 
@@ -82,6 +100,7 @@ def test_adapter_mode_emits_logs(tmp_path: Path) -> None:
         seed=77,
         adapter_mode="adapter",
         adapter_name="ccxt",
+        window=FIXTURE_WINDOW,
     )
 
     result_two = run_regression(
@@ -92,6 +111,7 @@ def test_adapter_mode_emits_logs(tmp_path: Path) -> None:
         seed=77,
         adapter_mode="adapter",
         adapter_name="ccxt",
+        window=FIXTURE_WINDOW,
     )
 
     assert result_two.matches_baseline is True
@@ -114,6 +134,18 @@ def test_compare_metrics_tolerance(tmp_path: Path) -> None:
     output.write_text(json.dumps({"pnl": 1.0 + METRIC_ABS_TOLERANCE * 5, "count": 6}))
     diff = regression._compare_metrics(baseline, output, METRIC_ABS_TOLERANCE)
     assert diff is not None and "pnl" in diff and "count" in diff
+
+
+def test_run_regression_requires_window_overlap(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError):
+        run_regression(
+            output_root=tmp_path / "out",
+            baseline_dir=tmp_path / "base",
+            dataset_dir=DEFAULT_FIXTURE_DIR,
+            label="no-overlap",
+            seed=42,
+            window=Window.from_bounds(start="2030-01-01", end="2030-01-02"),
+        )
 
 
 def test_drain_adapter_logs_variants() -> None:

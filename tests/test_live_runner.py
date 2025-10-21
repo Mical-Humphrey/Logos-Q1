@@ -21,6 +21,7 @@ from logos.logging_setup import attach_run_file_handler, detach_handler
 from logos import paths as paths_module
 from logos.live import session_manager as session_manager_module
 from logos.live import runner as runner_module
+from logos.window import Window
 
 
 class SequencedTimeProvider:
@@ -39,6 +40,11 @@ class SequencedTimeProvider:
         else:
             value = self._timestamps[-1]
         return value
+
+
+def _day_window(anchor: dt.datetime) -> Window:
+    end = anchor + dt.timedelta(days=1)
+    return Window.from_bounds(start=anchor.date(), end=end.date())
 
 
 @pytest.fixture
@@ -127,9 +133,10 @@ def test_strategy_order_generator_emits_intents():
 
 
 def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
+    start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
         Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            dt=start,
             open=100,
             high=101,
             low=99,
@@ -138,7 +145,7 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
             symbol="MSFT",
         ),
         Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc),
+            dt=start + dt.timedelta(minutes=1),
             open=101,
             high=102,
             low=100,
@@ -147,7 +154,7 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
             symbol="MSFT",
         ),
         Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc),
+            dt=start + dt.timedelta(minutes=2),
             open=102,
             high=103,
             low=101,
@@ -156,7 +163,7 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
             symbol="MSFT",
         ),
         Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 33, tzinfo=dt.timezone.utc),
+            dt=start + dt.timedelta(minutes=3),
             open=104,
             high=105,
             low=103,
@@ -166,9 +173,7 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
         ),
     ]
     feed = MemoryBarFeed(bars=bars)
-    clock = MockTimeProvider(
-        current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
-    )
+    clock = MockTimeProvider(current=start)
     broker = PaperBrokerAdapter(time_provider=clock, slippage_bps=0.0, fee_bps=0.0)
 
     spec = StrategySpec(
@@ -191,7 +196,11 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=clock,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=10,
             ),
         )
         runner.run()
@@ -211,9 +220,10 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
 
 
 def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_paths):
+    start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
         Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
+            dt=start,
             open=100,
             high=101,
             low=99,
@@ -223,9 +233,7 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
         ),
     ]
     feed = MemoryBarFeed(bars=bars)
-    clock = MockTimeProvider(
-        current=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
-    )
+    clock = MockTimeProvider(current=start)
     broker = PaperBrokerAdapter(time_provider=clock, slippage_bps=0.0, fee_bps=0.0)
 
     spec = StrategySpec(
@@ -255,7 +263,11 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
             risk_limits=risk_limits,
             time_provider=clock,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=5,
             ),
         )
         runner.run()
@@ -314,7 +326,11 @@ def test_live_runner_emits_stale_data_event(tmp_path, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=provider,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=5,
             ),
         )
         runner.run()
@@ -380,7 +396,11 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=clock_initial,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=5,
             ),
         )
         runner.run()
@@ -429,7 +449,11 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=clock_followup,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=5
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=5,
             ),
         )
         runner.run()
@@ -485,6 +509,7 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     summary_lines = summary_text.splitlines()
     assert summary_lines[0] == f"# Session {session_paths.session_id}"
     assert any(line.startswith("- Halt Reason:") for line in summary_lines)
+    assert any(line.startswith("- Window:") for line in summary_lines)
 
 
 def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
@@ -545,7 +570,11 @@ def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=clock,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=10,
             ),
         )
         runner.run()
@@ -598,7 +627,11 @@ def test_live_runner_consecutive_reject_breaker(tmp_path, patch_live_paths):
             risk_limits=risk_limits,
             time_provider=clock,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=10,
             ),
         )
         runner.run()

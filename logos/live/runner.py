@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
 
 from logos.logging_setup import attach_live_runtime_handler, detach_handler
+from logos.window import Window
 
 from .broker_base import BrokerAdapter, OrderIntent, OrderState
 from .data_feed import Bar, DataFeed, FetchError
@@ -39,6 +40,7 @@ class LoopConfig:
     symbol: str
     strategy: str
     interval: str
+    window: Window
     kill_switch_file: Optional[str] = None
     max_loops: Optional[int] = None
 
@@ -65,9 +67,10 @@ class LiveRunner:
         self.session = session
         self.risk_limits = risk_limits
         self.time_provider = time_provider or SystemTimeProvider()
-        self.loop_config = loop_config or LoopConfig(
-            symbol="UNKNOWN", strategy="UNKNOWN", interval="1m"
-        )
+        if loop_config is None:
+            raise ValueError("LiveRunner requires loop_config with window")
+        self.loop_config = loop_config
+        self._window = loop_config.window
         self._state = load_state(session.state_file, session.session_id)
         if getattr(self.broker, "bootstrap_positions", None) and self._state.positions:
             try:
@@ -90,6 +93,8 @@ class LiveRunner:
             self.loop_config.symbol,
             self.loop_config.strategy,
         )
+        window_start_dt = self._window.start.tz_convert("UTC").to_pydatetime()
+        window_end_dt = self._window.end.tz_convert("UTC").to_pydatetime()
         loops = 0
         last_bar_dt = None
         if self._state.last_bar_iso:
@@ -182,6 +187,16 @@ class LiveRunner:
                 )
                 self._halt_reason = "feed_error"
                 break
+            filtered: list[Bar] = []
+            for bar in bars:
+                if bar.dt < window_start_dt:
+                    continue
+                if bar.dt >= window_end_dt:
+                    self._halt_reason = "window_complete"
+                    self._stopped = True
+                    break
+                filtered.append(bar)
+            bars = filtered
             if not bars:
                 logger.debug("No new bars for %s", self.loop_config.symbol)
                 if self._halt_reason == "completed":
@@ -202,6 +217,7 @@ class LiveRunner:
             ## Metadata
             - Symbol: {self.loop_config.symbol}
             - Strategy: {self.loop_config.strategy}
+            - Window: {self._window.start.isoformat()} → {self._window.end.isoformat()}
             - Started: {(self._started_at or self._stopped_at).isoformat()}
             - Stopped: {self._stopped_at.isoformat()}
             - Halt Reason: {self._halt_reason}

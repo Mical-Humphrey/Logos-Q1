@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Iterable
 from zoneinfo import ZoneInfo
@@ -33,19 +33,23 @@ class Window:
 
     start: pd.Timestamp
     end: pd.Timestamp
+    label_timezone: ZoneInfo = field(default=UTC, repr=False)
 
     def __post_init__(self) -> None:  # pragma: no cover - defensive guard
         if self.start.tzinfo is None or self.end.tzinfo is None:
             raise ValueError("Window timestamps must be timezone-aware")
-        if self.start >= self.end:
+        tz = _coerce_zone(self.label_timezone)
+        start_utc = self.start.tz_convert(UTC)
+        end_utc = self.end.tz_convert(UTC)
+        if start_utc >= end_utc:
             raise ValueError("Window start must be strictly before end")
+        object.__setattr__(self, "start", start_utc)
+        object.__setattr__(self, "end", end_utc)
+        object.__setattr__(self, "label_timezone", tz)
 
     @property
     def timezone(self) -> ZoneInfo:
-        tz = self.start.tzinfo
-        if isinstance(tz, ZoneInfo):
-            return tz
-        return UTC
+        return self.label_timezone
 
     @property
     def tz_name(self) -> str:
@@ -69,7 +73,7 @@ class Window:
         tz = _coerce_zone(zone)
         start_ts = _normalize_timestamp(start, tz)
         end_ts = _normalize_timestamp(end, tz)
-        return cls(start=start_ts, end=end_ts)
+        return cls(start=start_ts, end=end_ts, label_timezone=tz)
 
     @classmethod
     def from_duration(
@@ -82,7 +86,19 @@ class Window:
         tz = _coerce_zone(zone)
         end_ts = _normalize_timestamp(end, tz)
         start_ts = end_ts - duration
-        return cls(start=start_ts.normalize(), end=end_ts)
+        return cls(start=start_ts.normalize(), end=end_ts, label_timezone=tz)
+
+    def bounds(
+        self, zone: ZoneInfo | str | None = None
+    ) -> tuple[pd.Timestamp, pd.Timestamp]:
+        target = _coerce_zone(zone or self.label_timezone)
+        return self.start.tz_convert(target), self.end.tz_convert(target)
+
+    def start_in_label_timezone(self) -> pd.Timestamp:
+        return self.start.tz_convert(self.label_timezone)
+
+    def end_in_label_timezone(self) -> pd.Timestamp:
+        return self.end.tz_convert(self.label_timezone)
 
     def __iter__(self) -> Iterable[pd.Timestamp]:  # pragma: no cover - convenience
         yield self.start

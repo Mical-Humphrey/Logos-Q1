@@ -8,7 +8,12 @@
     "adapter_mode": "paper",
     "dataset": "tests/fixtures/live/regression_default",
     "source": "fixture",
-    "synthetic": false
+    "synthetic": false,
+    "window": {
+      "end": "2024-01-02T00:00:00+00:00",
+      "start": "2024-01-01T00:00:00+00:00",
+      "timezone": "UTC"
+    }
   },
   "run_id": "0007-regression-smoke",
   "seed": 7,

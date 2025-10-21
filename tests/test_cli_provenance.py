@@ -62,6 +62,7 @@ def _install_common_patches(
         {"Close": [100.0, 101.0, 102.0, 103.0, 104.0]}, index=data_index
     )
     price_df.index.name = "Date"
+
     def _fake_prices(symbol, window: Window, **kwargs):
         return price_df
 

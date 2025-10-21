@@ -28,7 +28,7 @@ def generate_signals(
     sd = close.rolling(lookback, min_periods=lookback).std(ddof=0)
     z = (close - ma) / sd
 
-    sig = pd.Series(0, index=df.index)
-    sig[z <= -z_entry] = 1  # statistically cheap
-    sig[z >= z_entry] = -1  # statistically rich
+    sig = pd.Series(0, index=df.index, dtype=int)
+    sig.loc[z <= -z_entry] = 1  # statistically cheap
+    sig.loc[z >= z_entry] = -1  # statistically rich
     return sig.astype(int)

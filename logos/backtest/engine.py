@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, TypedDict
+from typing import Dict, TypedDict, Union
 
 import numpy as np
 import pandas as pd
@@ -50,6 +50,8 @@ def run_backtest(
 ) -> BacktestResult:
     """Simulate trading given price data and target signals with asset-aware costs."""
     df = prices.copy().sort_index()
+    if df.index.has_duplicates:
+        df = df[~df.index.duplicated(keep="last")]
     sig = signals.reindex(df.index).fillna(0).astype(int)
     close = df["Close"].astype(float)
 
@@ -66,6 +68,20 @@ def run_backtest(
 
     # Process each order with asset-aware fill price and fees
     asset = asset_class.lower()
+
+    def _first_position(idx: pd.Index, key: Union[pd.Timestamp, str]) -> int:
+        loc = idx.get_loc(key)
+        if isinstance(loc, slice):
+            start = loc.start
+            if start is None:
+                raise KeyError(key)
+            return int(start)
+        if isinstance(loc, np.ndarray):
+            if not len(loc):
+                raise KeyError(key)
+            return int(loc.min())
+        return int(loc)
+
     for t, side, sh in zip(orders_idx, sides, shares):
         if sh == 0:
             continue
@@ -92,8 +108,13 @@ def run_backtest(
             fee = 0.0
 
         # Persist position change from time t forward; book cash at t
-        position.loc[t:] += sh
-        cash.loc[t] -= sh * fill_p + fee
+        start_idx = _first_position(position.index, t)
+        span = slice(start_idx, None)
+        updated_position = position.iloc[span] + sh
+        position.iloc[span] = updated_position
+
+        cash_idx = _first_position(cash.index, t)
+        cash.iloc[cash_idx] = cash.iloc[cash_idx] - (sh * fill_p + fee)
 
     # Equity = cumulative cash + mark-to-market of open position
     mkt_value = position * close

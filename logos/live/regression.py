@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import difflib
 import hashlib
@@ -12,6 +13,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
+
+from logos.window import Window, UTC
 
 from .broker_alpaca import AlpacaBrokerAdapter
 from .broker_base import (
@@ -91,6 +94,7 @@ class RegressionConfig:
     symbol: str
     seed: int
     label: str
+    window: Window
     adapter_mode: AdapterMode = "paper"
     adapter_name: str | None = None
 
@@ -121,6 +125,31 @@ def _build_feed(dataset_path: Path, clock: MockTimeProvider) -> FixtureReplayFee
     return FixtureReplayFeed(
         dataset=dataset_path, time_provider=clock, max_age_seconds=600, max_retries=0
     )
+
+
+def _infer_window_from_dataset(dataset_dir: Path) -> Window:
+    bars_path = dataset_dir / BARS_FILENAME
+    if not bars_path.exists():
+        raise FileNotFoundError(f"bars fixture missing at {bars_path}")
+    first_dt: dt.datetime | None = None
+    last_dt: dt.datetime | None = None
+    with bars_path.open("r", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            dt_str = row.get("dt")
+            if not dt_str:
+                continue
+            try:
+                bar_dt = dt.datetime.fromisoformat(dt_str)
+            except ValueError as exc:
+                raise RuntimeError(f"invalid dt '{dt_str}' in {bars_path}") from exc
+            if first_dt is None:
+                first_dt = bar_dt
+            last_dt = bar_dt
+    if first_dt is None or last_dt is None:
+        raise RuntimeError(f"dataset {bars_path} contains no rows")
+    window_end = (last_dt + dt.timedelta(days=1)).date()
+    return Window.from_bounds(start=first_dt.date(), end=window_end, zone=UTC)
 
 
 def _configure_paper_broker(
@@ -288,8 +317,11 @@ def _run_pipeline(
     metadata = _load_metadata(symbols_path)
     feed = _build_feed(bars_path, clock)
     bars: List[Bar] = feed.fetch_bars(config.symbol, "1m", since=None)
+    window_start = config.window.start.tz_convert("UTC").to_pydatetime()
+    window_end = config.window.end.tz_convert("UTC").to_pydatetime()
+    bars = [bar for bar in bars if window_start <= bar.dt < window_end]
     if not bars:
-        raise RuntimeError("Fixture must contain at least one bar")
+        raise RuntimeError("Fixture must contain at least one bar within the window")
 
     translator = Translator(metadata)
     signal_price = Decimal(str(bars[0].close))
@@ -438,6 +470,7 @@ def _run_pipeline(
         "dataset": str(config.dataset_dir),
         "clock_start": clock_origin.isoformat(),
         "clock_timezone": "UTC",
+        "window": config.window.to_dict(),
     }
 
     dataset_reference = _relative_to_project(config.dataset_dir)
@@ -446,6 +479,7 @@ def _run_pipeline(
         "dataset": dataset_reference,
         "adapter_mode": adapter_mode_label,
         "synthetic": False,
+        "window": config.window.to_dict(),
     }
     if adapter_name:
         metrics_provenance["adapter_name"] = adapter_name
@@ -476,6 +510,7 @@ def _run_pipeline(
         "account_fixture": ACCOUNT_FILENAME,
         "bars_fixture": BARS_FILENAME,
         "metadata_fixture": SYMBOLS_FILENAME,
+        "window": config.window.to_dict(),
     }
     adapter_payload: Dict[str, object] = {
         "entrypoint": "logos.live.regression",
@@ -494,6 +529,7 @@ def _run_pipeline(
         "data_details": dataset_details,
         "adapter": adapter_payload,
         "allow_synthetic": False,
+        "window": config.window.to_dict(),
     }
 
     paths.provenance_file.write_text(
@@ -512,6 +548,7 @@ def _run_pipeline(
         f"- Adapter Mode: {adapter_mode_label}",
         "- Data Source: fixture",
         f"- Generated: {clock_origin.isoformat()}",
+        f"- Window: {config.window.start.isoformat()} → {config.window.end.isoformat()}",
     ]
     if adapter_name:
         session_lines.insert(-2, f"- Adapter Name: {adapter_name}")
@@ -592,15 +629,18 @@ def run_regression(
     label: str = DEFAULT_LABEL,
     adapter_mode: AdapterMode = "paper",
     adapter_name: str | None = None,
+    window: Window | None = None,
 ) -> RegressionResult:
     dataset = dataset_dir or DEFAULT_FIXTURE_DIR
     output_root.mkdir(parents=True, exist_ok=True)
     paths = prepare_seeded_run_paths(seed, label, base_dir=output_root)
+    window_obj = window or _infer_window_from_dataset(dataset)
     config = RegressionConfig(
         dataset_dir=dataset,
         symbol=symbol,
         seed=seed,
         label=label,
+        window=window_obj,
         adapter_mode=adapter_mode,
         adapter_name=adapter_name,
     )

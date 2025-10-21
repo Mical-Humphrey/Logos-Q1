@@ -12,12 +12,22 @@
     "first_timestamp": "2024-01-01T09:30:00+00:00",
     "last_timestamp": "2024-01-01T09:32:00+00:00",
     "metadata_fixture": "symbols.yaml",
-    "symbol": "AAPL"
+    "symbol": "AAPL",
+    "window": {
+      "end": "2024-01-02T00:00:00+00:00",
+      "start": "2024-01-01T00:00:00+00:00",
+      "timezone": "UTC"
+    }
   },
   "data_source": "fixture",
   "generated_at": "2024-01-01T09:33:00+00:00",
   "git_sha": "deterministic-fixture",
   "label": "regression-smoke",
   "run_id": "0007-regression-smoke",
-  "seed": 7
+  "seed": 7,
+  "window": {
+    "end": "2024-01-02T00:00:00+00:00",
+    "start": "2024-01-01T00:00:00+00:00",
+    "timezone": "UTC"
+  }
 }

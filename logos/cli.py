@@ -69,11 +69,11 @@ class BacktestValidationResult:
 
     @property
     def start(self) -> str:
-        return self.window.start.date().isoformat()
+        return self.window.start_in_label_timezone().date().isoformat()
 
     @property
     def end(self) -> str:
-        return self.window.end.date().isoformat()
+        return self.window.end_in_label_timezone().date().isoformat()
 
 
 def _usage_error(message: str) -> None:
@@ -270,8 +270,8 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     # Resolve CLI or .env defaults
     symbol = args.symbol or s.symbol
     window = validation.window
-    start = window.start.date().isoformat()
-    end = window.end.date().isoformat()
+    start = window.start_in_label_timezone().date().isoformat()
+    end = window.end_in_label_timezone().date().isoformat()
     tz_name = validation.tz
     window_spec = validation.window_spec
     asset_class = (args.asset_class or s.asset_class).lower()
@@ -332,7 +332,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "start": start,
             "end": end,
             "tz": tz_name,
-            "window": window_spec,
+            "window": window.to_dict(),
             "asset_class": asset_class,
             "interval": args.interval,
             "dollar_per_trade": args.dollar_per_trade,
@@ -346,6 +346,8 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "data_source": price_meta.get("data_source"),
             "synthetic": bool(price_meta.get("synthetic")),
         }
+        if window_spec:
+            config_payload["window_spec"] = window_spec
         captured_env = capture_env(
             ["LOGOS_SEED", "YFINANCE_USERNAME", "YFINANCE_PASSWORD"]
         )

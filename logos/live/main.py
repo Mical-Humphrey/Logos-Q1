@@ -10,6 +10,7 @@ from logos.config import Settings, load_settings
 from logos.logging_setup import detach_handler, setup_app_logging
 from logos.paths import live_cache_path
 from logos.utils import parse_params as parse_param_string
+from logos.window import Window, UTC
 
 from .broker_base import BrokerAdapter
 from .broker_paper import PaperBrokerAdapter
@@ -137,6 +138,11 @@ def main(argv: list[str] | None = None) -> None:
     feed = CsvBarFeed(path=feed_path, time_provider=time_provider)
     session_paths, session_handler = create_session(args.symbol, args.strategy)
     try:
+        loop_window = Window.from_bounds(
+            start=settings.start,
+            end=settings.end,
+            zone=UTC,
+        )
         state = load_state(session_paths.state_file, session_paths.session_id)
         save_state(state, session_paths.state_file)
         dollar_per_trade = args.dollar_per_trade
@@ -192,6 +198,7 @@ def main(argv: list[str] | None = None) -> None:
                 symbol=args.symbol,
                 strategy=args.strategy,
                 interval=args.interval,
+                window=loop_window,
                 kill_switch_file=(
                     str(args.kill_switch_file) if args.kill_switch_file else None
                 ),

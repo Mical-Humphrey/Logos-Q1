@@ -508,8 +508,8 @@ def get_prices(
     if asset == "fx":
         asset = "forex"
 
-    start_label = window.start.tz_convert(window.timezone).date().isoformat()
-    end_label = window.end.tz_convert(window.timezone).date().isoformat()
+    start_label = window.start_in_label_timezone().date().isoformat()
+    end_label = window.end_in_label_timezone().date().isoformat()
     start_iso = window.start.tz_convert(UTC).isoformat()
     end_iso = window.end.tz_convert(UTC).isoformat()
 

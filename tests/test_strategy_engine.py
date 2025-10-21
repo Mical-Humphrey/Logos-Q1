@@ -94,3 +94,43 @@ def test_generator_clamps_notional(strategy_name):
     # Clamp scales to the max_notional (5_000) -> 50 shares at $100.
     assert intent.quantity == pytest.approx(50.0)
     assert intent.side == "buy"
+
+
+def test_generator_preserves_sorted_timestamp_index(monkeypatch):
+    from logos import strategies as strategy_module
+
+    captured_indices: list[pd.DatetimeIndex] = []
+
+    def capturing_strategy(frame: pd.DataFrame, **_: float) -> pd.Series:
+        captured_indices.append(pd.DatetimeIndex(frame.index.copy()))
+        return pd.Series(range(len(frame)), index=frame.index)
+
+    key = "timestamp_capture_strategy"
+    monkeypatch.setitem(strategy_module.STRATEGIES, key, capturing_strategy)
+
+    broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
+    broker.set_symbol_meta(
+        SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=1, price_precision=2)
+    )
+    spec = StrategySpec(
+        symbol="MSFT",
+        strategy=key,
+        params={},
+        dollar_per_trade=1_000.0,
+        sizing=SizingConfig(max_notional=0.0, max_position=1_000.0),
+    )
+    generator = StrategyOrderGenerator(broker, spec)
+
+    base = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
+    newer = base + dt.timedelta(minutes=1)
+
+    generator.process([_bar(newer, 101.0), _bar(base, 100.0)], current_qty=0.0)
+
+    assert captured_indices, "strategy should have been invoked"
+    idx = captured_indices[-1]
+    assert isinstance(idx, pd.DatetimeIndex)
+    assert idx.is_monotonic_increasing
+    assert idx.tz is not None
+    assert idx[-1] == newer
+
+    monkeypatch.delitem(strategy_module.STRATEGIES, key, raising=False)

@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from logos.backtest.engine import run_backtest
@@ -35,3 +36,27 @@ def test_run_backtest_generates_metrics_and_artifacts():
     )
     assert flat_result["metrics"]["Sharpe"] == 0.0
     assert flat_result["metrics"]["Exposure"] == 0.0
+
+
+def test_run_backtest_respects_datetime_labels():
+    idx = pd.date_range(
+        "2024-01-01 09:30",
+        periods=3,
+        freq="15min",
+        tz="America/New_York",
+    )
+    closes = [100.0, 101.0, 101.0]
+    prices = pd.DataFrame({"Close": closes}, index=idx)
+    signals = pd.Series([0, 1, 1], index=idx)
+
+    result = run_backtest(prices=prices, signals=signals, dollar_per_trade=1_000.0)
+
+    expected_qty = int(np.floor(1_000.0 / prices.loc[idx[1], "Close"]))
+    positions = result["positions"]
+    assert positions.loc[idx[0]] == 0
+    assert positions.loc[idx[1]] == expected_qty
+    assert positions.loc[idx[2]] == expected_qty
+
+    trades = result["trades"]
+    assert not trades.empty
+    assert trades.iloc[0]["time"] == idx[1]

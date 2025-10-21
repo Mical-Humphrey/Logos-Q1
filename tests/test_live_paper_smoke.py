@@ -19,6 +19,7 @@ from logos.live.session_manager import create_session
 from logos.live.strategy_engine import StrategyOrderGenerator, StrategySpec
 from logos.live.time import MockTimeProvider
 from logos.logging_setup import detach_handler
+from logos.window import Window
 
 
 def _patch_live_paths(monkeypatch, base: Path) -> None:
@@ -59,6 +60,11 @@ def _write_feed(path: Path, bars: list[tuple[dt.datetime, float]]) -> None:
             )
 
 
+def _window_for_day(anchor: dt.datetime) -> Window:
+    end = anchor + dt.timedelta(days=1)
+    return Window.from_bounds(start=anchor.date(), end=end.date())
+
+
 def test_live_paper_smoke(tmp_path, monkeypatch):
     base = tmp_path / "live"
     _patch_live_paths(monkeypatch, base)
@@ -96,7 +102,11 @@ def test_live_paper_smoke(tmp_path, monkeypatch):
             risk_limits=risk_limits,
             time_provider=clock,
             loop_config=LoopConfig(
-                symbol="MSFT", strategy="momentum", interval="1m", max_loops=10
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_window_for_day(start),
+                max_loops=10,
             ),
         )
         runner.run()
