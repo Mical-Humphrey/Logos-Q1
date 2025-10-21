@@ -26,8 +26,8 @@ def tutor_run_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(tutor_engine, "load_settings", lambda: DummySettings())
     monkeypatch.setattr(tutor_engine, "setup_logging", lambda level: None)
 
-    def fake_prices(symbol, start, end, interval="1d", asset_class="equity", **kwargs):
-        dates = pd.date_range(start, periods=30, freq="D")
+    def fake_prices(symbol, window, interval="1d", asset_class="equity", **kwargs):
+        dates = pd.date_range(window.start, periods=30, freq="D")
         base = {
             "Open": pd.Series(range(100, 130), index=dates).astype(float),
             "High": pd.Series(range(101, 131), index=dates).astype(float),

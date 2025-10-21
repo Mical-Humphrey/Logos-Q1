@@ -49,6 +49,7 @@ from .run_manager import (
 )
 from .utils import parse_params
 from .data_loader import SyntheticDataNotAllowed, get_prices, last_price_metadata
+from .window import Window
 from .strategies import STRATEGIES
 from .backtest.engine import BacktestResult, run_backtest
 
@@ -61,11 +62,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class BacktestValidationResult:
-    start: str
-    end: str
+    window: Window
     tz: str
-    window: str | None
+    window_spec: str | None
     env_sources: Dict[str, str]
+
+    @property
+    def start(self) -> str:
+        return self.window.start.date().isoformat()
+
+    @property
+    def end(self) -> str:
+        return self.window.end.date().isoformat()
 
 
 def _usage_error(message: str) -> None:
@@ -152,11 +160,11 @@ def validate_backtest_args(
             _usage_error(
                 f"Window '{window_raw}' collapses to an empty range. Increase the duration (e.g. P2D)."
             )
+        window_obj = Window.from_bounds(start=start_date, end=end_date, zone=tz)
         return BacktestValidationResult(
-            start=start_date.isoformat(),
-            end=end_date.isoformat(),
+            window=window_obj,
             tz=tz_name,
-            window=window_raw,
+            window_spec=window_raw,
             env_sources=env_sources,
         )
 
@@ -189,11 +197,11 @@ def validate_backtest_args(
             f"Start date {start_dt.date().isoformat()} is not before end date {end_dt.date().isoformat()}. "
             "Ensure the range increases over time."
         )
+    window_obj = Window.from_bounds(start=start_dt, end=end_dt, zone=tz)
     return BacktestValidationResult(
-        start=start_dt.date().isoformat(),
-        end=end_dt.date().isoformat(),
+        window=window_obj,
         tz=tz_name,
-        window=None,
+        window_spec=None,
         env_sources=env_sources,
     )
 
@@ -261,10 +269,11 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
 
     # Resolve CLI or .env defaults
     symbol = args.symbol or s.symbol
-    start = validation.start
-    end = validation.end
+    window = validation.window
+    start = window.start.date().isoformat()
+    end = window.end.date().isoformat()
     tz_name = validation.tz
-    window_spec = validation.window
+    window_spec = validation.window_spec
     asset_class = (args.asset_class or s.asset_class).lower()
 
     allow_synthetic = bool(getattr(args, "allow_synthetic", False))
@@ -274,8 +283,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     try:
         df = get_prices(
             symbol,
-            start,
-            end,
+            window,
             interval=args.interval,
             asset_class=asset_class,
             allow_synthetic=allow_synthetic,
@@ -392,7 +400,9 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         if isinstance(last_ts, str):
             data_details["last_timestamp"] = last_ts
 
-        window_payload: Dict[str, object] = {"start": start, "end": end}
+        window_payload: Dict[str, object] = cast(
+            Dict[str, object], dict(window.to_dict())
+        )
         if window_spec:
             window_payload["window"] = window_spec
 
@@ -403,7 +413,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         metrics_provenance: Dict[str, object] = {
             "synthetic": synthetic_used,
             "window": window_payload,
-            "timezone": tz_name,
+            "timezone": window_payload.get("timezone", tz_name),
         }
         if seeds:
             metrics_provenance["seeds"] = seeds
@@ -414,7 +424,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "generated_at": datetime.now(ZoneInfo("UTC")).isoformat(),
             "data_source": "synthetic" if synthetic_used else "real",
             "data_details": data_details,
-            "window": {**window_payload, "timezone": tz_name},
+            "window": window_payload,
             "seeds": seeds,
             "cli_args": cli_args_map,
             "env_flags": validation.env_sources,

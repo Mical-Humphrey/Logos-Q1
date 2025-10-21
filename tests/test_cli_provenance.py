@@ -8,6 +8,7 @@ import pytest
 
 from logos.cli import Settings, cmd_backtest
 from logos.run_manager import RunContext
+from logos.window import Window
 
 
 @pytest.fixture
@@ -61,7 +62,10 @@ def _install_common_patches(
         {"Close": [100.0, 101.0, 102.0, 103.0, 104.0]}, index=data_index
     )
     price_df.index.name = "Date"
-    monkeypatch.setattr(cli_mod, "get_prices", lambda *args, **kwargs: price_df)
+    def _fake_prices(symbol, window: Window, **kwargs):
+        return price_df
+
+    monkeypatch.setattr(cli_mod, "get_prices", _fake_prices)
 
     def _fake_strategy(data, **params):
         return pd.Series(0, index=data.index)

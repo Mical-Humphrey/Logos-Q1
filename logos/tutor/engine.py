@@ -32,6 +32,7 @@ import pandas as pd
 
 from ..config import Settings, load_settings
 from ..data_loader import get_prices
+from ..window import Window
 from ..backtest.engine import run_backtest
 from ..strategies.mean_reversion import generate_signals as mean_reversion_signals
 from ..strategies.momentum import generate_signals as momentum_signals
@@ -396,11 +397,17 @@ def _plot_momentum(
         color = "#dcfce7" if val > 0 else "#fee2e2"
         if len(segment.index) == 0:
             continue
-    start_time = cast(pd.Timestamp, segment.index[0])
-    end_time = cast(pd.Timestamp, segment.index[-1])
-    start_val = float(mdates.date2num(start_time.to_pydatetime()))
-    end_val = float(mdates.date2num(end_time.to_pydatetime()))
-    ax.axvspan(start_val, end_val, color=color, alpha=0.25)
+        start_label = segment.index.min()
+        end_label = segment.index.max()
+        if not isinstance(start_label, pd.Timestamp) or not isinstance(
+            end_label, pd.Timestamp
+        ):
+            continue
+        if pd.isna(start_label) or pd.isna(end_label):
+            continue
+        start_val = float(mdates.date2num(start_label.to_pydatetime()))
+        end_val = float(mdates.date2num(end_label.to_pydatetime()))
+        ax.axvspan(start_val, end_val, color=color, alpha=0.25)
 
     ax.set_title("Momentum Lesson: crossover regimes")
     ax.set_ylabel("Price")
@@ -532,10 +539,10 @@ def _lesson_mean_reversion(ctx: LessonContext) -> None:
     )
 
     start, end = ctx.settings.start, ctx.settings.end
+    lesson_window = Window.from_bounds(start=start, end=end)
     prices = get_prices(
         symbol,
-        start,
-        end,
+        lesson_window,
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,
@@ -660,10 +667,10 @@ def _lesson_momentum(ctx: LessonContext) -> None:
     ctx.narrate(f"[Lesson: Momentum] Tracking trend-following crossovers on {symbol}.")
 
     start, end = ctx.settings.start, ctx.settings.end
+    momentum_window = Window.from_bounds(start=start, end=end)
     prices = get_prices(
         symbol,
-        start,
-        end,
+        momentum_window,
         interval="1d",
         asset_class="crypto",
         allow_synthetic=True,
@@ -760,18 +767,17 @@ def _lesson_pairs(ctx: LessonContext) -> None:
     )
 
     start, end = ctx.settings.start, ctx.settings.end
+    pairs_window = Window.from_bounds(start=start, end=end)
     prices_a = get_prices(
         sym_a,
-        start,
-        end,
+        pairs_window,
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,
     ).tail(90)
     prices_b = get_prices(
         sym_b,
-        start,
-        end,
+        pairs_window,
         interval="1d",
         asset_class="equity",
         allow_synthetic=True,

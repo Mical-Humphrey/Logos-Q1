@@ -11,6 +11,7 @@ from logos.cli import (
     validate_backtest_args,
 )
 from logos.config import Settings
+from logos.window import Window
 
 
 def _args(**overrides):
@@ -101,7 +102,7 @@ def test_validate_accepts_explicit_dates(sample_settings: Settings) -> None:
     assert isinstance(result, BacktestValidationResult)
     assert result.start == "2024-01-15"
     assert result.end == "2024-02-15"
-    assert result.window is None
+    assert result.window_spec is None
 
 
 def test_validate_accepts_window(sample_settings: Settings) -> None:
@@ -112,7 +113,7 @@ def test_validate_accepts_window(sample_settings: Settings) -> None:
     )
     assert result.start == "2024-01-10"
     assert result.end == "2024-01-20"
-    assert result.window == "P10D"
+    assert result.window_spec == "P10D"
 
 
 def test_validate_handles_timezone_offset(sample_settings: Settings) -> None:
@@ -191,13 +192,12 @@ def test_cli_accepts_window_and_proceeds(
 
     def _fake_prices(
         symbol,
-        start,
-        end,
+        window: Window,
         interval="1d",
         asset_class="equity",
         **_kwargs,
     ):
-        idx = pd.date_range(start=start, periods=5, freq="D")
+        idx = pd.date_range(start=window.start, periods=5, freq="D")
         data = pd.DataFrame(
             {
                 "Open": 1.0,
@@ -219,6 +219,7 @@ def test_cli_accepts_window_and_proceeds(
     monkeypatch.setitem(cli_mod.STRATEGIES, "mean_reversion", _fake_strategy)
 
     def _fake_backtest(**_kwargs):
+        base_window = Window.from_bounds(start="2024-01-01", end="2024-01-05")
         return {
             "metrics": {
                 "CAGR": 0.1,
@@ -229,11 +230,11 @@ def test_cli_accepts_window_and_proceeds(
             },
             "equity_curve": pd.Series(
                 [1, 1.1, 1.2, 1.3, 1.4],
-                index=_fake_prices("", "2024-01-01", "2024-01-05").index,
+                index=_fake_prices("", base_window).index,
             ),
             "returns": pd.Series(
                 [0, 0, 0, 0, 0],
-                index=_fake_prices("", "2024-01-01", "2024-01-05").index,
+                index=_fake_prices("", base_window).index,
             ),
             "trades": pd.DataFrame([]),
         }

@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from logos import data_loader
+from logos.window import Window
 
 
 def _fixture_df():
@@ -35,9 +36,8 @@ def test_get_prices_reads_from_raw_fixture(raw_dir):
     fixture_path = raw_dir / f"{symbol}.csv"
     _fixture_df().to_csv(fixture_path, index_label="Date")
 
-    df = data_loader.get_prices(
-        symbol, "2024-01-01", "2024-01-05", asset_class="equity"
-    )
+    window = Window.from_bounds(start="2024-01-01", end="2024-01-05")
+    df = data_loader.get_prices(symbol, window, asset_class="equity")
 
     assert not df.empty
     assert list(df.columns) == ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
@@ -60,9 +60,8 @@ def test_get_prices_writes_cache_in_new_structure(monkeypatch):
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
 
-    result = data_loader.get_prices(
-        symbol, "2024-01-01", "2024-01-05", asset_class="equity"
-    )
+    window = Window.from_bounds(start="2024-01-01", end="2024-01-05")
+    result = data_loader.get_prices(symbol, window, asset_class="equity")
 
     assert not result.empty
     assert cache_file.exists()
@@ -89,8 +88,7 @@ def test_get_prices_blocks_synthetic_without_flag(monkeypatch, tmp_path):
     with pytest.raises(data_loader.SyntheticDataNotAllowed):
         data_loader.get_prices(
             symbol,
-            "2024-01-01",
-            "2024-01-05",
+            Window.from_bounds(start="2024-01-01", end="2024-01-05"),
             interval="1h",
             asset_class="equity",
         )
@@ -135,10 +133,10 @@ def test_get_prices_allows_synthetic_with_flag(monkeypatch, tmp_path):
 
     monkeypatch.setattr(data_loader, "_generate_synthetic_ohlcv", _fake_synth)
 
+    window = Window.from_bounds(start="2024-01-01", end="2024-01-05")
     df = data_loader.get_prices(
         symbol,
-        "2024-01-01",
-        "2024-01-05",
+        window,
         interval="1h",
         asset_class="equity",
         allow_synthetic=True,

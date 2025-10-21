@@ -26,6 +26,7 @@ import pandas as pd
 import yfinance as yf
 
 from .paths import DATA_RAW_DIR, resolve_cache_subdir, ensure_dirs
+from .window import Window, UTC
 
 logger = logging.getLogger(__name__)
 
@@ -490,8 +491,7 @@ def _load_forex_prices(
 
 def get_prices(
     symbol: str,
-    start: str,
-    end: str,
+    window: Window,
     interval: str = "1d",
     asset_class: str = "equity",
     *,
@@ -508,11 +508,16 @@ def get_prices(
     if asset == "fx":
         asset = "forex"
 
+    start_label = window.start.tz_convert(window.timezone).date().isoformat()
+    end_label = window.end.tz_convert(window.timezone).date().isoformat()
+    start_iso = window.start.tz_convert(UTC).isoformat()
+    end_iso = window.end.tz_convert(UTC).isoformat()
+
     loader = loader_map.get(asset, _load_equity_prices)
     meta: dict[str, Any] = {
         "symbol": symbol,
-        "start": start,
-        "end": end,
+        "start": start_iso,
+        "end": end_iso,
         "interval": interval,
         "asset_class": asset,
         "asset_class_requested": asset_class,
@@ -525,20 +530,25 @@ def get_prices(
         "cache_paths": [],
         "download_symbol": None,
         "resampled_from": None,
+        "window": window.to_dict(),
     }
 
     df = loader(
         symbol,
-        start,
-        end,
+        start_label,
+        end_label,
         interval,
         allow_synthetic=allow_synthetic,
         meta=meta,
     )
     meta["row_count"] = int(len(df))
     if not df.empty:
-        meta["first_timestamp"] = df.index[0].isoformat()
-        meta["last_timestamp"] = df.index[-1].isoformat()
+        first_ts = df.index.min()
+        last_ts = df.index.max()
+        if first_ts is not None:
+            meta["first_timestamp"] = first_ts.isoformat()
+        if last_ts is not None:
+            meta["last_timestamp"] = last_ts.isoformat()
 
     global _LAST_PRICE_METADATA
     _LAST_PRICE_METADATA = deepcopy(meta)
