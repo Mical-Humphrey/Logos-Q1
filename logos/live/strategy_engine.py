@@ -10,6 +10,7 @@ from typing import Callable, Deque, Dict, Iterable, List, TypedDict, cast
 import pandas as pd
 
 from logos.strategies import STRATEGIES
+from logos.utils.indexing import last_value
 
 from .broker_base import BrokerAdapter, OrderIntent, SymbolMeta
 from .data_feed import Bar
@@ -88,12 +89,12 @@ class StrategyOrderGenerator:
         if signals.empty:
             return []
 
-        latest_signal = signals.iloc[-1]
+        latest_signal = last_value(signals)
         if pd.isna(latest_signal):
             latest_signal = 0
         latest_signal = int(latest_signal)
 
-        price = float(frame.iloc[-1]["Close"])
+        price = float(last_value(frame["Close"]))
         if price <= 0:
             return []
 
