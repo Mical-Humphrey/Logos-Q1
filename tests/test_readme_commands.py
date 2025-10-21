@@ -12,13 +12,13 @@ matplotlib.use("Agg", force=True)
 
 BACKTEST_COMMANDS = [
     "--symbol MSFT --strategy mean_reversion --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper",
-    "--symbol BTC-USD --strategy momentum --asset-class crypto --interval 1h --dollar-per-trade 5000 --fee-bps 15 --paper",
+    "--symbol BTC-USD --strategy momentum --asset-class crypto --interval 1h --start 2024-01-01 --end 2024-03-31 --dollar-per-trade 5000 --fee-bps 15 --paper",
     "--symbol EURUSD=X --strategy mean_reversion --asset-class forex --interval 30m --slip-bps 8 --commission 0.0 --fx-pip-size 0.0001 --start 2023-06-01 --end 2023-08-31",
-    "--symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --paper",
+    "--symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --start 2024-01-01 --end 2024-04-01 --paper",
     "--symbol TSLA --strategy momentum --start 2024-01-01 --end 2024-03-31",
     "--symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper",
-    "--symbol MSFT --strategy momentum --params fast=20,slow=50 --paper --dollar-per-trade 2000",
-    "--symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --paper",
+    "--symbol MSFT --strategy momentum --params fast=20,slow=50 --start 2024-01-01 --end 2024-03-01 --paper --dollar-per-trade 2000",
+    "--symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --start 2023-06-01 --end 2023-09-01 --paper",
     "--symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-01-15",
 ]
 

@@ -299,7 +299,24 @@ def _load_from_yahoo(
         df = new
 
     assert df is not None
-    df = df.loc[pd.to_datetime(start) : pd.to_datetime(end)]
+    start_ts = pd.to_datetime(start)
+    end_ts = pd.to_datetime(end)
+    index_tz = getattr(df.index, "tz", None)
+    if index_tz is not None:
+        if start_ts.tzinfo is None:
+            start_ts = start_ts.tz_localize(index_tz)
+        else:
+            start_ts = start_ts.tz_convert(index_tz)
+        if end_ts.tzinfo is None:
+            end_ts = end_ts.tz_localize(index_tz)
+        else:
+            end_ts = end_ts.tz_convert(index_tz)
+    else:
+        if start_ts.tzinfo is not None:
+            start_ts = start_ts.tz_convert(None)
+        if end_ts.tzinfo is not None:
+            end_ts = end_ts.tz_convert(None)
+    df = df.loc[start_ts:end_ts]
     if df.empty:
         logger.warning(
             f"No rows available after clipping {symbol} [{interval}] to {start} -> {end}; generating synthetic data."

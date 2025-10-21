@@ -48,10 +48,23 @@ pytest -q
 ### Backtesting (`logos.cli backtest`)
 The backtest CLI spins up a portfolio simulation using historical data. Results (metrics, CSV logs, equity curve) land in `runs/<timestamp>_<symbol>_<strategy>/`.
 
+#### Date & window contract
+- Supply either an explicit `[--start YYYY-MM-DD --end YYYY-MM-DD]` pair **or** a single `--window ISO-8601-duration` (for example `P90D`).
+- `--tz` controls timezone parsing for both modes (default: `UTC`). Provide any IANA identifier (`America/New_York`, `Europe/London`, ...). ISO timestamps with offsets are respected.
+- `--allow-env-dates` re-enables the legacy `.env` fallback and the CLI logs the exact keys and values consumed when this path is taken.
+- Empty, reversed, or otherwise invalid windows will become hard failures in the validator; phase 2 wiring will make this guard enforceable.
+- Omit both options and the CLI fails fast (exit code 2) before any downloads or run directories are created, with an actionable hint on how to fix the call.
+- When `--allow-env-dates` is supplied, the CLI logs the exact environment keys and values used so the provenance is auditable.
+- Timezone names are validated up front; misspellings such as `America/Nwe_York` are rejected with guidance to supply a valid IANA identifier.
+
+> **Migration note:** Prior releases silently read `.env` defaults when `--start/--end` were omitted. Phase 2 hardening requires an explicit window. Example:
+> - Before: `python -m logos.cli backtest --symbol MSFT --strategy momentum`
+> - After:  `python -m logos.cli backtest --symbol MSFT --strategy momentum --window P60D`
+
 #### Scenario: Daily equity mean reversion (paper mode)
 ```bash
 python -m logos.cli backtest --symbol MSFT --strategy mean_reversion \
-  --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper
+  --asset-class equity --start 2022-01-01 --end 2024-01-01 --paper --tz America/New_York
 ```
 **What it does:** pulls daily MSFT bars, applies the mean reversion signal, executes with paper fills, and stores trades/metrics under `runs/`.
 
@@ -80,7 +93,7 @@ python -m logos.cli backtest --symbol AAPL --strategy pairs_trading \
 #### Scenario: Use `.env` sizing defaults for a momentum run
 ```bash
 python -m logos.cli backtest --symbol TSLA --strategy momentum \
-  --start 2024-01-01 --end 2024-03-31
+  --window P90D --allow-env-dates
 ```
 **What it does:** reuses sizing/fee defaults from `logos.config.Settings`, so command line arguments stay minimal.
 

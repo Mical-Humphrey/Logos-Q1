@@ -886,14 +886,14 @@ def run_lesson(
     setup_logging(settings.log_level)
 
     ctx = LessonContext(
-    lesson=lesson_key,
-    settings=settings,
-    plot=plot,
-    explain_math=explain_math,
-    lesson_dir=lesson_dir,
-    run_dir=run_dir,
-    plots_dir=plots_dir,
-    timestamp=stamp,
+        lesson=lesson_key,
+        settings=settings,
+        plot=plot,
+        explain_math=explain_math,
+        lesson_dir=lesson_dir,
+        run_dir=run_dir,
+        plots_dir=plots_dir,
+        timestamp=stamp,
     )
 
     LESSON_HANDLERS[lesson_key](ctx)

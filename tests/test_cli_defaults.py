@@ -93,8 +93,11 @@ def test_cmd_backtest_writes_run_artifacts(tmp_path, monkeypatch, dummy_settings
     args = Namespace(
         symbol="MSFT",
         strategy="mean_reversion",
-        start=None,
-        end=None,
+        start=dummy_settings.start,
+        end=dummy_settings.end,
+        window=None,
+        allow_env_dates=False,
+        tz="UTC",
         asset_class="equity",
         interval="1d",
         dollar_per_trade=10_000.0,

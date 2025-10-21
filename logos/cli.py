@@ -22,10 +22,15 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Callable, Dict, Optional, Sequence, cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from zoneinfo import ZoneInfo
 
 from .config import Settings, load_settings
 from .logging_setup import setup_app_logging
@@ -43,11 +48,150 @@ from .utils import parse_params
 from .data_loader import get_prices
 from .strategies import STRATEGIES
 from .backtest.engine import BacktestResult, run_backtest
+
 # Strategy function type alias for registry casts
 StrategyFunction = Callable[..., pd.Series]
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class BacktestValidationResult:
+    start: str
+    end: str
+    tz: str
+    window: str | None
+    env_sources: Dict[str, str]
+
+
+def _usage_error(message: str) -> None:
+    print(f"error: {message}", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def _resolve_timezone(name: str | None) -> ZoneInfo:
+    tz_name = (name or "UTC").strip() or "UTC"
+    try:
+        return ZoneInfo(tz_name)
+    except Exception as exc:  # pragma: no cover - defensive
+        _usage_error(
+            f"Unknown timezone '{tz_name}'. Provide a valid IANA name (for example UTC or America/New_York)."
+        )
+        raise exc
+
+
+def _parse_iso_duration(value: str) -> timedelta:
+    token = value.strip().upper()
+    pattern = re.compile(r"^P(?:(?P<weeks>\d+)W)?(?:(?P<days>\d+)D)?$")
+    match = pattern.match(token)
+    if not match:
+        _usage_error(
+            f"Window '{value}' is not a supported ISO-8601 duration. Use formats like P90D or P12W."
+        )
+    weeks = int(match.group("weeks")) if match.group("weeks") else 0
+    days = int(match.group("days")) if match.group("days") else 0
+    total_days = weeks * 7 + days
+    if total_days <= 0:
+        _usage_error(
+            f"Window '{value}' must represent at least one day. Example: P30D for the last 30 days."
+        )
+    return timedelta(days=total_days)
+
+
+def _parse_date_value(raw: str, tz: ZoneInfo, flag: str) -> datetime:
+    text = raw.strip()
+    normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError:
+        try:
+            dt_date = datetime.strptime(text, "%Y-%m-%d")
+            dt = dt_date
+        except ValueError:
+            _usage_error(
+                f"Could not parse --{flag} value '{raw}'. Use YYYY-MM-DD or an ISO-8601 timestamp."
+            )
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz)
+    else:
+        dt = dt.astimezone(tz)
+    return dt
+
+
+def validate_backtest_args(
+    args: argparse.Namespace,
+    settings: Settings,
+    *,
+    now: Callable[[ZoneInfo], datetime] | None = None,
+) -> BacktestValidationResult:
+    tz_name = getattr(args, "tz", "UTC") or "UTC"
+    tz = _resolve_timezone(tz_name)
+    start_raw = getattr(args, "start", None)
+    end_raw = getattr(args, "end", None)
+    window_raw = getattr(args, "window", None)
+    allow_env = bool(getattr(args, "allow_env_dates", False))
+
+    if window_raw and (start_raw or end_raw):
+        _usage_error("Pass either --window or the --start/--end pair, but not both.")
+
+    env_sources: Dict[str, str] = {}
+
+    if window_raw:
+        duration = _parse_iso_duration(window_raw)
+        now_fn = now or (lambda zone: datetime.now(zone))
+        end_dt = now_fn(tz)
+        end_date = end_dt.date()
+        start_date = end_date - duration
+        if start_date >= end_date:
+            _usage_error(
+                f"Window '{window_raw}' collapses to an empty range. Increase the duration (e.g. P2D)."
+            )
+        return BacktestValidationResult(
+            start=start_date.isoformat(),
+            end=end_date.isoformat(),
+            tz=tz_name,
+            window=window_raw,
+            env_sources=env_sources,
+        )
+
+    if not start_raw or not end_raw:
+        if not allow_env:
+            _usage_error(
+                "Backtest requires either --window ISO-8601 duration or both --start and --end. "
+                "Re-run with explicit values or add --allow-env-dates to use .env START_DATE/END_DATE."
+            )
+        if not start_raw:
+            if not settings.start:
+                _usage_error(
+                    "START_DATE not found in environment. Provide --start YYYY-MM-DD or set START_DATE in .env."
+                )
+            start_raw = settings.start
+            env_sources["START_DATE"] = settings.start
+        if not end_raw:
+            if not settings.end:
+                _usage_error(
+                    "END_DATE not found in environment. Provide --end YYYY-MM-DD or set END_DATE in .env."
+                )
+            end_raw = settings.end
+            env_sources["END_DATE"] = settings.end
+
+    assert start_raw is not None and end_raw is not None
+    start_dt = _parse_date_value(start_raw, tz, "start")
+    end_dt = _parse_date_value(end_raw, tz, "end")
+    if start_dt >= end_dt:
+        _usage_error(
+            f"Start date {start_dt.date().isoformat()} is not before end date {end_dt.date().isoformat()}. "
+            "Ensure the range increases over time."
+        )
+    return BacktestValidationResult(
+        start=start_dt.date().isoformat(),
+        end=end_dt.date().isoformat(),
+        tz=tz_name,
+        window=None,
+        env_sources=env_sources,
+    )
+
 
 # -----------------------------------------------------------------------------
 # Annualization helpers for different asset classes and bar intervals
@@ -100,13 +244,22 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     """Run a full backtest with asset-aware costs and interval-aware metrics."""
     s = settings or load_settings()
     setup_app_logging(s.log_level)
+    validation = validate_backtest_args(args, s)
+    if validation.env_sources:
+        pairs = ", ".join(
+            f"{key}={value}" for key, value in sorted(validation.env_sources.items())
+        )
+        logger.info("Date window resolved from .env (%s)", pairs)
+
     ensure_dirs()
     logger.info("Starting backtest via CLI")
 
     # Resolve CLI or .env defaults
     symbol = args.symbol or s.symbol
-    start = args.start or s.start
-    end = args.end or s.end
+    start = validation.start
+    end = validation.end
+    tz_name = validation.tz
+    window_spec = validation.window
     asset_class = (args.asset_class or s.asset_class).lower()
 
     run_ctx = new_run(symbol, args.strategy)
@@ -154,6 +307,8 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             "strategy": args.strategy,
             "start": start,
             "end": end,
+            "tz": tz_name,
+            "window": window_spec,
             "asset_class": asset_class,
             "interval": args.interval,
             "dollar_per_trade": args.dollar_per_trade,
@@ -208,10 +363,35 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     p.add_argument(
         "--start",
         default=None,
-        help="Start date YYYY-MM-DD (defaults to .env START_DATE)",
+        help=(
+            "Start date YYYY-MM-DD. Required unless --window is supplied. "
+            "Pairs with --end."
+        ),
     )
     p.add_argument(
-        "--end", default=None, help="End date YYYY-MM-DD (defaults to .env END_DATE)"
+        "--end",
+        default=None,
+        help=(
+            "End date YYYY-MM-DD. Required unless --window is supplied. "
+            "Pairs with --start."
+        ),
+    )
+    p.add_argument(
+        "--window",
+        default=None,
+        help=("ISO-8601 duration (e.g., P90D). Mutually exclusive with --start/--end."),
+    )
+    p.add_argument(
+        "--tz",
+        default="UTC",
+        help="Time zone for window parsing. Accepts IANA names; default UTC.",
+    )
+    p.add_argument(
+        "--allow-env-dates",
+        action="store_true",
+        help=(
+            "Permit fallback to .env START_DATE/END_DATE. Future runs will log when used."
+        ),
     )
 
     # NEW: asset class and interval

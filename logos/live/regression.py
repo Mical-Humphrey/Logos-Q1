@@ -11,7 +11,7 @@ import textwrap
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
+from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
 from .broker_alpaca import AlpacaBrokerAdapter
 from .broker_base import (

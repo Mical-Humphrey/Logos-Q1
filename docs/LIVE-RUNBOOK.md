@@ -6,6 +6,17 @@ controls required to operate the system without touching real broker endpoints.
 
 ---
 
+## Backtest Input Contract *(Phase 2 prerequisite)*
+- Provide either a `[--start YYYY-MM-DD --end YYYY-MM-DD]` pair or a single `--window` ISO-8601 duration (for example `P45D`) when launching backtests.
+- `--tz` specifies the timezone used to interpret date strings (default `UTC`). Offsets supplied in ISO timestamps are honoured.
+- Use `--allow-env-dates` only when you deliberately want the legacy `.env` fallback; the CLI logs the environment keys consumed whenever this path is exercised.
+- Empty, reversed, or otherwise invalid windows transition to hard failures once the validator hooks land later in Phase 2.
+- Validation runs before any run directories are created. Missing or malformed parameters exit immediately with a descriptive fix, preventing accidental artifact creation.
+
+> **Migration example:** `python -m logos.cli backtest --symbol MSFT --strategy momentum` ➜ `python -m logos.cli backtest --symbol MSFT --strategy momentum --window P60D`
+
+---
+
 ## Deterministic Translator Drill *(FR-001 · SC-001)*
 1. Activate the project virtualenv and ensure dependencies are installed (`pip install -r requirements.txt`).
 2. Confirm fixtures exist at `tests/fixtures/live/regression_default/` (bars, account, symbols).

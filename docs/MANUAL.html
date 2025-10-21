@@ -89,8 +89,12 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
 <h2>3) Running Backtests</h2>
 <div class="card">
 <p>Example command:</p>
-<pre><code>python -m logos.cli backtest --symbol TSLA --strategy momentum --asset-class equity --start 2020-01-01 --end 2024-12-31 --paper</code></pre>
+<pre><code>python -m logos.cli backtest --symbol TSLA --strategy momentum --asset-class equity --window P365D --tz America/New_York --paper</code></pre>
 <ul>
+  <li>Provide either <code>--start</code>/<code>--end</code> (YYYY-MM-DD) or a single <code>--window</code> ISO-8601 duration (e.g. <code>P90D</code>). Mixing the two will become invalid once the validator is wired.</li>
+  <li>Use <code>--tz</code> to interpret date inputs in a specific timezone (default: <code>UTC</code>). ISO timestamps with offsets are respected.</li>
+  <li>Pass <code>--allow-env-dates</code> if you intentionally want to fall back to <code>.env</code> <code>START_DATE</code>/<code>END_DATE</code>. The CLI will log when this legacy path is used.</li>
+  <li>If neither option is supplied the CLI exits early (code 2) with a remediation hint, and it does so before any run directories or downloads are created.</li>
   <li>Use <code>--asset-class</code> to switch between <code>equity</code>, <code>crypto</code>, or <code>forex</code>.</li>
   <li>Add <code>--paper</code> to simulate fills without touching a broker.</li>
   <li>Results stored in <code>runs/</code> (CSV trade log + PNG equity curve).</li>
