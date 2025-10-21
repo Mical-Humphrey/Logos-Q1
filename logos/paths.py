@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 from typing import Iterable
+
+from core.io import dirs as core_dirs
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -60,10 +63,26 @@ def _default_dirs() -> list[Path]:
     ]
 
 
+_ENSURE_DIRS_DEPRECATED = False
+
+
 def ensure_dirs(extra: Iterable[Path] | None = None) -> None:
     """Create canonical directories (and any extras supplied)."""
-    for path in list(_default_dirs()) + list(extra or []):
-        path.mkdir(parents=True, exist_ok=True)
+
+    global _ENSURE_DIRS_DEPRECATED
+    if not _ENSURE_DIRS_DEPRECATED:
+        warnings.warn(
+            "logos.paths.ensure_dirs is deprecated; use core.io.dirs.ensure_dirs",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        _ENSURE_DIRS_DEPRECATED = True
+
+    paths = list(_default_dirs())
+    if extra:
+        paths.extend(Path(p) for p in extra)
+
+    core_dirs.ensure_dirs(paths)
 
 
 def resolve_cache_subdir(asset_class: str) -> Path:
