@@ -12,11 +12,16 @@
 #   - Functions are defensive: empty inputs return 0.0 to keep backtests flowing.
 # =============================================================================
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 
+from logos.utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
+
 
 def cagr(equity: pd.Series, periods_per_year: int) -> float:
+    require_datetime_index(equity, context="backtest.metrics.cagr(equity)")
+    ensure_no_object_dtype(equity, context="backtest.metrics.cagr(equity)")
     eq = equity.dropna().astype(float)
     if eq.empty:
         return 0.0
@@ -28,6 +33,7 @@ def cagr(equity: pd.Series, periods_per_year: int) -> float:
 
 
 def sharpe(returns: pd.Series, periods_per_year: int, risk_free: float = 0.0) -> float:
+    require_datetime_index(returns, context="backtest.metrics.sharpe(returns)")
     rets = returns.dropna().astype(float)
     if len(rets) == 0 or rets.std(ddof=0) == 0:
         return 0.0
@@ -36,6 +42,8 @@ def sharpe(returns: pd.Series, periods_per_year: int, risk_free: float = 0.0) ->
 
 
 def max_drawdown(equity: pd.Series) -> float:
+    require_datetime_index(equity, context="backtest.metrics.max_drawdown(equity)")
+    ensure_no_object_dtype(equity, context="backtest.metrics.max_drawdown(equity)")
     eq = equity.dropna().astype(float)
     if eq.empty:
         return 0.0
@@ -52,6 +60,8 @@ def win_rate(trade_pnls: pd.Series) -> float:
 
 
 def exposure(positions: pd.Series) -> float:
+    require_datetime_index(positions, context="backtest.metrics.exposure(positions)")
+    ensure_no_object_dtype(positions, context="backtest.metrics.exposure(positions)")
     pos = positions.fillna(0).abs()
     if len(pos) == 0:
         return 0.0

@@ -62,6 +62,7 @@ The backtest CLI spins up a portfolio simulation using historical data. Results 
 - **UTC normalization:** tz-aware timestamps or `--tz` inputs are converted to UTC immediately; provenance files capture both the normalized bounds and the original timezone label.
 - **Duration conversion example:** `python -m logos.cli backtest --symbol DEMO --strategy mean_reversion --window P5D --paper --tz America/New_York` resolves to `start=2024-03-25T00:00:00+00:00`, `end=2024-03-30T00:00:00+00:00` when launched on `2024-03-30` (UTC midnight anchor).
 - **Explicit bounds example:** `--start 2024-06-01T09:30:00-04:00 --end 2024-06-05T16:00:00-04:00 --tz America/New_York` becomes `2024-06-01T13:30:00+00:00 → 2024-06-05T20:00:00+00:00` internally.
+- **Bar-count assurance:** `tests/test_barcount_windows.py` covers DST fallback (expect 7 NYSE sessions), leap day spans (Feb 29 retained), and month-end crossovers (July 31 → Aug 2 yields three closes) so downstream analytics see predictable row counts when `[start, end)` windows traverse calendar edges.
 
 > **Migration note:** Prior releases silently read `.env` defaults when `--start/--end` were omitted. Phase 2 hardening requires an explicit window. Example:
 > - Before: `python -m logos.cli backtest --symbol MSFT --strategy momentum`

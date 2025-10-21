@@ -25,6 +25,10 @@ controls required to operate the system without touching real broker endpoints.
 - Treat UTC as canonical. tz-aware bounds like `--start 2024-06-01T09:30:00-04:00 --end 2024-06-05T16:00:00-04:00` normalize to `2024-06-01T13:30:00+00:00 → 2024-06-05T20:00:00+00:00`; daylight shifts merely change how many bars load.
 - Use `.iloc` for positional loops (warm-up windows, rolling computations) and reserve `.loc` for label-based lookups against tz-aware `DatetimeIndex` columns. This contract keeps regression artifacts portable across feeds and timezones.
 - Regression fixtures and `metrics.json` now embed `window.start_utc`, `window.end_utc`, and `timezone_label` so live rehearsals can be audited against offline results.
+- Bar-count coverage now explicitly exercises DST, leap-day, and month-end slices (`tests/test_barcount_windows.py`). Expect:
+	- DST fallback window (2024-10-31 → 2024-11-08) to deliver 7 NYSE trading sessions.
+	- Leap day span (2024-02-28 → 2024-03-04) to retain Feb 29 alongside the surrounding business days.
+	- Month-end crossover (2024-07-31 → 2024-08-02) to surface three consecutive closes, demonstrating `[start, end)` semantics across calendar flips.
 
 > **DST assurance:** Because the validator runs in UTC, month-end and DST edges cannot silently truncate your dataset; watch the validator output for the normalized bounds when investigating missing bars.
 

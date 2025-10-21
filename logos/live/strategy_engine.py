@@ -10,6 +10,7 @@ from typing import Callable, Deque, Dict, Iterable, List, TypedDict, cast
 import pandas as pd
 
 from logos.strategies import STRATEGIES
+from logos.utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
 from logos.utils.indexing import last_value
 
 from .broker_base import BrokerAdapter, OrderIntent, SymbolMeta
@@ -78,6 +79,8 @@ class StrategyOrderGenerator:
 
         frame = pd.DataFrame(list(self._bars)).set_index("Timestamp")
         frame = frame[~frame.index.duplicated(keep="last")].sort_index()
+        require_datetime_index(frame, context="StrategyOrderGenerator.process(frame)")
+        ensure_no_object_dtype(frame, context="StrategyOrderGenerator.process(frame)")
         if frame.empty:
             return []
 

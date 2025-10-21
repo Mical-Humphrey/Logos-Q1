@@ -14,6 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
+from logos.utils.atomic import atomic_write_text
 from logos.window import Window, UTC
 
 from .broker_alpaca import AlpacaBrokerAdapter
@@ -242,10 +243,10 @@ def _write_adapter_logs(
 ) -> Path:
     log_path = paths.artifacts_dir / ADAPTER_LOG_FILENAME
     if not entries:
-        log_path.write_text("[]\n", encoding="utf-8")
+        atomic_write_text(log_path, "[]\n", encoding="utf-8")
         return log_path
     serialized = "\n".join(json.dumps(dict(item), sort_keys=True) for item in entries)
-    log_path.write_text(serialized + "\n", encoding="utf-8")
+    atomic_write_text(log_path, serialized + "\n", encoding="utf-8")
     return log_path
 
 
@@ -532,8 +533,10 @@ def _run_pipeline(
         "window": config.window.to_dict(),
     }
 
-    paths.provenance_file.write_text(
-        json.dumps(provenance_payload, indent=2, sort_keys=True), encoding="utf-8"
+    atomic_write_text(
+        paths.provenance_file,
+        json.dumps(provenance_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
     )
 
     session_lines = [
@@ -552,7 +555,9 @@ def _run_pipeline(
     ]
     if adapter_name:
         session_lines.insert(-2, f"- Adapter Name: {adapter_name}")
-    paths.session_file.write_text("\n".join(session_lines) + "\n", encoding="utf-8")
+    atomic_write_text(
+        paths.session_file, "\n".join(session_lines) + "\n", encoding="utf-8"
+    )
 
     adapter_log_path: Path | None = None
     if adapter_mode_label != "paper":

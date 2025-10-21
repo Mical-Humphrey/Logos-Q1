@@ -24,6 +24,7 @@ from .paths import (
 )
 from .logging_setup import attach_run_file_handler, detach_handler
 from .window import Window
+from .utils.atomic import atomic_write, atomic_write_text
 
 # Timestamp format: 2025-10-19_1702
 TS_FMT = "%Y-%m-%d_%H%M%S"
@@ -134,8 +135,10 @@ def write_config(
     payload = {"config": config}
     if env:
         payload["env"] = env
-    ctx.config_file.write_text(
-        yaml.safe_dump(payload, sort_keys=False), encoding="utf-8"
+    atomic_write_text(
+        ctx.config_file,
+        yaml.safe_dump(payload, sort_keys=False),
+        encoding="utf-8",
     )
 
 
@@ -148,24 +151,33 @@ def write_metrics(
     }
     if provenance:
         serializable["provenance"] = provenance
-    ctx.metrics_file.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
+    atomic_write_text(
+        ctx.metrics_file, json.dumps(serializable, indent=2), encoding="utf-8"
+    )
 
 
 def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None:
     if isinstance(trades, pd.DataFrame):
-        trades.to_csv(ctx.trades_file, index=False)
-    else:
-        rows = trades if isinstance(trades, (list, tuple)) else []
+
+        def _write_frame(fh: Any) -> None:
+            trades.to_csv(fh, index=False)
+
+        atomic_write(ctx.trades_file, _write_frame, newline="")
+        return
+
+    rows = trades if isinstance(trades, (list, tuple)) else []
+
+    def _write_rows(fh: Any) -> None:
         if rows and isinstance(rows[0], dict):
             fieldnames = list(rows[0].keys())
-            with ctx.trades_file.open("w", newline="", encoding="utf-8") as fh:
-                dict_writer = csv.DictWriter(fh, fieldnames=fieldnames)
-                dict_writer.writeheader()
-                dict_writer.writerows(rows)  # type: ignore[arg-type]
+            dict_writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            dict_writer.writeheader()
+            dict_writer.writerows(rows)  # type: ignore[arg-type]
         else:
-            with ctx.trades_file.open("w", newline="", encoding="utf-8") as fh:
-                row_writer = csv.writer(fh)
-                row_writer.writerows(rows)  # type: ignore[arg-type]
+            row_writer = csv.writer(fh)
+            row_writer.writerows(rows)  # type: ignore[arg-type]
+
+    atomic_write(ctx.trades_file, _write_rows, newline="")
 
 
 def write_provenance(
@@ -205,7 +217,7 @@ def write_provenance(
                 "tz": maybe_window.get("tz") or maybe_window.get("timezone") or "UTC",
             }
     path = ctx.run_dir / "provenance.json"
-    path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(serializable, indent=2), encoding="utf-8")
     return path
 
 
@@ -213,7 +225,7 @@ def write_session_markdown(ctx: RunContext, lines: list[str]) -> Path:
     """Write a concise markdown summary for the run."""
     path = ctx.run_dir / "session.md"
     content = "\n".join(lines).rstrip() + "\n"
-    path.write_text(content, encoding="utf-8")
+    atomic_write_text(path, content, encoding="utf-8")
     return path
 
 

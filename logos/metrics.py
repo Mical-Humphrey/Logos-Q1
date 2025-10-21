@@ -3,10 +3,13 @@ import math
 import numpy as np
 import pandas as pd
 
+from .utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
+
 TRADING_DAYS = 252
 
 
 def _clean_returns(r: pd.Series) -> pd.Series:
+    ensure_no_object_dtype(r, context="metrics._clean_returns(returns)")
     r = r.replace([np.inf, -np.inf], np.nan).dropna()
     if r.std(ddof=0) == 0:
         return pd.Series([], dtype=float)
@@ -14,6 +17,8 @@ def _clean_returns(r: pd.Series) -> pd.Series:
 
 
 def cagr(equity: pd.Series, periods_per_year: int = TRADING_DAYS) -> float:
+    require_datetime_index(equity, context="metrics.cagr(equity)")
+    ensure_no_object_dtype(equity, context="metrics.cagr(equity)")
     equity = equity.replace([np.inf, -np.inf], np.nan).dropna()
     if equity.empty:
         return 0.0
@@ -24,6 +29,7 @@ def cagr(equity: pd.Series, periods_per_year: int = TRADING_DAYS) -> float:
 
 def volatility(returns: pd.Series, periods_per_year: int = TRADING_DAYS) -> float:
     r = _clean_returns(returns)
+    require_datetime_index(returns, context="metrics.volatility(returns)")
     if r.empty:
         return 0.0
     return float(r.std(ddof=0) * math.sqrt(periods_per_year))
@@ -34,6 +40,7 @@ def sharpe(
     risk_free_rate: float = 0.0,
     periods_per_year: int = TRADING_DAYS,
 ) -> float:
+    require_datetime_index(returns, context="metrics.sharpe(returns)")
     r = _clean_returns(returns)
     if r.empty:
         return 0.0
@@ -49,6 +56,7 @@ def sortino(
     risk_free_rate: float = 0.0,
     periods_per_year: int = TRADING_DAYS,
 ) -> float:
+    require_datetime_index(returns, context="metrics.sortino(returns)")
     r = _clean_returns(returns)
     if r.empty:
         return 0.0
@@ -62,6 +70,8 @@ def sortino(
 
 
 def max_drawdown(equity: pd.Series) -> float:
+    require_datetime_index(equity, context="metrics.max_drawdown(equity)")
+    ensure_no_object_dtype(equity, context="metrics.max_drawdown(equity)")
     eq = equity.replace([np.inf, -np.inf], np.nan).dropna()
     if eq.empty:
         return 0.0
@@ -73,6 +83,8 @@ def max_drawdown(equity: pd.Series) -> float:
 def exposure(positions: pd.Series) -> float:
     if positions is None or len(positions) == 0:
         return 0.0
+    require_datetime_index(positions, context="metrics.exposure(positions)")
+    ensure_no_object_dtype(positions, context="metrics.exposure(positions)")
     mask = positions.abs() > 0
     return float(mask.sum() / len(positions))
 

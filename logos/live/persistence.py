@@ -8,13 +8,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Sequence, TypedDict
+from typing import IO, Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import pandas as pd
 
 from logos.metrics import exposure as exposure_ratio
 from logos.metrics import hit_rate, max_drawdown, sharpe
 from logos.paths import RUNS_LIVE_DIR, safe_slug
+from logos.utils.atomic import atomic_write, atomic_write_text
 
 # We treat the equity curve as daily closes when annualising Sharpe.
 # Minute-level curves can adjust the frequency in a future milestone.
@@ -131,8 +132,10 @@ def write_snapshot(
         "config": _to_primitive(dict(config)),
     }
     paths.snapshot_file.parent.mkdir(parents=True, exist_ok=True)
-    paths.snapshot_file.write_text(
-        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+    atomic_write_text(
+        paths.snapshot_file,
+        json.dumps(payload, indent=2, sort_keys=True),
+        encoding="utf-8",
     )
     return paths.snapshot_file
 
@@ -156,7 +159,8 @@ def write_equity_and_metrics(
     rows.sort(key=lambda row: row["ts"])
 
     paths.artifacts_dir.mkdir(parents=True, exist_ok=True)
-    with paths.equity_curve_csv.open("w", newline="", encoding="utf-8") as fh:
+
+    def _write_equity(fh: IO[str]) -> None:
         writer = csv.writer(fh)
         writer.writerow(["ts", "equity", "cash"])
         for row in rows:
@@ -164,7 +168,12 @@ def write_equity_and_metrics(
                 [row["ts"].isoformat(), f"{row['equity']:.6f}", f"{row['cash']:.6f}"]
             )
 
-    equity_series = pd.Series([row["equity"] for row in rows], dtype=float)
+    atomic_write(paths.equity_curve_csv, _write_equity, newline="")
+
+    equity_index = [pd.Timestamp(row["ts"]) for row in rows]
+    equity_series = pd.Series(
+        [row["equity"] for row in rows], index=equity_index, dtype=float
+    )
     returns = equity_series.pct_change().dropna()
 
     initial_equity = float(equity_series.iloc[0]) if not equity_series.empty else 0.0
@@ -194,7 +203,25 @@ def write_equity_and_metrics(
             turnover_notional += abs(qty * price)
     turnover = turnover_notional / initial_equity if initial_equity else 0.0
 
-    exposure_series = pd.Series(list(exposures), dtype=float)
+    exposure_values = list(exposures)
+    if not exposure_values:
+        exposure_values = [0.0] * max(len(equity_index), 1)
+
+    exposure_index: list[pd.Timestamp] = []
+    if len(equity_index) > 0:
+        exposure_index = list(equity_index[: len(exposure_values)])
+        last_ts = equity_index[-1]
+    else:
+        last_ts = pd.Timestamp.now(tz="UTC")
+
+    if len(exposure_values) > len(exposure_index):
+        step = pd.Timedelta(seconds=1)
+        for i in range(len(exposure_values) - len(exposure_index)):
+            exposure_index.append(last_ts + step * (i + 1))
+    elif len(exposure_values) < len(exposure_index):
+        exposure_index = exposure_index[: len(exposure_values)]
+
+    exposure_series = pd.Series(exposure_values, index=exposure_index, dtype=float)
     exposure_value = (
         float(exposure_ratio(exposure_series)) if not exposure_series.empty else 0.0
     )
@@ -214,8 +241,10 @@ def write_equity_and_metrics(
     if metrics_provenance:
         metrics_payload["provenance"] = dict(metrics_provenance)
 
-    paths.metrics_file.write_text(
-        json.dumps(metrics_payload, indent=2, sort_keys=True), encoding="utf-8"
+    atomic_write_text(
+        paths.metrics_file,
+        json.dumps(metrics_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
     )
     return paths.equity_curve_csv, paths.metrics_file
 

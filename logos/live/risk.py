@@ -94,7 +94,7 @@ def check_circuit_breakers(limits: RiskLimits, ctx: RiskContext) -> RiskDecision
         return RiskDecision(False, "reject_limit_reached")
     if limits.stale_data_threshold_s > 0:
         age = ctx.now_ts - ctx.last_bar_ts
-        if age > limits.stale_data_threshold_s:
+        if age >= limits.stale_data_threshold_s:
             return RiskDecision(False, "data_stale")
     return RiskDecision(True)
 

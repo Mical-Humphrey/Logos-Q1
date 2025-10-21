@@ -22,6 +22,7 @@ from typing import Dict, TypedDict
 import numpy as np
 import pandas as pd
 
+from logos.utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
 from logos.utils.indexing import adjust_at, adjust_from, label_value
 
 from .metrics import cagr, sharpe, max_drawdown, win_rate, exposure
@@ -51,6 +52,11 @@ def run_backtest(
     periods_per_year: int = 252,
 ) -> BacktestResult:
     """Simulate trading given price data and target signals with asset-aware costs."""
+    require_datetime_index(prices, context="run_backtest(prices)")
+    ensure_no_object_dtype(prices, context="run_backtest(prices)")
+    require_datetime_index(signals, context="run_backtest(signals)")
+    ensure_no_object_dtype(signals, context="run_backtest(signals)")
+
     df = prices.copy().sort_index()
     if df.index.has_duplicates:
         df = df[~df.index.duplicated(keep="last")]

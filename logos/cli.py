@@ -48,6 +48,7 @@ from .run_manager import (
     write_trades,
 )
 from .utils import parse_params
+from .utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
 from .data_loader import SyntheticDataNotAllowed, get_prices, last_price_metadata
 from .window import Window
 from .strategies import STRATEGIES
@@ -251,8 +252,13 @@ def periods_per_year(asset_class: str, interval: str) -> int:
 # -----------------------------------------------------------------------------
 def _plot_equity(equity: pd.Series) -> plt.Figure:
     """Render the equity curve and return the Matplotlib figure."""
+    require_datetime_index(equity, context="cli._plot_equity(equity)")
+    ensure_no_object_dtype(equity, context="cli._plot_equity(equity)")
     fig, ax = plt.subplots(figsize=(10, 4))
-    equity.plot(ax=ax, label="Equity Curve")
+    index = cast(pd.DatetimeIndex, equity.index)
+    x_values = index.to_pydatetime()
+    y_values = equity.to_numpy(dtype=float, copy=False)
+    ax.plot(x_values, y_values, label="Equity Curve")
     ax.set_title("Equity Curve")
     ax.set_xlabel("Date")
     ax.set_ylabel("Equity")
