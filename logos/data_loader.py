@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from core.io.dirs import ensure_dir, ensure_dirs
+from core.io.dirs import ensure_dir
 
 from .paths import DATA_RAW_DIR, resolve_cache_subdir
 from .window import Window, UTC
