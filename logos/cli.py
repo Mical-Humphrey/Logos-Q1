@@ -59,6 +59,11 @@ StrategyFunction = Callable[..., pd.Series]
 
 logger = logging.getLogger(__name__)
 
+ERROR_REQUIRES_WINDOW = "requires either --window or --start/--end"
+ERROR_MUTUALLY_EXCLUSIVE = "inputs are mutually exclusive: --window and --start/--end"
+ERROR_INVALID_ISO_DURATION = "invalid ISO duration"
+ERROR_START_BEFORE_END = "Start date is not before end date"
+
 
 @dataclass
 class BacktestValidationResult:
@@ -97,18 +102,14 @@ def _parse_iso_duration(value: str) -> timedelta:
     pattern = re.compile(r"^P(?:(?P<weeks>\d+)W)?(?:(?P<days>\d+)D)?$")
     match = pattern.match(token)
     if not match:
-        _usage_error(
-            f"Window '{value}' is not a supported ISO-8601 duration. Use formats like P90D or P12W."
-        )
+        _usage_error(f"{ERROR_INVALID_ISO_DURATION}: {value}")
         raise AssertionError("unreachable")
     assert match is not None
     weeks = int(match.group("weeks")) if match.group("weeks") else 0
     days = int(match.group("days")) if match.group("days") else 0
     total_days = weeks * 7 + days
     if total_days <= 0:
-        _usage_error(
-            f"Window '{value}' must represent at least one day. Example: P30D for the last 30 days."
-        )
+        _usage_error(f"{ERROR_INVALID_ISO_DURATION}: {value}")
     return timedelta(days=total_days)
 
 
@@ -146,7 +147,7 @@ def validate_backtest_args(
     allow_env = bool(getattr(args, "allow_env_dates", False))
 
     if window_raw and (start_raw or end_raw):
-        _usage_error("Pass either --window or the --start/--end pair, but not both.")
+        _usage_error(ERROR_MUTUALLY_EXCLUSIVE)
 
     env_sources: Dict[str, str] = {}
 
@@ -157,9 +158,7 @@ def validate_backtest_args(
         end_date = end_dt.date()
         start_date = end_date - duration
         if start_date >= end_date:
-            _usage_error(
-                f"Window '{window_raw}' collapses to an empty range. Increase the duration (e.g. P2D)."
-            )
+            _usage_error(f"{ERROR_START_BEFORE_END}: window={window_raw}")
         window_obj = Window.from_bounds(start=start_date, end=end_date, zone=tz)
         return BacktestValidationResult(
             window=window_obj,
@@ -171,8 +170,7 @@ def validate_backtest_args(
     if not start_raw or not end_raw:
         if not allow_env:
             _usage_error(
-                "Backtest requires either --window ISO-8601 duration or both --start and --end. "
-                "Re-run with explicit values or add --allow-env-dates to use .env START_DATE/END_DATE."
+                f"{ERROR_REQUIRES_WINDOW}; pass --allow-env-dates to use START_DATE/END_DATE"
             )
         if not start_raw:
             if not settings.start:
@@ -194,8 +192,7 @@ def validate_backtest_args(
     end_dt = _parse_date_value(end_raw, tz, "end")
     if start_dt >= end_dt:
         _usage_error(
-            f"Start date {start_dt.date().isoformat()} is not before end date {end_dt.date().isoformat()}. "
-            "Ensure the range increases over time."
+            f"{ERROR_START_BEFORE_END}: start={start_dt.isoformat()} end={end_dt.isoformat()}"
         )
     window_obj = Window.from_bounds(start=start_dt, end=end_dt, zone=tz)
     return BacktestValidationResult(
@@ -259,10 +256,13 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     setup_app_logging(s.log_level)
     validation = validate_backtest_args(args, s)
     if validation.env_sources:
-        pairs = ", ".join(
-            f"{key}={value}" for key, value in sorted(validation.env_sources.items())
+        start_label = validation.window.start_in_label_timezone().isoformat()
+        end_label = validation.window.end_in_label_timezone().isoformat()
+        logger.info(
+            "Using dates from environment: START=%s, END=%s",
+            start_label,
+            end_label,
         )
-        logger.info("Date window resolved from .env (%s)", pairs)
 
     ensure_dirs()
     logger.info("Starting backtest via CLI")
@@ -415,7 +415,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         metrics_provenance: Dict[str, object] = {
             "synthetic": synthetic_used,
             "window": window_payload,
-            "timezone": window_payload.get("timezone", tz_name),
+            "timezone": window_payload.get("tz", tz_name),
         }
         if seeds:
             metrics_provenance["seeds"] = seeds

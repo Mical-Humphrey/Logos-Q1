@@ -77,7 +77,7 @@ def test_validate_rejects_reversed_dates(
             now=lambda tz: datetime(2024, 3, 1, tzinfo=tz),
         )
     captured = capsys.readouterr()
-    assert "Start date 2024-03-01 is not before end date 2024-01-01" in captured.err
+    assert "Start date is not before end date" in captured.err
 
 
 def test_validate_rejects_invalid_window(
@@ -90,7 +90,7 @@ def test_validate_rejects_invalid_window(
             now=lambda tz: datetime(2024, 3, 1, tzinfo=tz),
         )
     captured = capsys.readouterr()
-    assert "not a supported ISO-8601 duration" in captured.err
+    assert "invalid ISO duration" in captured.err
 
 
 def test_validate_accepts_explicit_dates(sample_settings: Settings) -> None:
