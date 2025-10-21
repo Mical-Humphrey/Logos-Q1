@@ -110,8 +110,11 @@ def run_backtest(
     mkt_value = position * close
     equity = (cash.cumsum() + mkt_value).ffill()
 
-    # Returns at bar frequency (intraday-friendly)
-    returns = equity.pct_change().fillna(0.0)
+    # Returns at bar frequency (intraday-friendly). Guard against divisions by
+    # zero when the equity curve crosses or starts at zero so downstream
+    # metrics never see +/-inf.
+    returns = equity.pct_change(fill_method=None)
+    returns = returns.replace([np.inf, -np.inf], 0.0).fillna(0.0)
 
     # Crude trade PnL proxy: mark realized PnL when absolute position decreases
     trade_marks = position.abs().diff() < 0

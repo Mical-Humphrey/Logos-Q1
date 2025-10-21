@@ -109,7 +109,7 @@ def test_indexing_adjust_from_uses_loc_with_timestamp() -> None:
 
 
 def test_indexing_adjust_at_uses_loc_with_timestamp() -> None:
-    idx = pd.date_range("2024-02-01", periods=3, freq="H", tz="UTC")
+    idx = pd.date_range("2024-02-01", periods=3, freq="h", tz="UTC")
     series = SpySeries([1.0, 1.0, 1.0], index=idx)
 
     adjust_at(series, idx[1], -0.25)

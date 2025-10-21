@@ -1,16 +1,14 @@
 from __future__ import annotations
-
 import logging
-
 import pytest
-
 from core.io.dirs import DirectoryCreationError
-
 import logos.logging_setup as logging_setup
 
 
 @pytest.fixture(autouse=True)
 def reset_root_logger():
+    """Restore the root logger between tests to avoid cross-test leakage."""
+
     original_handlers = list(logging.getLogger().handlers)
     try:
         yield
@@ -22,6 +20,7 @@ def reset_root_logger():
         for handler in original_handlers:
             root.addHandler(handler)
         logging_setup._configured = False
+        logging_setup._live_handler = None
 
 
 def test_setup_app_logging_logs_directory_creation(tmp_path, monkeypatch, caplog):
@@ -39,9 +38,13 @@ def test_setup_app_logging_logs_directory_creation(tmp_path, monkeypatch, caplog
 
     logging_setup.setup_app_logging()
 
-    messages = [record.message for record in caplog.records if record.name == "core.io.dirs"]
+    messages = [
+        record.message for record in caplog.records if record.name == "core.io.dirs"
+    ]
     expected_path = str(app_logs.resolve())
-    assert any("created dir" in message and expected_path in message for message in messages)
+    assert any(
+        "created dir" in message and expected_path in message for message in messages
+    )
 
 
 def test_setup_app_logging_respects_auto_create_disabled(tmp_path, monkeypatch):

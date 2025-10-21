@@ -19,24 +19,69 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, cast
+from typing import Any, Dict, cast
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from core.io.dirs import ensure_dir
+from core.io.dirs import ensure_dir, ensure_dirs as _ensure_dirs
 
 from .paths import DATA_RAW_DIR, resolve_cache_subdir
+from .symbols import canonicalize_symbol
 from .window import Window, UTC
 
 logger = logging.getLogger(__name__)
+
+# Re-export for caller monkeypatch compatibility in tests.
+ensure_dirs = _ensure_dirs
 
 SUPPORTED_NATIVE = {"1d", "60m", "1h", "30m", "15m", "10m", "5m"}
 
 GENERATOR_VERSION = "synthetic-ohlcv-v1"
 
 _LAST_PRICE_METADATA: dict[str, Any] | None = None
+
+
+def _normalized_pandas_frequency(interval: str) -> str:
+    """Return a pandas-friendly frequency string for resampling/date ranges."""
+
+    token = interval.strip()
+    if not token:
+        return token
+    lower = token.lower()
+    if lower.endswith("min"):
+        return lower
+    if lower.endswith("m"):
+        prefix = lower[:-1]
+        if not prefix:
+            return "1min"
+        if prefix.isdigit():
+            return f"{prefix}min"
+        return lower
+    if lower.endswith("h"):
+        prefix = lower[:-1]
+        if not prefix:
+            return "60min"
+        if prefix.isdigit():
+            minutes = int(prefix) * 60
+            return f"{minutes}min"
+        return lower
+    if lower.endswith("day"):
+        prefix = lower[:-3]
+        if not prefix:
+            return "1D"
+        if prefix.isdigit():
+            return f"{prefix}D"
+        return lower
+    if lower.endswith("d"):
+        prefix = lower[:-1]
+        if not prefix:
+            return "1D"
+        if prefix.isdigit():
+            return f"{prefix}D"
+        return lower
+    return lower
 
 
 class SyntheticDataNotAllowed(RuntimeError):
@@ -142,7 +187,7 @@ def _covers_range(df: pd.DataFrame, start: str, end: str) -> bool:
 
 def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     """Resample daily bars to intraday with sane OHLCV aggregation."""
-    rule = interval.lower().replace("1h", "60min").replace("m", "min").replace("d", "D")
+    rule = _normalized_pandas_frequency(interval)
     ohlc = {
         "Open": "first",
         "High": "max",
@@ -157,14 +202,15 @@ def _resample_ohlcv(df: pd.DataFrame, interval: str) -> pd.DataFrame:
 
 def _expand_daily_to_intraday(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     """Expand daily data to a finer interval by repeating daily values."""
-    freq = interval.lower()
-    if freq in {"1d", "1day", "24h"}:
+    requested = interval.strip().lower()
+    if requested in {"1d", "1day", "24h"}:
         return df.copy()
     try:
+        freq = _normalized_pandas_frequency(interval)
         step = pd.Timedelta(freq)
     except ValueError:
         # Fall back to pandas-friendly alias (e.g., 60m -> 60min)
-        freq = freq.replace("m", "min")
+        freq = _normalized_pandas_frequency(freq)
         step = pd.Timedelta(freq)
     per_day = max(int(pd.Timedelta("1D") / step), 1)
     if not isinstance(df.index, pd.DatetimeIndex):
@@ -204,11 +250,11 @@ def _generate_synthetic_ohlcv(
     meta: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Produce deterministic pseudo-random OHLCV data when remote data is unavailable."""
-    freq = interval.lower()
+    freq = _normalized_pandas_frequency(interval)
     try:
         pd.Timedelta(freq)
     except ValueError:
-        freq = freq.replace("m", "min")
+        freq = _normalized_pandas_frequency(freq)
 
     start_ts = pd.to_datetime(start)
     end_ts = pd.to_datetime(end)
@@ -443,6 +489,7 @@ def _load_crypto_prices(
     *,
     allow_synthetic: bool,
     meta: dict[str, Any],
+    download_symbol: str | None = None,
 ) -> pd.DataFrame:
     """Crypto loader: prefer Yahoo Finance symbols like BTC-USD."""
     try:
@@ -452,20 +499,13 @@ def _load_crypto_prices(
             end,
             interval,
             asset_tag="crypto",
+            download_symbol=download_symbol,
             allow_synthetic=allow_synthetic,
             meta=meta,
         )
     except RuntimeError as err:
         logger.error(f"Crypto data fetch failed for {symbol}: {err}")
         raise
-
-
-def _normalize_forex_symbol(symbol: str) -> tuple[str, str]:
-    """Return tuple(original_symbol, yahoo_symbol) with '=X' suffix enforced."""
-    if symbol.upper().endswith("=X"):
-        return symbol.upper(), symbol.upper()
-    yahoo_symbol = f"{symbol.upper()}=X"
-    return symbol.upper(), yahoo_symbol
 
 
 def _load_forex_prices(
@@ -476,11 +516,15 @@ def _load_forex_prices(
     *,
     allow_synthetic: bool,
     meta: dict[str, Any],
+    download_symbol: str | None = None,
 ) -> pd.DataFrame:
-    """Forex loader: map to Yahoo Finance '=X' tickers automatically."""
-    original, yahoo_symbol = _normalize_forex_symbol(symbol)
+    """Forex loader: ensure Yahoo Finance '=X' tickers are respected."""
+    canonical = symbol.upper()
+    if not canonical.endswith("=X"):
+        canonical = f"{canonical}=X"
+    yahoo_symbol = download_symbol or canonical
     return _load_from_yahoo(
-        original,
+        canonical,
         start,
         end,
         interval,
@@ -498,26 +542,33 @@ def get_prices(
     asset_class: str = "equity",
     *,
     allow_synthetic: bool = False,
+    bypass_symbol_validation: bool = False,
 ) -> pd.DataFrame:
-    """Download or load cached OHLCV for a symbol based on its asset class."""
-    loader_map: dict[str, Callable[..., pd.DataFrame]] = {
-        "equity": _load_equity_prices,
-        "crypto": _load_crypto_prices,
-        "forex": _load_forex_prices,
-    }
+    """Download or load cached OHLCV for a symbol based on its asset class.
 
-    asset = asset_class.lower()
-    if asset == "fx":
-        asset = "forex"
+    When ``bypass_symbol_validation`` is True the canonicalization layer will
+    allow unknown symbols to pass through after light normalization. This is
+    primarily intended for research/backfill tooling that needs to experiment
+    with brand new tickers ahead of formal onboarding.
+    """
 
     start_label = window.start_in_label_timezone().date().isoformat()
     end_label = window.end_in_label_timezone().date().isoformat()
     start_iso = window.start.tz_convert(UTC).isoformat()
     end_iso = window.end.tz_convert(UTC).isoformat()
 
-    loader = loader_map.get(asset, _load_equity_prices)
+    canonical = canonicalize_symbol(
+        symbol,
+        asset_class=asset_class,
+        bypass_unknown=bypass_symbol_validation,
+        context="data_loader.get_prices",
+    )
+
+    asset = canonical.asset_class
+
     meta: dict[str, Any] = {
-        "symbol": symbol,
+        "symbol": canonical.symbol,
+        "symbol_input": symbol,
         "start": start_iso,
         "end": end_iso,
         "interval": interval,
@@ -530,19 +581,45 @@ def get_prices(
         "generator": None,
         "fixture_paths": [],
         "cache_paths": [],
-        "download_symbol": None,
+        "download_symbol": canonical.download_symbol,
         "resampled_from": None,
         "window": window.to_dict(),
     }
+    if canonical.ext:
+        meta["symbol_ext"] = deepcopy(canonical.ext)
+    if canonical.alias is not None:
+        meta["symbol_alias"] = canonical.alias
 
-    df = loader(
-        symbol,
-        start_label,
-        end_label,
-        interval,
-        allow_synthetic=allow_synthetic,
-        meta=meta,
-    )
+    if asset == "crypto":
+        df = _load_crypto_prices(
+            canonical.symbol,
+            start_label,
+            end_label,
+            interval,
+            allow_synthetic=allow_synthetic,
+            meta=meta,
+            download_symbol=canonical.download_symbol,
+        )
+    elif asset == "forex":
+        df = _load_forex_prices(
+            canonical.symbol,
+            start_label,
+            end_label,
+            interval,
+            allow_synthetic=allow_synthetic,
+            meta=meta,
+            download_symbol=canonical.download_symbol,
+        )
+    else:
+        df = _load_equity_prices(
+            canonical.symbol,
+            start_label,
+            end_label,
+            interval,
+            allow_synthetic=allow_synthetic,
+            meta=meta,
+        )
+
     meta["row_count"] = int(len(df))
     if not df.empty:
         first_ts = df.index.min()
