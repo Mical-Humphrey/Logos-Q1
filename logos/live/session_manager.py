@@ -59,7 +59,7 @@ def create_session(
 ) -> tuple[SessionPaths, logging.Handler]:
     """Allocate a new session directory tree and logging handler."""
 
-    when = when or dt.datetime.utcnow()
+    when = when or dt.datetime.now(dt.timezone.utc)
     session_id = (
         f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
     )

@@ -21,6 +21,8 @@ build/
 
 # Logs
 *.log
+app.log
+logs/*.log
 
 # OS files
 .DS_Store

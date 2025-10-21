@@ -6,8 +6,7 @@ import sys
 from typing import List, Tuple
 
 from .config import load_settings
-from core.io.dirs import ensure_dirs
-
+from . import paths
 from .paths import (
     APP_LOGS_DIR,
     APP_LOG_FILE,
@@ -22,7 +21,7 @@ Check = Tuple[bool, str]
 
 
 def _check_paths() -> List[Check]:
-    ensure_dirs()
+    paths.ensure_dirs()
     return [
         (APP_LOGS_DIR.exists(), f"log directory exists -> {APP_LOGS_DIR}"),
         (

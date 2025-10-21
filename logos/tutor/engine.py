@@ -23,7 +23,7 @@ import json
 import logging
 import shutil
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
 
@@ -105,7 +105,7 @@ def lesson(
     """Decorator to register lesson handlers and their CLI description."""
 
     def decorator(
-        func: Callable[[LessonContext], None]
+        func: Callable[[LessonContext], None],
     ) -> Callable[[LessonContext], None]:
         LESSON_HANDLERS[name] = func
         LESSON_DESCRIPTIONS[name] = description
@@ -131,7 +131,7 @@ def _prepare_run_dirs(lesson_name: str) -> tuple[Path, Path, Path, str]:
     ensure_dir(lessons_root)
     lesson_dir = lessons_root / lesson_name
     ensure_dir(lesson_dir)
-    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     run_dir = lesson_dir / stamp
     ensure_dir(run_dir)
     plots_dir = run_dir / "plots"

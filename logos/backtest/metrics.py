@@ -34,7 +34,7 @@ def cagr(equity: pd.Series, periods_per_year: int) -> float:
 
 def sharpe(returns: pd.Series, periods_per_year: int, risk_free: float = 0.0) -> float:
     require_datetime_index(returns, context="backtest.metrics.sharpe(returns)")
-    rets = returns.dropna().astype(float)
+    rets = returns.replace([np.inf, -np.inf], np.nan).dropna().astype(float)
     if len(rets) == 0 or rets.std(ddof=0) == 0:
         return 0.0
     excess = rets - (risk_free / periods_per_year)
