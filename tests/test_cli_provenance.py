@@ -138,9 +138,13 @@ def test_provenance_marks_real_runs(monkeypatch, tmp_path, base_settings):
     provenance = json.loads(run_ctx.run_dir.joinpath("provenance.json").read_text())
     assert provenance["data_source"] == "real"
     assert provenance["data_details"]["synthetic"] is False
+    assert provenance["window"]["tz"] == "UTC"
+    assert provenance["window"]["start_iso"].startswith("2024-01-01")
+    assert provenance["window"]["end_iso"].startswith("2024-01-10")
 
     metrics_payload = json.loads(run_ctx.metrics_file.read_text())
     assert metrics_payload["provenance"]["synthetic"] is False
+    assert metrics_payload["provenance"]["window"]["tz"] == "UTC"
 
     session_text = run_ctx.run_dir.joinpath("session.md").read_text()
     assert session_text.startswith("# Session Summary")
@@ -189,9 +193,11 @@ def test_provenance_marks_synthetic_runs(monkeypatch, tmp_path, base_settings):
     assert provenance["data_source"] == "synthetic"
     assert provenance["data_details"]["synthetic"] is True
     assert provenance["data_details"]["generator"] == "synthetic-ohlcv-v1"
+    assert provenance["window"]["tz"] == "UTC"
 
     metrics_payload = json.loads(run_ctx.metrics_file.read_text())
     assert metrics_payload["provenance"]["synthetic"] is True
+    assert metrics_payload["provenance"]["window"]["tz"] == "UTC"
 
     session_text = run_ctx.run_dir.joinpath("session.md").read_text()
     assert session_text.startswith("# SYNTHETIC RUN")

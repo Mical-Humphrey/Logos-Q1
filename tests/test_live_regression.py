@@ -55,11 +55,12 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
     metrics_payload = json.loads(result.artifacts.metrics.read_text(encoding="utf-8"))
     assert metrics_payload["provenance"]["dataset"].endswith("regression_default")
     assert (
-        metrics_payload["provenance"]["window"]["start"]
+        metrics_payload["provenance"]["window"]["start_iso"]
         == FIXTURE_WINDOW.start.isoformat()
     )
     assert (
-        metrics_payload["provenance"]["window"]["end"] == FIXTURE_WINDOW.end.isoformat()
+        metrics_payload["provenance"]["window"]["end_iso"]
+        == FIXTURE_WINDOW.end.isoformat()
     )
     provenance_payload = json.loads(
         result.artifacts.provenance.read_text(encoding="utf-8")
@@ -67,8 +68,8 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
     assert provenance_payload["data_source"] == "fixture"
     assert provenance_payload["data_details"]["bars"] == 3
     window_payload = provenance_payload["window"]
-    assert window_payload["start"] == FIXTURE_WINDOW.start.isoformat()
-    assert window_payload["end"] == FIXTURE_WINDOW.end.isoformat()
+    assert window_payload["start_iso"] == FIXTURE_WINDOW.start.isoformat()
+    assert window_payload["end_iso"] == FIXTURE_WINDOW.end.isoformat()
     assert provenance_payload["data_details"]["window"] == window_payload
 
 

@@ -198,3 +198,16 @@
 1 Failed download:
 2025-10-21 09:26:59,658 | ERROR | yfinance | ['FAKE_SYNTH']: YFTzMissingError('possibly delisted; no timezone found')
 2025-10-21 09:26:59,664 | WARNING | logos.data_loader | Yahoo Finance returned no rows for FAKE_SYNTH [1d]. Using fallback data.
+2025-10-21 14:54:25,798 | INFO | __main__ | Starting backtest via CLI
+2025-10-21 14:54:25,809 | INFO | logos.data_loader | Loaded fixture data for MSFT [1d] from /home/mical/code/chat_solution_system/Logos-Q1/input_data/raw/MSFT.csv
+2025-10-21 14:54:25,813 | WARNING | logos.data_loader | No rows available after clipping MSFT [1d] to 2024-11-03 -> 2024-11-03; generating synthetic data.
+2025-10-21 14:54:32,883 | INFO | __main__ | Using dates from environment: START=2024-01-01T00:00:00+00:00, END=2024-02-01T00:00:00+00:00
+2025-10-21 14:54:32,884 | INFO | __main__ | Starting backtest via CLI
+2025-10-21 14:54:32,884 | INFO | __main__ | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-21 14:54:32,893 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-21 14:54:33,728 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-21 14:57:39,498 | INFO | __main__ | Using dates from environment: START=2024-01-01T00:00:00+00:00, END=2024-02-01T00:00:00+00:00
+2025-10-21 14:57:39,499 | INFO | __main__ | Starting backtest via CLI
+2025-10-21 14:57:39,499 | INFO | __main__ | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-21 14:57:39,507 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-21 14:57:40,334 | INFO | __main__ | Paper trading mode enabled: no live broker interactions will be attempted

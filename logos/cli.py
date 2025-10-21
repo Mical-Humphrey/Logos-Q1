@@ -65,6 +65,14 @@ ERROR_INVALID_ISO_DURATION = "invalid ISO duration"
 ERROR_START_BEFORE_END = "Start date is not before end date"
 
 
+def _sorted_strategy_names() -> list[str]:
+    return sorted(STRATEGIES.keys(), key=str.lower)
+
+
+def _format_strategy_list() -> str:
+    return ",".join(_sorted_strategy_names())
+
+
 @dataclass
 class BacktestValidationResult:
     window: Window
@@ -126,9 +134,7 @@ def _parse_date_value(raw: str, tz: ZoneInfo, flag: str) -> datetime:
             _usage_error(
                 f"Could not parse --{flag} value '{raw}'. Use YYYY-MM-DD or an ISO-8601 timestamp."
             )
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=tz)
-    else:
+    if dt.tzinfo is not None:
         dt = dt.astimezone(tz)
     return dt
 
@@ -159,7 +165,12 @@ def validate_backtest_args(
         start_date = end_date - duration
         if start_date >= end_date:
             _usage_error(f"{ERROR_START_BEFORE_END}: window={window_raw}")
-        window_obj = Window.from_bounds(start=start_date, end=end_date, zone=tz)
+        try:
+            window_obj = Window.from_bounds(start=start_date, end=end_date, zone=tz)
+        except ValueError as exc:
+            if "ambiguous timezone input" in str(exc).lower():
+                _usage_error("ambiguous timezone input")
+            raise
         return BacktestValidationResult(
             window=window_obj,
             tz=tz_name,
@@ -190,11 +201,14 @@ def validate_backtest_args(
     assert start_raw is not None and end_raw is not None
     start_dt = _parse_date_value(start_raw, tz, "start")
     end_dt = _parse_date_value(end_raw, tz, "end")
-    if start_dt >= end_dt:
-        _usage_error(
-            f"{ERROR_START_BEFORE_END}: start={start_dt.isoformat()} end={end_dt.isoformat()}"
-        )
-    window_obj = Window.from_bounds(start=start_dt, end=end_dt, zone=tz)
+    try:
+        window_obj = Window.from_bounds(start=start_dt, end=end_dt, zone=tz)
+    except ValueError as exc:
+        if "ambiguous timezone input" in str(exc).lower():
+            _usage_error("ambiguous timezone input")
+        if "start must be strictly before end" in str(exc).lower():
+            _usage_error(f"{ERROR_START_BEFORE_END}: start={start_raw} end={end_raw}")
+        raise
     return BacktestValidationResult(
         window=window_obj,
         tz=tz_name,
@@ -406,7 +420,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             Dict[str, object], dict(window.to_dict())
         )
         if window_spec:
-            window_payload["window"] = window_spec
+            window_payload["spec"] = window_spec
 
         cli_args_map: Dict[str, object] = {
             key: getattr(args, key) for key in sorted(vars(args))
@@ -437,7 +451,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         write_config(run_ctx, config_payload, env=env_payload)
         write_metrics(run_ctx, res["metrics"], provenance=metrics_provenance)
         write_trades(run_ctx, res["trades"])
-        write_provenance(run_ctx, provenance_payload)
+        write_provenance(run_ctx, provenance_payload, window=window)
 
         session_lines = [
             "# SYNTHETIC RUN" if synthetic_used else "# Session Summary",
@@ -484,8 +498,11 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     p.add_argument(
         "--symbol", required=True, help="Ticker (e.g., MSFT, BTC-USD, EURUSD=X)"
     )
+    strategies_help = ", ".join(_sorted_strategy_names())
     p.add_argument(
-        "--strategy", required=True, choices=list(STRATEGIES), help="Strategy name"
+        "--strategy",
+        required=True,
+        help=f"Strategy name (valid: {strategies_help})",
     )
     p.add_argument(
         "--start",
@@ -582,6 +599,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "backtest":
+        if getattr(args, "strategy", None) not in STRATEGIES:
+            _usage_error(f"valid strategies: {_format_strategy_list()}")
         cmd_backtest(args, settings=settings)
     elif args.command is None and argv is None:
         # User invoked bare CLI with no subcommand; show help

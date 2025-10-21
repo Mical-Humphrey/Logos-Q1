@@ -23,6 +23,7 @@ from .paths import (
     safe_slug,
 )
 from .logging_setup import attach_run_file_handler, detach_handler
+from .window import Window
 
 # Timestamp format: 2025-10-19_1702
 TS_FMT = "%Y-%m-%d_%H%M%S"
@@ -167,10 +168,44 @@ def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None
                 row_writer.writerows(rows)  # type: ignore[arg-type]
 
 
-def write_provenance(ctx: RunContext, payload: Dict[str, Any]) -> Path:
+def write_provenance(
+    ctx: RunContext,
+    payload: Dict[str, Any],
+    *,
+    window: Window | None = None,
+) -> Path:
     """Persist provenance metadata alongside run artifacts."""
+    serializable = dict(payload)
+    if window is not None:
+        existing = serializable.get("window")
+        extras: Dict[str, Any] = {}
+        if isinstance(existing, dict):
+            extras = {
+                key: value
+                for key, value in existing.items()
+                if key not in {"start_iso", "end_iso", "tz"}
+            }
+        serializable["window"] = {**extras, **window.to_dict()}
+    else:
+        maybe_window = serializable.get("window")
+        if isinstance(maybe_window, Window):
+            serializable["window"] = maybe_window.to_dict()
+        elif isinstance(maybe_window, dict):
+            serializable["window"] = {
+                **{
+                    key: value
+                    for key, value in maybe_window.items()
+                    if key
+                    not in {"start_iso", "end_iso", "tz", "start", "end", "timezone"}
+                },
+                "start_iso": maybe_window.get("start_iso")
+                or maybe_window.get("start")
+                or "",
+                "end_iso": maybe_window.get("end_iso") or maybe_window.get("end") or "",
+                "tz": maybe_window.get("tz") or maybe_window.get("timezone") or "UTC",
+            }
     path = ctx.run_dir / "provenance.json"
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
     return path
 
 

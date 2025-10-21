@@ -7,6 +7,14 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+try:  # pandas >= 2.2
+    from pandas.errors import AmbiguousTimeError, NonExistentTimeError  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - compatibility with older pandas
+    try:
+        from pytz.exceptions import AmbiguousTimeError, NonExistentTimeError  # type: ignore
+    except ImportError:  # pragma: no cover - defensive fallback
+        AmbiguousTimeError = NonExistentTimeError = Exception  # type: ignore[misc,assignment]
+
 UTC = ZoneInfo("UTC")
 
 
@@ -20,10 +28,13 @@ def _coerce_zone(zone: ZoneInfo | str | None) -> ZoneInfo:
 
 def _coerce_timestamp(value: datetime | date | str, zone: ZoneInfo) -> pd.Timestamp:
     ts = pd.Timestamp(value)
-    if ts.tzinfo is None:
-        ts = ts.tz_localize(zone)
-    else:
-        ts = ts.tz_convert(zone)
+    try:
+        if ts.tzinfo is None:
+            ts = ts.tz_localize(zone)
+        else:
+            ts = ts.tz_convert(zone)
+    except (AmbiguousTimeError, NonExistentTimeError) as exc:
+        raise ValueError("ambiguous timezone input") from exc
     return ts
 
 
