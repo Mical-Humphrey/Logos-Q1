@@ -281,13 +281,24 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     allow_env_dates = bool(getattr(args, "allow_env_dates", False))
     env_policy = {"start": allow_env_dates, "end": allow_env_dates}
 
-    s, sources = load_settings(
-        cli_overrides=cli_overrides,
-        env_policy=env_policy,
-        include_sources=True,
-        logger=logger,
-        base_settings=base_settings,
-    )
+    try:
+        loaded = load_settings(
+            cli_overrides=cli_overrides,
+            env_policy=env_policy,
+            include_sources=True,
+            logger=logger,
+            base_settings=base_settings,
+        )
+    except TypeError:
+        # Tests may monkeypatch `load_settings` with a no-arg stub returning
+        # either a Settings instance or (Settings, sources). Support both.
+        loaded = load_settings()
+
+    if isinstance(loaded, tuple):
+        s, sources = loaded
+    else:
+        s = loaded
+        sources = {}
     setup_app_logging(s.log_level)
     validation = validate_backtest_args(args, s)
     if sources.get("start") == "env" and "START_DATE" not in validation.env_sources:

@@ -21,7 +21,7 @@ import textwrap
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
+from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
 from core.io.atomic_write import atomic_write_text
 from core.io.dirs import ensure_dir
@@ -600,7 +600,11 @@ def _run_pipeline(
     )
 
 
-def _delete_path(target: object, segments: Sequence[str]) -> None:
+def _delete_path(target: Any, segments: Sequence[str]) -> None:
+    """Recursively delete a key path from a JSON-like payload.
+
+    This handles nested dicts and lists of dicts. Non-dict/list values are ignored.
+    """
     if not segments:
         return
     head, *tail = segments
@@ -616,10 +620,11 @@ def _delete_path(target: object, segments: Sequence[str]) -> None:
             _delete_path(item, segments)
 
 
-def _prune_paths(payload: object, paths: Sequence[Tuple[str, ...]]) -> object:
+def _prune_paths(payload: Any, paths: Sequence[Tuple[str, ...]]) -> Any:
     clone = copy.deepcopy(payload)
     for path in paths:
-        _delete_path(clone, path)
+        # convert tuple path to sequence of str for _delete_path
+        _delete_path(clone, list(path))
     return clone
 
 
@@ -664,9 +669,7 @@ def _compare_jsonl(baseline: Path, output: Path) -> str | None:
     baseline_clean = [
         _prune_paths(entry, VOLATILE_JSON_PATHS) for entry in baseline_lines
     ]
-    output_clean = [
-        _prune_paths(entry, VOLATILE_JSON_PATHS) for entry in output_lines
-    ]
+    output_clean = [_prune_paths(entry, VOLATILE_JSON_PATHS) for entry in output_lines]
     if baseline_clean == output_clean:
         return None
     baseline_dump = [
@@ -688,7 +691,9 @@ def _compare_jsonl(baseline: Path, output: Path) -> str | None:
     return rendered or None
 
 
-def _diff_strings(baseline_str: str, output_str: str, baseline: Path, output: Path) -> str:
+def _diff_strings(
+    baseline_str: str, output_str: str, baseline: Path, output: Path
+) -> str:
     diff = difflib.unified_diff(
         baseline_str.splitlines(),
         output_str.splitlines(),
