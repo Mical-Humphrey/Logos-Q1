@@ -1,0 +1,46 @@
+{
+  "account": {
+    "buying_power": 99095.5,
+    "cash": 99095.5,
+    "equity": 100006.3,
+    "realized_pnl": 0.0,
+    "unrealized_pnl": 6.300000000000026
+  },
+  "clock": "2024-01-01T09:32:00+00:00",
+  "config": {
+    "adapter_mode": "paper",
+    "adapter_name": null,
+    "clock_start": "2024-01-01T09:33:00+00:00",
+    "clock_timezone": "UTC",
+    "dataset": "tests/fixtures/live/regression_default",
+    "label": "regression-smoke",
+    "seed": 7,
+    "symbol": "AAPL",
+    "window": {
+      "end_iso": "2024-01-02T00:00:00+00:00",
+      "start_iso": "2024-01-01T00:00:00+00:00",
+      "tz": "UTC"
+    }
+  },
+  "fills": [
+    {
+      "fees": 0.0,
+      "fill_id": "PB-FILL-000001",
+      "order_id": "PB-000001",
+      "price": 100.5,
+      "quantity": 9.0,
+      "side": "buy",
+      "ts": "2024-01-01T09:30:00+00:00"
+    }
+  ],
+  "open_orders": [],
+  "positions": {
+    "AAPL": {
+      "average_price": 100.5,
+      "quantity": 9.0,
+      "unrealized_pnl": 6.300000000000026
+    }
+  },
+  "run_id": "0007-regression-smoke",
+  "seed": 7
+}
