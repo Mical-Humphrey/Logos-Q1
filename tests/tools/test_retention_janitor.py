@@ -38,5 +38,5 @@ def test_retention_enable_delete(tmp_path: Path) -> None:
     assert "deleted" in res
     # exactly 2 deletions should have occurred
     assert len(res["deleted"]) == 2
-    for p in res["deleted"]:
-        assert not Path(p).exists()
+    for deleted in res["deleted"]:
+        assert not Path(deleted).exists()

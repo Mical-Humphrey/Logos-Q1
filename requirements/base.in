@@ -1,0 +1,11 @@
+# Core runtime dependencies for Logos-Q1. Compile with pip-compile to refresh pins.
+numpy>=1.26
+pandas>=2.2
+python-dotenv>=1.0
+yfinance>=0.2
+matplotlib>=3.9
+scipy>=1.13
+pyyaml>=6.0.3
+streamlit>=1.28
+plotly>=5.18
+jsonschema>=4.21

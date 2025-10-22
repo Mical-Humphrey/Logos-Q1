@@ -1,4 +1,12 @@
-"""Deterministic regression harness for live trading components."""
+"""Deterministic regression harness for live trading components.
+
+This harness enforces the Phase 2 contract freeze for regression outputs.
+Metadata-only drift is tolerated for a constrained set of volatile fields –
+see :data:`VOLATILE_JSON_PATHS` – while window bounds, modes, seeds, and
+artifact payloads remain strict. Baselines are versioned via
+``BASELINE_VERSION``; runs fail fast when the on-disk version diverges from
+the expected tag.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +16,7 @@ import datetime as dt
 import difflib
 import hashlib
 import json
+import copy
 import textwrap
 from dataclasses import dataclass
 from decimal import Decimal
@@ -53,6 +62,23 @@ BASELINE_DIR = PROJECT_ROOT / "tests" / "fixtures" / "regression" / "smoke"
 DEFAULT_SEED = 7
 DEFAULT_LABEL = "regression-smoke"
 DEFAULT_SYMBOL = "AAPL"
+
+BASELINE_VERSION = "phase2-v1"
+BASELINE_VERSION_FILENAME = "BASELINE_VERSION"
+
+# Dot-paths ("."-joined keys) removed from JSON payloads before comparison.
+# These surface run metadata that may legitimately change between baseline
+# refreshes without signalling behavioural drift.
+VOLATILE_JSON_PATHS: Tuple[Tuple[str, ...], ...] = (
+    ("run_id",),
+    ("generated_at",),
+    ("provenance", "generated_at"),
+    ("provenance", "git", "commit"),
+    ("provenance", "git", "branch"),
+    ("tool_version",),
+    ("hostname",),
+    ("pid",),
+)
 
 BARS_FILENAME = "bars.csv"
 ACCOUNT_FILENAME = "account.json"
@@ -574,16 +600,98 @@ def _run_pipeline(
     )
 
 
-def _compare(baseline: Path, output: Path) -> str | None:
-    if not baseline.exists():
-        return f"Baseline missing: {baseline}"
-    if output.name == "metrics.json":
-        return _compare_metrics(baseline, output, METRIC_ABS_TOLERANCE)
-    if output.read_bytes() == baseline.read_bytes():
+def _delete_path(target: object, segments: Sequence[str]) -> None:
+    if not segments:
+        return
+    head, *tail = segments
+    if isinstance(target, dict):
+        if head not in target:
+            return
+        if tail:
+            _delete_path(target[head], tail)
+        else:
+            target.pop(head, None)
+    elif isinstance(target, list):
+        for item in target:
+            _delete_path(item, segments)
+
+
+def _prune_paths(payload: object, paths: Sequence[Tuple[str, ...]]) -> object:
+    clone = copy.deepcopy(payload)
+    for path in paths:
+        _delete_path(clone, path)
+    return clone
+
+
+def _canonical_json(payload: object) -> str:
+    return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _compare_json(baseline: Path, output: Path) -> str | None:
+    try:
+        baseline_data = json.loads(baseline.read_text(encoding="utf-8"))
+        output_data = json.loads(output.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return _text_diff(baseline, output)
+
+    baseline_clean = _prune_paths(baseline_data, VOLATILE_JSON_PATHS)
+    output_clean = _prune_paths(output_data, VOLATILE_JSON_PATHS)
+    if baseline_clean == output_clean:
         return None
+    return _diff_strings(
+        _canonical_json(baseline_clean),
+        _canonical_json(output_clean),
+        baseline,
+        output,
+    )
+
+
+def _compare_jsonl(baseline: Path, output: Path) -> str | None:
+    try:
+        baseline_lines = [
+            json.loads(line)
+            for line in baseline.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        output_lines = [
+            json.loads(line)
+            for line in output.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except json.JSONDecodeError:
+        return _text_diff(baseline, output)
+
+    baseline_clean = [
+        _prune_paths(entry, VOLATILE_JSON_PATHS) for entry in baseline_lines
+    ]
+    output_clean = [
+        _prune_paths(entry, VOLATILE_JSON_PATHS) for entry in output_lines
+    ]
+    if baseline_clean == output_clean:
+        return None
+    baseline_dump = [
+        json.dumps(entry, sort_keys=True, separators=(",", ":"))
+        for entry in baseline_clean
+    ]
+    output_dump = [
+        json.dumps(entry, sort_keys=True, separators=(",", ":"))
+        for entry in output_clean
+    ]
     diff = difflib.unified_diff(
-        baseline.read_text(encoding="utf-8").splitlines(),
-        output.read_text(encoding="utf-8").splitlines(),
+        baseline_dump,
+        output_dump,
+        fromfile=str(baseline),
+        tofile=str(output),
+        lineterm="",
+    )
+    rendered = "\n".join(diff)
+    return rendered or None
+
+
+def _diff_strings(baseline_str: str, output_str: str, baseline: Path, output: Path) -> str:
+    diff = difflib.unified_diff(
+        baseline_str.splitlines(),
+        output_str.splitlines(),
         fromfile=str(baseline),
         tofile=str(output),
         lineterm="",
@@ -591,21 +699,77 @@ def _compare(baseline: Path, output: Path) -> str | None:
     return "\n".join(diff)
 
 
+def _text_diff(baseline: Path, output: Path) -> str:
+    return _diff_strings(
+        baseline.read_text(encoding="utf-8"),
+        output.read_text(encoding="utf-8"),
+        baseline,
+        output,
+    )
+
+
+def _locate_version_file(baseline_dir: Path) -> Path | None:
+    current = baseline_dir
+    for _ in range(5):
+        candidate = current / BASELINE_VERSION_FILENAME
+        if candidate.exists():
+            return candidate
+        if current == current.parent:
+            break
+        current = current.parent
+    return None
+
+
+def _ensure_baseline_version(baseline_dir: Path, *, allow_write: bool) -> None:
+    version_path = _locate_version_file(baseline_dir)
+    if version_path is None:
+        if allow_write:
+            target = baseline_dir / BASELINE_VERSION_FILENAME
+            ensure_dir(target.parent)
+            target.write_text(BASELINE_VERSION + "\n", encoding="utf-8")
+            return
+        raise RuntimeError(
+            f"Baseline at {baseline_dir} does not declare a version; expected {BASELINE_VERSION}"
+        )
+    version = version_path.read_text(encoding="utf-8").strip()
+    if version != BASELINE_VERSION:
+        raise RuntimeError(
+            f"Baseline version mismatch ({version_path} has '{version}', expected '{BASELINE_VERSION}')"
+        )
+
+
+def _compare(baseline: Path, output: Path) -> str | None:
+    if not baseline.exists():
+        return f"Baseline missing: {baseline}"
+    if output.name == "metrics.json":
+        return _compare_metrics(baseline, output, METRIC_ABS_TOLERANCE)
+    if baseline.suffix == ".json" and output.suffix == ".json":
+        return _compare_json(baseline, output)
+    if baseline.suffix == ".jsonl" and output.suffix == ".jsonl":
+        return _compare_jsonl(baseline, output)
+    if output.read_bytes() == baseline.read_bytes():
+        return None
+    return _text_diff(baseline, output)
+
+
 def _compare_metrics(baseline: Path, output: Path, tolerance: float) -> str | None:
     baseline_data = json.loads(baseline.read_text(encoding="utf-8"))
     output_data = json.loads(output.read_text(encoding="utf-8"))
 
+    baseline_clean = _prune_paths(baseline_data, VOLATILE_JSON_PATHS)
+    output_clean = _prune_paths(output_data, VOLATILE_JSON_PATHS)
+
     mismatches: List[str] = []
-    keys = sorted(set(baseline_data) | set(output_data))
+    keys = sorted(set(baseline_clean) | set(output_clean))
     for key in keys:
-        if key not in baseline_data:
+        if key not in baseline_clean:
             mismatches.append(f"missing-in-baseline:{key}")
             continue
-        if key not in output_data:
+        if key not in output_clean:
             mismatches.append(f"missing-in-output:{key}")
             continue
-        baseline_value = baseline_data[key]
-        output_value = output_data[key]
+        baseline_value = baseline_clean[key]
+        output_value = output_clean[key]
         if isinstance(baseline_value, (int, float)) and isinstance(
             output_value, (int, float)
         ):
@@ -639,6 +803,9 @@ def run_regression(
 ) -> RegressionResult:
     dataset = dataset_dir or DEFAULT_FIXTURE_DIR
     ensure_dir(output_root)
+    if update_baseline:
+        ensure_dir(baseline_dir)
+    _ensure_baseline_version(baseline_dir, allow_write=update_baseline)
     paths = prepare_seeded_run_paths(seed, label, base_dir=output_root)
     window_obj = window or _infer_window_from_dataset(dataset)
     config = RegressionConfig(

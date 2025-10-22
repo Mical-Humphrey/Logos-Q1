@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from core.io.dirs import ensure_dir
 from logos.strategies import STRATEGIES
@@ -110,7 +110,7 @@ def _collect_strategies(
 ) -> list[StrategyDescriptor]:
     source = strategies or STRATEGIES
     items = [
-        StrategyDescriptor(strategy_id=key, function=value)
+        StrategyDescriptor(strategy_id=key, function=cast(Callable[..., Any], value))
         for key, value in source.items()
     ]
     items.sort(key=lambda descriptor: descriptor.strategy_id)

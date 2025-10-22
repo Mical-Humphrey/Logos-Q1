@@ -82,6 +82,19 @@ def _sample_from(iterator: ChunkedCSVIterator | None) -> Sample | None:
     return iterator.metadata.sample
 
 
+def _failure_metadata(
+    iterator: ChunkedCSVIterator | None, fallback_rows: int
+) -> dict[str, Any]:
+    if iterator is None:
+        return {"rows": fallback_rows, "bytes_read": 0, "sample_sha256": None}
+    meta = iterator.metadata
+    return {
+        "rows": meta.rows,
+        "bytes_read": meta.bytes_read,
+        "sample_sha256": meta.sample.sha256,
+    }
+
+
 def guard_file(
     path: Path,
     *,
@@ -101,7 +114,9 @@ def guard_file(
     newest: dt.datetime | None = None
     oldest: dt.datetime | None = None
 
-    def _emit_telemetry(event_type: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def _emit_telemetry(
+        event_type: str, payload: dict[str, Any]
+    ) -> dict[str, Any] | None:
         if telemetry_path is None:
             return None
         event_ts = now() if now is not None else dt.datetime.now(UTC)
@@ -109,7 +124,9 @@ def guard_file(
             event_ts = event_ts.replace(tzinfo=UTC)
         return record_event(telemetry_path, event_type, payload, timestamp=event_ts)
 
-    def _quarantine(reason: str, detail: str, sample: Sample | None, meta: dict[str, Any]) -> GuardResult:
+    def _quarantine(
+        reason: str, detail: str, sample: Sample | None, meta: dict[str, Any]
+    ) -> GuardResult:
         dest = move_to_quarantine(
             path,
             quarantine_root=quarantine_root,
@@ -149,40 +166,32 @@ def guard_file(
         meta = iterator.metadata
         for row in iterator:
             rows += 1
-            ts = _ensure_timestamp(row.get(config.timestamp_column), config.timestamp_column)
+            ts = _ensure_timestamp(
+                row.get(config.timestamp_column), config.timestamp_column
+            )
             if oldest is None or ts < oldest:
                 oldest = ts
             if newest is None or ts > newest:
                 newest = ts
     except ReaderLimitError as exc:
-        metadata = {
-            "rows": rows if rows else (iterator.metadata.rows if iterator else 0),
-            "bytes_read": iterator.metadata.bytes_read if iterator else 0,
-            "sample_sha256": iterator.metadata.sample.sha256 if iterator else None,
-        }
+        metadata = _failure_metadata(iterator, rows)
         return _quarantine("limit_exceeded", str(exc), _sample_from(iterator), metadata)
     except SchemaValidationError as exc:
-        metadata = {
-            "rows": iterator.metadata.rows if iterator else rows,
-            "bytes_read": iterator.metadata.bytes_read if iterator else 0,
-            "sample_sha256": iterator.metadata.sample.sha256 if iterator else None,
-        }
-        return _quarantine("schema_validation_error", str(exc), _sample_from(iterator), metadata)
+        metadata = _failure_metadata(iterator, rows)
+        return _quarantine(
+            "schema_validation_error", str(exc), _sample_from(iterator), metadata
+        )
     except _TimestampError as exc:
-        metadata = {
-            "rows": iterator.metadata.rows if iterator else rows,
-            "bytes_read": iterator.metadata.bytes_read if iterator else 0,
-            "sample_sha256": iterator.metadata.sample.sha256 if iterator else None,
-        }
-        return _quarantine("timestamp_error", str(exc), _sample_from(iterator), metadata)
+        metadata = _failure_metadata(iterator, rows)
+        return _quarantine(
+            "timestamp_error", str(exc), _sample_from(iterator), metadata
+        )
     except Exception as exc:  # pragma: no cover - defensive guardrail
         logger.exception("ingest guard encountered unexpected failure reading %s", path)
-        metadata = {
-            "rows": iterator.metadata.rows if iterator else rows,
-            "bytes_read": iterator.metadata.bytes_read if iterator else 0,
-            "sample_sha256": iterator.metadata.sample.sha256 if iterator else None,
-        }
-        return _quarantine("unexpected_error", str(exc), _sample_from(iterator), metadata)
+        metadata = _failure_metadata(iterator, rows)
+        return _quarantine(
+            "unexpected_error", str(exc), _sample_from(iterator), metadata
+        )
 
     assert iterator is not None
     meta = iterator.metadata
@@ -190,7 +199,7 @@ def guard_file(
     if now_ts.tzinfo is None:
         now_ts = now_ts.replace(tzinfo=UTC)
 
-    metadata: dict[str, Any] = {
+    result_metadata: dict[str, Any] = {
         "rows": meta.rows,
         "bytes_read": meta.bytes_read,
         "sample_sha256": meta.sample.sha256,
@@ -200,9 +209,9 @@ def guard_file(
     }
 
     if newest is not None:
-        metadata["age_seconds"] = (now_ts - newest).total_seconds()
+        result_metadata["age_seconds"] = (now_ts - newest).total_seconds()
     if newest is not None and oldest is not None:
-        metadata["span_seconds"] = (newest - oldest).total_seconds()
+        result_metadata["span_seconds"] = (newest - oldest).total_seconds()
 
     if config.stale_after_seconds is not None:
         if newest is None:
@@ -210,21 +219,21 @@ def guard_file(
                 "stale_data",
                 "no timestamp data available",
                 meta.sample,
-                metadata,
+                result_metadata,
             )
         age = (now_ts - newest).total_seconds()
         if age > config.stale_after_seconds:
             detail = (
                 f"age={int(age)}s exceeds threshold={int(config.stale_after_seconds)}s"
             )
-            return _quarantine("stale_data", detail, meta.sample, metadata)
+            return _quarantine("stale_data", detail, meta.sample, result_metadata)
 
     telemetry_payload = {
         "path": str(path),
         "rows": meta.rows,
         "bytes_read": meta.bytes_read,
-        "newest_timestamp": metadata.get("newest_timestamp"),
-        "oldest_timestamp": metadata.get("oldest_timestamp"),
+        "newest_timestamp": result_metadata.get("newest_timestamp"),
+        "oldest_timestamp": result_metadata.get("oldest_timestamp"),
     }
     telemetry_event = _emit_telemetry("ingest_accepted", telemetry_payload)
 
@@ -235,7 +244,7 @@ def guard_file(
         rows=meta.rows,
         bytes_read=meta.bytes_read,
         sample=meta.sample,
-        metadata=metadata,
+        metadata=result_metadata,
         quarantine_path=None,
         telemetry=telemetry_event,
     )

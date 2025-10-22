@@ -22,3 +22,15 @@ def test_record_event_appends_jsonl(tmp_path: Path) -> None:
     assert text
     stored = json.loads(text)
     assert stored == event
+
+
+def test_record_event_newline_normalized(tmp_path: Path) -> None:
+    log_path = tmp_path / "telemetry.jsonl"
+
+    record_event(log_path, "ingest", {"rows": 1})
+    record_event(log_path, "ingest", {"rows": 2})
+
+    raw = log_path.read_bytes()
+    assert b"\r\n" not in raw
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2

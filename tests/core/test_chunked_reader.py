@@ -7,7 +7,6 @@ import pytest
 from core.io.chunked_reader import (
     read_csv_chunked,
     ReaderLimitError,
-    SchemaValidationError,
 )
 
 

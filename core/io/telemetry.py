@@ -36,7 +36,7 @@ def record_event(
         event.update(payload)
 
     line = _serialize_event(event)
-    with path.open("a", encoding="utf-8") as handle:
+    with path.open("a", encoding="utf-8", newline="") as handle:
         handle.write(line + "\n")
         handle.flush()
         os.fsync(handle.fileno())

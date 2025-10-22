@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import datetime as dt
 from pathlib import Path
+from typing import Mapping, Sequence
 
 from core.io.ingest_guard import GuardConfig, guard_file
 
 
-def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+def _write_csv(path: Path, rows: Sequence[Mapping[str, object]]) -> None:
     headers = list(rows[0].keys()) if rows else []
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -21,7 +22,11 @@ def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
 def _load_json_lines(path: Path) -> list[dict[str, object]]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
 
 
 def test_guard_accepts_valid_file(tmp_path: Path) -> None:

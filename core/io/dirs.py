@@ -59,11 +59,24 @@ def dir_mode_from_env() -> Tuple[int | None, bool]:
     """Return (mode, usable) tuple derived from LOGOS_DIR_MODE."""
 
     raw = os.getenv("LOGOS_DIR_MODE")
+    mode: int | None
     if raw is None or raw == "":
         mode = 0o750
     else:
-        mode = _parse_mode(raw)
-    return (mode, not WINDOWS)
+        try:
+            mode = _parse_mode(raw)
+        except ValueError:
+            _LOGGER.warning("dir_mode_invalid_literal value=%r fallback=0750", raw)
+            mode = 0o750
+
+    if WINDOWS:
+        if raw not in (None, ""):
+            _LOGGER.warning(
+                "dir_mode_windows_noop value=%s ignored platform=windows", raw
+            )
+        return (mode, False)
+
+    return (mode, True)
 
 
 def is_under_repo(path: Path) -> Tuple[bool, Path | None]:
@@ -80,6 +93,8 @@ def _resolve_mode(mode: int | None) -> Tuple[int | None, bool, bool]:
     env_mode, usable = dir_mode_from_env()
     resolved = mode if mode is not None else env_mode
     enforce = _env_flag("LOGOS_ENFORCE_DIR_MODE", False)
+    if WINDOWS and enforce and resolved is not None:
+        _LOGGER.warning("dir_mode_enforce_windows_noop mode=%s", f"{resolved:04o}")
     return resolved, usable, enforce
 
 

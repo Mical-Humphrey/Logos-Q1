@@ -272,9 +272,28 @@ def _plot_equity(equity: pd.Series) -> plt.Figure:
 # -----------------------------------------------------------------------------
 def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> None:
     """Run a full backtest with asset-aware costs and interval-aware metrics."""
-    s = settings or load_settings()
+    base_settings = settings if isinstance(settings, Settings) else None
+    cli_overrides = {
+        "start": getattr(args, "start", None),
+        "end": getattr(args, "end", None),
+        "symbol": getattr(args, "symbol", None),
+    }
+    allow_env_dates = bool(getattr(args, "allow_env_dates", False))
+    env_policy = {"start": allow_env_dates, "end": allow_env_dates}
+
+    s, sources = load_settings(
+        cli_overrides=cli_overrides,
+        env_policy=env_policy,
+        include_sources=True,
+        logger=logger,
+        base_settings=base_settings,
+    )
     setup_app_logging(s.log_level)
     validation = validate_backtest_args(args, s)
+    if sources.get("start") == "env" and "START_DATE" not in validation.env_sources:
+        validation.env_sources["START_DATE"] = s.start
+    if sources.get("end") == "env" and "END_DATE" not in validation.env_sources:
+        validation.env_sources["END_DATE"] = s.end
     if validation.env_sources:
         start_label = validation.window.start_in_label_timezone().isoformat()
         end_label = validation.window.end_in_label_timezone().isoformat()

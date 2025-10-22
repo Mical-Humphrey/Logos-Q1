@@ -29,6 +29,7 @@ controls required to operate the system without touching real broker endpoints.
 	- DST fallback window (2024-10-31 → 2024-11-08) to deliver 7 NYSE trading sessions.
 	- Leap day span (2024-02-28 → 2024-03-04) to retain Feb 29 alongside the surrounding business days.
 	- Month-end crossover (2024-07-31 → 2024-08-02) to surface three consecutive closes, demonstrating `[start, end)` semantics across calendar flips.
+- The `logos.utils.nyse_calendar` helpers expose canonical NYSE daily sessions. `session_window(date)` returns a `Window` with the correct open/close (13:00 ET for early closes), while weekends and full-day holidays resolve to `None` so ingestion code can safely no-op when zero bars are present.
 
 > **DST assurance:** Because the validator runs in UTC, month-end and DST edges cannot silently truncate your dataset; watch the validator output for the normalized bounds when investigating missing bars.
 

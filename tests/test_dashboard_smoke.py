@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -76,3 +78,30 @@ def test_dashboard_handles_missing_artifact(
     )
     app.render_dashboard()
     assert "info" in guard.calls
+
+
+def test_dashboard_binding_defaults_to_localhost(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("STREAMLIT_SERVER_ADDRESS", raising=False)
+    monkeypatch.delenv("LOGOS_DASHBOARD_ALLOW_REMOTE", raising=False)
+    caplog.set_level(logging.INFO, logger="logos.ui.streamlit")
+
+    host = app.configure_streamlit_binding()
+
+    assert host == "127.0.0.1"
+    assert os.getenv("STREAMLIT_SERVER_ADDRESS") == "127.0.0.1"
+    assert any("dashboard_binding" in record.message for record in caplog.records)
+
+
+def test_dashboard_binding_remote_requires_opt_in(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("STREAMLIT_SERVER_ADDRESS", raising=False)
+    monkeypatch.setenv("LOGOS_DASHBOARD_ALLOW_REMOTE", "true")
+    caplog.set_level(logging.WARNING, logger="logos.ui.streamlit")
+
+    host = app.configure_streamlit_binding()
+
+    assert host == "0.0.0.0"
+    assert any("protect_with_proxy" in record.message for record in caplog.records)

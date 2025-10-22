@@ -8,6 +8,9 @@ from typing import List
 import streamlit as st
 
 from logos.paths import RUNS_DIR
+from . import configure_streamlit_binding
+
+configure_streamlit_binding()
 
 logger = logging.getLogger(__name__)
 

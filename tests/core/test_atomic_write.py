@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-atomic_mod = importlib.import_module("core.io.atomic_write")
 from core.io.atomic_write import atomic_write_text
 from logos.run_manager import RunContext, write_metrics
+
+atomic_mod = importlib.import_module("core.io.atomic_write")
 
 
 def _make_run_context(tmp_path: Path) -> RunContext:

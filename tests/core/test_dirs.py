@@ -149,3 +149,33 @@ def test_paths_shim_emits_deprecation_once_and_forwards(tmp_path, monkeypatch):
         logos_paths.ensure_dirs(extra=[extra_dir])
 
     assert not caught_again
+
+
+def test_dir_mode_windows_warning(monkeypatch, caplog):
+    import core.io.dirs as dirs
+
+    caplog.set_level(logging.WARNING, logger="core.io.dirs")
+    monkeypatch.setattr(dirs, "WINDOWS", True, raising=False)
+    monkeypatch.setenv("LOGOS_DIR_MODE", "0700")
+
+    mode, usable = dirs.dir_mode_from_env()
+
+    assert mode == 0o700
+    assert usable is False
+    assert any("dir_mode_windows_noop" in record.message for record in caplog.records)
+
+
+def test_enforce_dir_mode_windows_warns(monkeypatch, tmp_path, caplog):
+    import core.io.dirs as dirs
+
+    caplog.set_level(logging.WARNING, logger="core.io.dirs")
+    monkeypatch.setattr(dirs, "WINDOWS", True, raising=False)
+    monkeypatch.setenv("LOGOS_AUTO_CREATE_DIRS", "true")
+    monkeypatch.setenv("LOGOS_DIR_MODE", "0750")
+    monkeypatch.setenv("LOGOS_ENFORCE_DIR_MODE", "true")
+
+    ensure_dir(tmp_path / "win" / "owned")
+
+    assert any(
+        "dir_mode_enforce_windows_noop" in record.message for record in caplog.records
+    )

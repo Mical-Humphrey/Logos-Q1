@@ -96,9 +96,7 @@ def main(argv: list[str] | None = None) -> int:
 
         status = "OK" if result.status == "accepted" else "QUARANTINED"
         reason = f" reason={result.reason}" if result.reason else ""
-        print(
-            f"[{status}] {path}{reason} rows={result.rows} bytes={result.bytes_read}"
-        )
+        print(f"[{status}] {path}{reason} rows={result.rows} bytes={result.bytes_read}")
         if result.status != "accepted":
             failures += 1
 

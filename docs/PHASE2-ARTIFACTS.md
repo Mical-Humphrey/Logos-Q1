@@ -5,6 +5,14 @@ single source of truth for regression outputs, adapter dry-runs, and baseline re
 
 ---
 
+## Baseline Contract (Phase 2)
+- Version gate: each baseline root contains a `BASELINE_VERSION` file; the harness expects `phase2-v1`.
+- Volatile metadata ignored during JSON comparison: `run_id`, `generated_at`, `provenance.generated_at`, `provenance.git.commit`, `provenance.git.branch`, `tool_version`, `hostname`, `pid`.
+- Metrics tolerance: absolute difference ≤ `1e-09`; all other numeric values remain exact.
+- Window metadata (`window.start_iso`, `window.end_iso`, `window.tz`), seed, strategy IDs, and adapter modes continue to compare strictly.
+
+---
+
 ## Baseline Smoke Bundle (tests/fixtures/regression/smoke)
 | Artifact | Path | sha256 |
 | --- | --- | --- |

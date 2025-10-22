@@ -1,4 +1,5 @@
 """Retention janitor for runs/, logs/, data/cache/, and quarantine trees."""
+
 from __future__ import annotations
 
 import argparse
@@ -84,11 +85,15 @@ def plan_and_execute(
     dry_run: bool = True,
 ) -> Dict[str, List[str]]:
     entries = _gather_entries(target_paths)
-    plan = [] if not quotas else _plan_purge(
-        entries,
-        max_bytes=quotas.get("max_bytes"),
-        max_days=quotas.get("max_days"),
-        max_count=quotas.get("max_count"),
+    plan = (
+        []
+        if not quotas
+        else _plan_purge(
+            entries,
+            max_bytes=quotas.get("max_bytes"),
+            max_days=quotas.get("max_days"),
+            max_count=quotas.get("max_count"),
+        )
     )
 
     decisions = [{"path": str(p), "action": "delete"} for p in plan]
@@ -104,11 +109,17 @@ def plan_and_execute(
         },
     )
 
-    result: Dict[str, List[str]] = {"plan": [d["path"] for d in decisions], "deleted": []}
+    result: Dict[str, List[str]] = {
+        "plan": [d["path"] for d in decisions],
+        "deleted": [],
+    }
     can_delete = enable and not dry_run and bool(quotas)
     if not can_delete:
         if enable and not quotas:
-            logger.warning("retention_enable_without_quotas", extra={"event": "retention_noop", "reason": "missing_quotas"})
+            logger.warning(
+                "retention_enable_without_quotas",
+                extra={"event": "retention_noop", "reason": "missing_quotas"},
+            )
         return result
 
     for path in plan:
@@ -130,10 +141,20 @@ if __name__ == "__main__":
     ap.add_argument("--max-bytes", type=int, help="Max retained bytes")
     ap.add_argument("--max-days", type=int, help="Purge files older than N days")
     ap.add_argument("--max-count", type=int, help="Max retained files count")
-    ap.add_argument("--enable", action="store_true", help="Enable deletion (requires quotas)")
+    ap.add_argument(
+        "--enable", action="store_true", help="Enable deletion (requires quotas)"
+    )
     ap.add_argument("--no-dry-run", dest="dry_run", action="store_false")
     args = ap.parse_args()
-    quotas = {k: v for k, v in [("max_bytes", args.max_bytes), ("max_days", args.max_days), ("max_count", args.max_count)] if v is not None}
+    quotas = {
+        k: v
+        for k, v in [
+            ("max_bytes", args.max_bytes),
+            ("max_days", args.max_days),
+            ("max_count", args.max_count),
+        ]
+        if v is not None
+    }
     paths = [Path(p) for p in args.paths]
     res = plan_and_execute(paths, quotas, enable=args.enable, dry_run=args.dry_run)
     print(json.dumps(res, indent=2))

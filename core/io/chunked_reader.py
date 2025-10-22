@@ -7,7 +7,7 @@ import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Generator, Iterator
+from typing import Dict, Iterator, Mapping
 
 try:
     import jsonschema
@@ -37,7 +37,9 @@ class ReaderMetadata:
 
 
 class ChunkedCSVIterator(Iterator[Dict[str, str]]):
-    def __init__(self, iterator: Iterator[Dict[str, str]], metadata: ReaderMetadata) -> None:
+    def __init__(
+        self, iterator: Iterator[Dict[str, str]], metadata: ReaderMetadata
+    ) -> None:
         self._iterator = iterator
         self.metadata = metadata
 
@@ -65,9 +67,9 @@ def read_csv_chunked(
     max_rows: int | None = None,
     max_bytes: int | None = None,
     max_seconds: float | None = None,
-    schema: Dict | None = None,
+    schema: Mapping[str, object] | None = None,
     sample_lines: int = 5,
-) -> Generator[Dict[str, str], None, None]:
+) -> ChunkedCSVIterator:
     """Yield CSV rows as dictionaries enforcing configured guard rails.
 
     The returned generator exposes ``sample`` (Sample) and ``bytes_read`` attributes for
@@ -79,7 +81,7 @@ def read_csv_chunked(
     sample = Sample(lines=_sample_lines(path, sample_lines))
     metadata = ReaderMetadata(sample=sample)
 
-    def _iter() -> Generator[Dict[str, str], None, None]:
+    def _iter() -> Iterator[Dict[str, str]]:
         with path.open("r", encoding="utf-8", errors="replace", newline="") as fh:
             reader = csv.DictReader(fh)
             if reader.fieldnames is None:
@@ -91,7 +93,9 @@ def read_csv_chunked(
             try:
                 for row in reader:
                     metadata.rows += 1
-                    row_serialised = ",".join(row.get(key, "") or "" for key in reader.fieldnames)
+                    row_serialised = ",".join(
+                        row.get(key, "") or "" for key in reader.fieldnames
+                    )
                     metadata.bytes_read += len(row_serialised)
                     sha.update((row_serialised + "\n").encode("utf-8"))
 
@@ -99,7 +103,10 @@ def read_csv_chunked(
                         raise ReaderLimitError("row limit exceeded")
                     if max_bytes is not None and metadata.bytes_read > max_bytes:
                         raise ReaderLimitError("byte limit exceeded")
-                    if max_seconds is not None and (time.monotonic() - start) > max_seconds:
+                    if (
+                        max_seconds is not None
+                        and (time.monotonic() - start) > max_seconds
+                    ):
                         raise ReaderLimitError("time limit exceeded")
                     if schema is not None:
                         if jsonschema is None:

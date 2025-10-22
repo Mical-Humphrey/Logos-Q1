@@ -32,6 +32,8 @@ Logos-Q1 is a quantitative trading laboratory that balances **education** and **
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+# Developer tooling, lint, tests
+pip install -r requirements/dev.txt
 
 # Optional: copy defaults and edit
 cp .env.example .env
@@ -39,6 +41,8 @@ cp .env.example .env
 # Regression tests
 pytest -q
 ```
+Regenerate the pinned requirement files with `pip-compile --generate-hashes` using
+the manifests in `requirements/*.in` when bumping dependencies.
 `logos.config.Settings` exposes all configuration fields (mode, brokers, risk, credentials). Override via `.env` or environment variables.
 
 ---
@@ -385,8 +389,13 @@ Launch the dashboard with:
 ```bash
 streamlit run logos/ui/streamlit/app.py
 ```
+The server binds to `127.0.0.1` by default so the dashboard is only reachable
+locally. Open `http://localhost:8501` in your browser.
 
-The dashboard will open in your browser at `http://localhost:8501`.
+> **Remote access?** Create an SSH tunnel instead of exposing the process:
+> `ssh -N -L 8501:127.0.0.1:8501 user@your-host`. Only set
+> `LOGOS_DASHBOARD_ALLOW_REMOTE=true` (binding to `0.0.0.0`) when fronted by a
+> TLS proxy or VPN gateway.
 
 ### Features
 
