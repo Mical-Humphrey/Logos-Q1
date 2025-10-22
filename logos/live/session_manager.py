@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from core.io.atomic_write import atomic_write_text
 from core.io.dirs import ensure_dir, ensure_dirs
 
 from logos.logging_setup import attach_run_file_handler
@@ -40,8 +41,7 @@ class SessionPaths:
 def _write_header(path: Path, header: str) -> None:
     if path.exists():
         return
-    with path.open("w", encoding="utf-8") as fh:
-        fh.write(header + "\n")
+    atomic_write_text(path, header + "\n", encoding="utf-8")
 
 
 def _pointer_contents(session_dir: Path) -> str:
@@ -51,7 +51,7 @@ def _pointer_contents(session_dir: Path) -> str:
 def _update_latest_pointer(session_dir: Path) -> None:
     latest = runs_live_latest_symlink()
     ensure_dir(latest.parent)
-    latest.write_text(_pointer_contents(session_dir), encoding="utf-8")
+    atomic_write_text(latest, _pointer_contents(session_dir), encoding="utf-8")
 
 
 def create_session(

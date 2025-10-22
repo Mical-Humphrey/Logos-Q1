@@ -12,12 +12,12 @@ from typing import IO, Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import pandas as pd
 
+from core.io.atomic_write import atomic_write, atomic_write_text
 from core.io.dirs import ensure_dir
 
 from logos.metrics import exposure as exposure_ratio
 from logos.metrics import hit_rate, max_drawdown, sharpe
 from logos.paths import RUNS_LIVE_DIR, safe_slug
-from logos.utils.atomic import atomic_write, atomic_write_text
 
 # We treat the equity curve as daily closes when annualising Sharpe.
 # Minute-level curves can adjust the frequency in a future milestone.

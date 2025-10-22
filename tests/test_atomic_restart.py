@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import csv
+import importlib
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
+atomic_utils = importlib.import_module("core.io.atomic_write")
+
 from logos.run_manager import close_run_context, new_run, write_trades
-from logos.utils import atomic as atomic_utils
 
 
 def _snapshot(directory: Path) -> list[str]:

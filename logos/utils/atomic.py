@@ -1,64 +1,47 @@
 from __future__ import annotations
 
-import os
-import tempfile
+import warnings
 from pathlib import Path
 from typing import IO, Any, Callable
 
-from core.io.dirs import ensure_dir
+import core.io.atomic_write as core_atomic_write_module
+
+
+_MESSAGE = "logos.utils.atomic is deprecated; import from core.io.atomic_write instead."
 
 
 def atomic_write(
     path: Path,
-    write: Callable[[IO[str]], None],
+    write: Callable[[IO[Any]], None],
     *,
     mode: str = "w",
     encoding: str = "utf-8",
     newline: str | None = None,
+    sync_directory: bool = True,
 ) -> None:
-    """Write to a temporary file in ``path``'s directory and atomically replace it."""
-
-    parent = path.parent
-    ensure_dir(parent)
-
-    tmp_path: Path | None = None
-    tmp_kwargs: dict[str, Any] = {
-        "mode": mode,
-        "dir": parent,
-        "delete": False,
-    }
-    binary_mode = "b" in mode
-    if not binary_mode:
-        tmp_kwargs["encoding"] = encoding
-        if newline is not None:
-            tmp_kwargs["newline"] = newline
-    else:
-        if newline is not None:
-            raise ValueError("newline is not supported in binary mode")
-
-    try:
-        with tempfile.NamedTemporaryFile(**tmp_kwargs) as tmp:
-            tmp_path = Path(tmp.name)
-            write(tmp)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-    except Exception:
-        if tmp_path is not None:
-            tmp_path.unlink(missing_ok=True)
-        raise
-
-    assert tmp_path is not None
-    try:
-        os.replace(tmp_path, path)
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    warnings.warn(_MESSAGE, DeprecationWarning, stacklevel=2)
+    core_atomic_write_module.atomic_write(
+        path,
+        write,
+        mode=mode,
+        encoding=encoding,
+        newline=newline,
+        sync_directory=sync_directory,
+    )
 
 
 def atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> None:
-    """Atomically write ``content`` to ``path`` as text."""
+    warnings.warn(_MESSAGE, DeprecationWarning, stacklevel=2)
+    core_atomic_write_module.atomic_write_text(path, content, encoding=encoding)
 
-    def _writer(fh: IO[str]) -> None:
-        fh.write(content)
 
-    atomic_write(path, _writer, mode="w", encoding=encoding)
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    warnings.warn(_MESSAGE, DeprecationWarning, stacklevel=2)
+    core_atomic_write_module.atomic_write_bytes(path, data)
+
+
+__all__ = [
+    "atomic_write",
+    "atomic_write_text",
+    "atomic_write_bytes",
+]

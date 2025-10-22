@@ -14,9 +14,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple, cast
 
+from core.io.atomic_write import atomic_write_text
 from core.io.dirs import ensure_dir
-
-from logos.utils.atomic import atomic_write_text
 from logos.window import Window, UTC
 
 from .broker_alpaca import AlpacaBrokerAdapter

@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import csv
+import datetime as dt
+import os
 from pathlib import Path
 from typing import Dict, Iterable
 
+from core.io.atomic_write import atomic_write_text
+from core.io.dirs import ensure_dir
+
 
 def _append_row(path: Path, headers: Iterable[str], row: Dict[str, object]) -> None:
+    ensure_dir(path.parent)
     exists = path.exists()
     with path.open("a", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(headers))
         if not exists:
             writer.writeheader()
         writer.writerow(row)
+        fh.flush()
+        os.fsync(fh.fileno())
 
 
 def append_trade(path: Path, *, ts: dt.datetime, **fields: object) -> None:
@@ -84,4 +91,4 @@ def append_account(path: Path, *, ts: dt.datetime, **fields: object) -> None:
 
 
 def write_session_summary(path: Path, lines: str) -> None:
-    path.write_text(lines.strip() + "\n", encoding="utf-8")
+    atomic_write_text(path, lines.strip() + "\n", encoding="utf-8")
