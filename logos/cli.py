@@ -281,23 +281,30 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     allow_env_dates = bool(getattr(args, "allow_env_dates", False))
     env_policy = {"start": allow_env_dates, "end": allow_env_dates}
 
+    loaded_result: Settings | tuple[Settings, Dict[str, str]]
     try:
-        loaded = load_settings(
-            cli_overrides=cli_overrides,
-            env_policy=env_policy,
-            include_sources=True,
-            logger=logger,
-            base_settings=base_settings,
+        loaded_result = cast(
+            Settings | tuple[Settings, Dict[str, str]],
+            load_settings(
+                cli_overrides=cli_overrides,
+                env_policy=env_policy,
+                include_sources=True,
+                logger=logger,
+                base_settings=base_settings,
+            ),
         )
     except TypeError:
         # Tests may monkeypatch `load_settings` with a no-arg stub returning
         # either a Settings instance or (Settings, sources). Support both.
-        loaded = load_settings()
+        loaded_result = cast(
+            Settings | tuple[Settings, Dict[str, str]],
+            load_settings(),
+        )
 
-    if isinstance(loaded, tuple):
-        s, sources = loaded
+    if isinstance(loaded_result, tuple):
+        s, sources = loaded_result
     else:
-        s = loaded
+        s = loaded_result
         sources = {}
     setup_app_logging(s.log_level)
     validation = validate_backtest_args(args, s)

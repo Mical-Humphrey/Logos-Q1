@@ -28,4 +28,4 @@ bash scripts/phase2/refresh-baselines.sh --smoke --seed 7
 
 Notes:
 - All runs must be offline with fixtures.
-- If the seed changes (e.g., to `424242`), refresh all baselines immediately and update this file in the same PR.
+- If the seed ever changes, refresh all baselines immediately and update this file in the same PR.

@@ -12,14 +12,19 @@
     "adapter_name": "alpaca",
     "clock_start": "2024-01-01T09:33:00+00:00",
     "clock_timezone": "UTC",
-    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/range_bound",
+    "dataset": "tests/fixtures/live/range_bound",
     "label": "phase2-range_bound-adapter_alpaca",
-    "seed": 424242,
-    "symbol": "RANGE"
+    "seed": 7,
+    "symbol": "RANGE",
+    "window": {
+      "end_iso": "2024-03-09T00:00:00+00:00",
+      "start_iso": "2024-03-08T00:00:00+00:00",
+      "tz": "UTC"
+    }
   },
   "fills": [],
   "open_orders": [],
   "positions": {},
-  "run_id": "424242-phase2-range_bound-adapter_alpaca",
-  "seed": 424242
+  "run_id": "0007-phase2-range_bound-adapter_alpaca",
+  "seed": 7
 }

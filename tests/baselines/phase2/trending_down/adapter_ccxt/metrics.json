@@ -4,8 +4,20 @@
   "hit_rate": 0.0,
   "max_drawdown": 0.0,
   "pnl": 0.0,
-  "run_id": "424242-phase2-trending_down-adapter_ccxt",
-  "seed": 424242,
+  "provenance": {
+    "adapter_mode": "dry-run",
+    "adapter_name": "ccxt",
+    "dataset": "tests/fixtures/live/trending_down",
+    "source": "fixture",
+    "synthetic": false,
+    "window": {
+      "end_iso": "2024-03-06T00:00:00+00:00",
+      "start_iso": "2024-03-05T00:00:00+00:00",
+      "tz": "UTC"
+    }
+  },
+  "run_id": "0007-phase2-trending_down-adapter_ccxt",
+  "seed": 7,
   "sharpe": 0.0,
   "start_equity": 68000.0,
   "turnover": 0.0

@@ -12,14 +12,19 @@
     "adapter_name": "ccxt",
     "clock_start": "2024-01-01T09:33:00+00:00",
     "clock_timezone": "UTC",
-    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/trending_up",
+    "dataset": "tests/fixtures/live/trending_up",
     "label": "phase2-trending_up-adapter_ccxt",
-    "seed": 424242,
-    "symbol": "TRENDUP"
+    "seed": 7,
+    "symbol": "TRENDUP",
+    "window": {
+      "end_iso": "2024-03-02T00:00:00+00:00",
+      "start_iso": "2024-03-01T00:00:00+00:00",
+      "tz": "UTC"
+    }
   },
   "fills": [],
   "open_orders": [],
   "positions": {},
-  "run_id": "424242-phase2-trending_up-adapter_ccxt",
-  "seed": 424242
+  "run_id": "0007-phase2-trending_up-adapter_ccxt",
+  "seed": 7
 }

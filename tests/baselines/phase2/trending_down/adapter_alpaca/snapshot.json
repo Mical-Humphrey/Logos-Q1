@@ -12,14 +12,19 @@
     "adapter_name": "alpaca",
     "clock_start": "2024-01-01T09:33:00+00:00",
     "clock_timezone": "UTC",
-    "dataset": "/home/mical/code/chat_solution_system/Logos-Q1/tests/fixtures/live/trending_down",
+    "dataset": "tests/fixtures/live/trending_down",
     "label": "phase2-trending_down-adapter_alpaca",
-    "seed": 424242,
-    "symbol": "TRENDDN"
+    "seed": 7,
+    "symbol": "TRENDDN",
+    "window": {
+      "end_iso": "2024-03-06T00:00:00+00:00",
+      "start_iso": "2024-03-05T00:00:00+00:00",
+      "tz": "UTC"
+    }
   },
   "fills": [],
   "open_orders": [],
   "positions": {},
-  "run_id": "424242-phase2-trending_down-adapter_alpaca",
-  "seed": 424242
+  "run_id": "0007-phase2-trending_down-adapter_alpaca",
+  "seed": 7
 }

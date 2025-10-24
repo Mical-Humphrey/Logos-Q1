@@ -1,26 +1,38 @@
 # Phase 2 quality polish helpers
 
+.RECIPEPREFIX := >
+PYTHON_BIN ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; elif command -v python3 >/dev/null 2>&1; then command -v python3; else command -v python; fi)
+
 .PHONY: phase2-qa phase2-smoke phase2-refresh-smoke phase2-refresh-matrix
 
 # Run local QA stack quickly
 phase2-qa:
-\t@echo "== Lint/type/tests + smoke =="
-\truff check .
-\tblack --check .
-\tmypy .
-\tpytest -q
+>@echo "== Lint/type/tests + smoke =="
+>$(PYTHON_BIN) -m ruff check .
+>$(PYTHON_BIN) -m black --check .
+>$(PYTHON_BIN) -m mypy .
+>$(PYTHON_BIN) -m pytest -q
+>LOGOS_OFFLINE_ONLY=1 LIVE_DISABLE_NETWORK=1 MPLBACKEND=Agg TZ=UTC $(PYTHON_BIN) -m logos.live.regression \
+>  --adapter-mode paper \
+>  --label regression-smoke \
+>  --seed $${SEED:-7} \
+>  --dataset tests/fixtures/live/regression_default \
+>  --output-dir runs/live/reg_cli
 
 # Run the smoke regression (seed=7 by default)
 phase2-smoke:
-\tpython -m logos.live.regression --adapter-mode paper \\
-\t  --label regression-smoke --seed $${SEED:-7} \\
-\t  --dataset tests/fixtures/live/regression_default \\
-\t  --output-dir runs/live/reg_cli
+>LOGOS_OFFLINE_ONLY=1 LIVE_DISABLE_NETWORK=1 MPLBACKEND=Agg TZ=UTC $(PYTHON_BIN) -m logos.live.regression \
+>  --adapter-mode paper \
+>  --label regression-smoke \
+>  --seed $${SEED:-7} \
+>  --dataset tests/fixtures/live/regression_default \
+>  --output-dir runs/live/reg_cli
 
 # Refresh smoke baselines (idempotent, logs seed and baseline)
 phase2-refresh-smoke:
-\tbash scripts/phase2/refresh-baselines.sh --smoke --seed $${SEED:-7}
+>bash scripts/phase2/refresh-baselines.sh --smoke --seed $${SEED:-7}
 
 # Refresh full regression matrix (extend as new fixture suites are added)
 phase2-refresh-matrix:
-\tbash scripts/phase2/refresh-baselines.sh --matrix --seed $${SEED:-7}
+>bash scripts/phase2/refresh-baselines.sh --matrix --seed $${SEED:-7}
+>bash scripts/phase2/refresh-baselines.sh --matrix --seed $${SEED:-7}
