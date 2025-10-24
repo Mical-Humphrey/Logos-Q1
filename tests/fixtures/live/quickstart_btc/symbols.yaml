@@ -1,0 +1,9 @@
+---
+BTC-USD:
+  venue_symbol: "BTC-USD"
+  price_precision: 2
+  quantity_precision: 6
+  lot_size: 0.0001
+  min_notional: 10
+  max_notional: 500000
+  aliases: []

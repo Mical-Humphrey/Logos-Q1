@@ -1,4 +1,4 @@
-# src/cli.py
+# src/cli/__init__.py
 # =============================================================================
 # Purpose:
 #   Command-line interface (CLI) for Logos-Q1.
@@ -7,7 +7,7 @@
 #
 # Summary:
 #   - Parses user arguments (symbol, dates, strategy)
-#   - NEW: Supports asset classes (equity, crypto, forex) and intervals (1d, 1h, 10m...)
+#   - Supports asset classes (equity, crypto, forex) and intervals (1d, 1h, 10m...)
 #   - Loads historical data via data_loader.get_prices()
 #   - Runs a strategy to generate signals
 #   - Calls backtest.engine.run_backtest() with asset-aware costs & annualization
@@ -26,16 +26,17 @@ import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from types import ModuleType
 from typing import Callable, Dict, Optional, Sequence, cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
 from zoneinfo import ZoneInfo
 
-from .config import Settings, load_settings
-from .logging_setup import setup_app_logging
-from .paths import ensure_dirs
-from .run_manager import (
+from ..config import Settings, load_settings
+from ..logging_setup import setup_app_logging
+from ..paths import ensure_dirs
+from ..run_manager import (
     capture_env,
     close_run_context,
     new_run,
@@ -47,15 +48,24 @@ from .run_manager import (
     write_session_markdown,
     write_trades,
 )
-from .utils import parse_params
-from .utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
-from .data_loader import SyntheticDataNotAllowed, get_prices, last_price_metadata
-from .window import Window
-from .strategies import STRATEGIES
-from .backtest.engine import BacktestResult, run_backtest
+from ..utils import parse_params
+from ..utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
+from ..data_loader import SyntheticDataNotAllowed, get_prices, last_price_metadata
+from ..window import Window
+from ..strategies import STRATEGIES
+from ..backtest.engine import BacktestResult, run_backtest
 
 # Strategy function type alias for registry casts
 StrategyFunction = Callable[..., pd.Series]
+
+__all__ = [
+    "Settings",
+    "cmd_backtest",
+    "validate_backtest_args",
+    "periods_per_year",
+    "build_parser",
+    "main",
+]
 
 
 logger = logging.getLogger(__name__)
@@ -64,6 +74,17 @@ ERROR_REQUIRES_WINDOW = "requires either --window or --start/--end"
 ERROR_MUTUALLY_EXCLUSIVE = "inputs are mutually exclusive: --window and --start/--end"
 ERROR_INVALID_ISO_DURATION = "invalid ISO duration"
 ERROR_START_BEFORE_END = "Start date is not before end date"
+
+
+def _extra_commands() -> Dict[str, ModuleType]:
+    from . import quickstart, configure, doctor, status
+
+    return {
+        "quickstart": quickstart,
+        "configure": configure,
+        "doctor": doctor,
+        "status": status,
+    }
 
 
 def _sorted_strategy_names() -> list[str]:
@@ -586,7 +607,7 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
         help="Permit synthetic data generation when fixtures/downloads are unavailable.",
     )
 
-    # NEW: asset class and interval
+    # asset class and interval
     p.add_argument(
         "--asset-class",
         choices=["equity", "crypto", "forex"],
@@ -617,7 +638,7 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
         "--fee-bps",
         type=float,
         default=5.0,
-        help="Crypto maker/taker fee in bps (0.01%% = 1 bps)",
+        help="Crypto maker/taker fee in bps (0.01% = 1 bps)",
     )
     p.add_argument(
         "--fx-pip-size",
@@ -632,6 +653,18 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
         "--paper", action="store_true", help="Enable paper trading simulation mode"
     )
 
+    # phase 3 commands
+    commands = _extra_commands()
+    # ensure deterministic order for help output
+    for name in ("quickstart", "configure", "doctor", "status"):
+        module = commands.get(name)
+        if module is None:
+            continue
+        register = getattr(module, "register", None)
+        if register is None:
+            continue
+        register(sub, settings=settings)
+
     return parser
 
 
@@ -645,12 +678,23 @@ def main(argv: Sequence[str] | None = None) -> None:
         if getattr(args, "strategy", None) not in STRATEGIES:
             _usage_error(f"valid strategies: {_format_strategy_list()}")
         cmd_backtest(args, settings=settings)
-    elif args.command is None and argv is None:
-        # User invoked bare CLI with no subcommand; show help
+        return
+
+    commands = _extra_commands()
+    if args.command in commands:
+        runner = getattr(commands[args.command], "run", None)
+        if runner is None:
+            parser.error(f"subcommand '{args.command}' is not executable")
+        exit_code = runner(args, settings=settings)
+        if isinstance(exit_code, int):
+            raise SystemExit(exit_code)
+        return
+
+    if args.command is None and argv is None:
         parser.print_help()
     else:
         parser.print_help()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

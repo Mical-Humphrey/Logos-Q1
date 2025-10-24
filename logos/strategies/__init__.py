@@ -9,6 +9,7 @@
 #   - Import and register it below.
 # =============================================================================
 from .mean_reversion import generate_signals as mean_reversion
+from .mean_reversion import explain as mean_reversion_explain
 from .momentum import generate_signals as momentum
 from .pairs_trading import generate_signals as pairs_trading
 
@@ -16,4 +17,8 @@ STRATEGIES = {
     "mean_reversion": mean_reversion,
     "momentum": momentum,
     "pairs_trading": pairs_trading,
+}
+
+STRATEGY_EXPLAINERS = {
+    "mean_reversion": mean_reversion_explain,
 }

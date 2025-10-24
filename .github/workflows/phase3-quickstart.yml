@@ -1,0 +1,49 @@
+name: Phase 3 Quickstart Smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  quickstart-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      MPLBACKEND: Agg
+      LIVE_DISABLE_NETWORK: "1"
+      LOGOS_OFFLINE_ONLY: "1"
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          if [ -f requirements/dev.txt ]; then python -m pip install -r requirements/dev.txt; fi
+          python -m pip install pandas-stubs types-PyYAML types-peewee
+
+      - name: Lint & Type Check
+        run: |
+          python -m ruff check .
+          python -m black --check .
+          python -m mypy .
+
+      - name: Contract Tests
+        run: python -m pytest tests/contract/test_cli_phase3.py -q
+
+      - name: Quickstart Smoke Run
+        run: |
+          python -m logos.cli quickstart --skip-env --output-dir runs/ci/quickstart --seed 41
+          python -m logos.cli status --path runs/ci/quickstart/latest
