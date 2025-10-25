@@ -13,3 +13,5 @@
   - Research workflows: see `docs/WALK_FORWARD.md` for walk-forward & tuning guidance
   - CI smoke: run `make phase5-smoke` (and see workflow `Phase 5 Research Smoke`) for walk-forward/tuning fixtures
   - Portfolio smoke: run `make phase6-smoke` (workflow `Phase 6 Portfolio Smoke`) to exercise allocators and risk overlays
+  - Adapter hardening: `docs/ADAPTER_HARDENING.md` documents Phase 9 venue connectors and guard rails
+  - Adapter go-live: `docs/ADAPTERS.md` provides the activation checklist and paper soak plan for Phase 9 venues

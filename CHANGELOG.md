@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2025-10-20 — Phase 9 Adapter Hardening
+
+### Highlights
+- Added hardened venue adapters for CCXT, Alpaca, and Oanda with shared retry, rate limiting, idempotent caching, and audit logging.
+- Introduced adapter unit tests under `tests/unit/adapters/` covering retry semantics, idempotent safeguards, reconciliation drift detection, and cancellation flows.
+- Documented the new guard rails and usage guidance in `docs/ADAPTER_HARDENING.md`, linking the module surface area to Phase 9 operational checklists.
+
+### Known Limitations
+- Venue classifiers rely on optional third-party SDKs; environments without the libraries fall back to coarse error grouping and require installation before live usage.
+- The in-memory idempotent cache currently uses process-local storage; persistence across restarts will be addressed alongside orchestration state sync in a later phase.
+
 ## 2025-10-20 — Phase 2 Live Execution Readiness
 
 ### Highlights
