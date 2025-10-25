@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -10,12 +11,16 @@ from typing import Callable, Deque, Dict, Iterable, List, TypedDict, cast
 import pandas as pd
 
 from logos.strategies import STRATEGIES
+from logos.strategy import StrategyError
 from logos.utils.data_hygiene import ensure_no_object_dtype, require_datetime_index
 from logos.utils.indexing import last_value
 
 from .broker_base import BrokerAdapter, OrderIntent, SymbolMeta
 from .data_feed import Bar
 from .order_sizing import SizingConfig, TargetPosition, generate_order_intents
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -84,11 +89,20 @@ class StrategyOrderGenerator:
         if frame.empty:
             return []
 
-        signals = (
-            self.strategy_fn(frame, **self.spec.params)
-            if self.spec.params
-            else self.strategy_fn(frame)
-        )
+        try:
+            signals = (
+                self.strategy_fn(frame, **self.spec.params)
+                if self.spec.params
+                else self.strategy_fn(frame)
+            )
+        except StrategyError as exc:
+            logger.debug(
+                "strategy_error strategy=%s symbol=%s err=%s",
+                self.spec.strategy,
+                self.spec.symbol,
+                exc,
+            )
+            return []
         if signals.empty:
             return []
 

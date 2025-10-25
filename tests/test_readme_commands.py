@@ -17,9 +17,9 @@ BACKTEST_COMMANDS = [
     "--symbol AAPL --strategy pairs_trading --params window=20,threshold=1.5 --start 2024-01-01 --end 2024-04-01 --paper",
     "--symbol TSLA --strategy momentum --start 2024-01-01 --end 2024-03-31",
     "--symbol BTC-USD --strategy mean_reversion --asset-class crypto --interval 5m --start 2024-01-01 --end 2024-01-07 --paper --allow-synthetic",
-    "--symbol MSFT --strategy momentum --params fast=20,slow=50 --start 2024-01-01 --end 2024-03-01 --paper --dollar-per-trade 2000",
+    "--symbol MSFT --strategy momentum --params fast=20,slow=50 --start 2023-09-01 --end 2024-03-01 --paper --dollar-per-trade 2000",
     "--symbol EURUSD --strategy pairs_trading --asset-class forex --params hedge_ratio=0.95 --start 2023-06-01 --end 2023-09-01 --paper",
-    "--symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-01-15 --allow-synthetic",
+    "--symbol DEMO --strategy mean_reversion --paper --start 2023-01-01 --end 2023-02-15 --allow-synthetic",
 ]
 
 TUTOR_COMMANDS = [

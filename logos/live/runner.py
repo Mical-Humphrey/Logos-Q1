@@ -5,8 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import textwrap
+from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from logos.logging_setup import attach_live_runtime_handler, detach_handler
 from logos.window import Window
@@ -31,6 +32,7 @@ from .session_manager import SessionPaths
 from .state import append_event, load_state, save_state
 from .time import TimeProvider, SystemTimeProvider
 from logos.paths import RUNS_LIVE_TRADES_DIR
+from logos.portfolio.capacity import compute_adv_notional, compute_participation
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,13 @@ class LiveRunner:
         self._halt_reason = "completed"
         self._started_at: Optional[dt.datetime] = None
         self._stopped_at: Optional[dt.datetime] = None
+        self._marks: Dict[str, float] = {}
+        self._volume_history: Dict[str, deque[float]] = {}
+        self._current_day: Optional[dt.date] = None
+        self._day_open_equity: float = 0.0
+        self._daily_turnover: float = 0.0
+        self._strategy_daily_loss: Dict[str, float] = {}
+        self._cooldown_days_remaining: int = 0
 
     # ------------------------------------------------------------------
     # Public API
@@ -243,20 +252,92 @@ class LiveRunner:
     def _process_bar(self, bar: Bar) -> None:
         ts = bar.dt.timestamp()
         self.broker.on_market_data(bar.symbol, bar.close, ts)
-        broker_positions = {
-            pos.symbol: pos.quantity for pos in self.broker.get_positions()
-        }
-        position_qty = broker_positions.get(bar.symbol, 0.0)
-        intents = list(self.order_generator([bar], position_qty))
-        order_map = {}
+        self._record_volume(bar)
+        self._marks[bar.symbol] = bar.close
         account = self.broker.get_account()
         if self._starting_equity is None:
             self._starting_equity = account.equity
+        self._update_day_metrics(bar.dt.date(), account.equity)
+
+        positions = self.broker.get_positions()
+        broker_positions = {pos.symbol: pos.quantity for pos in positions}
+        position_qty = broker_positions.get(bar.symbol, 0.0)
+        intents = list(self.order_generator([bar], position_qty))
+        order_map = {}
+
+        nav = account.equity
+        asset_class_map = self.risk_limits.symbol_asset_class
+        default_class = self.risk_limits.default_asset_class
+        class_exposures = defaultdict(float)
+        asset_exposures: Dict[str, float] = {}
+        gross_exposure = 0.0
+        for pos in positions:
+            price = self._marks.get(pos.symbol)
+            if not price or price <= 0.0:
+                price = pos.avg_price if pos.avg_price > 0.0 else bar.close
+            if nav <= 0.0 or price <= 0.0:
+                exposure = 0.0
+            else:
+                exposure = abs(pos.quantity * price) / nav
+            asset_exposures[pos.symbol] = exposure
+            asset_class = asset_class_map.get(pos.symbol, default_class).lower()
+            class_exposures[asset_class] += exposure
+            gross_exposure += exposure
+
+        symbol_class = asset_class_map.get(bar.symbol, default_class).lower()
+        current_symbol_exposure = asset_exposures.get(bar.symbol, 0.0)
+        current_class_exposure = class_exposures.get(symbol_class, 0.0)
+        history = self._volume_history.get(bar.symbol, ())
+        adv_notional = compute_adv_notional(history)
+
+        peak_equity = self._state.peak_equity or account.equity
+        if account.equity > peak_equity:
+            peak_equity = account.equity
+        portfolio_drawdown = (
+            0.0 if peak_equity <= 0.0 else (peak_equity - account.equity) / peak_equity
+        )
+        if (
+            self.risk_limits.portfolio_drawdown_cap > 0.0
+            and portfolio_drawdown >= self.risk_limits.portfolio_drawdown_cap
+            and self._cooldown_days_remaining == 0
+        ):
+            self._cooldown_days_remaining = self.risk_limits.cooldown_days
+
+        daily_portfolio_loss = (
+            0.0
+            if self._day_open_equity <= 0.0
+            else (account.equity - self._day_open_equity) / self._day_open_equity
+        )
+        gross_turnover = self._daily_turnover
+
         for intent in intents:
+            cooldown_active = self._cooldown_days_remaining > 0
             signed_qty = intent.quantity if intent.side == "buy" else -intent.quantity
+            current_qty = position_qty
+            projected_qty = current_qty + signed_qty
+            price = bar.close
+            order_notional = abs(signed_qty * price)
+            projected_symbol_exposure = (
+                0.0 if nav <= 0.0 else abs(projected_qty * price) / nav
+            )
+            projected_class_exposure = (
+                current_class_exposure - current_symbol_exposure + projected_symbol_exposure
+            )
+            projected_gross_exposure = (
+                gross_exposure - current_symbol_exposure + projected_symbol_exposure
+            )
+            delta_symbol_exposure = projected_symbol_exposure - current_symbol_exposure
+            delta_class_exposure = projected_class_exposure - current_class_exposure
+            delta_gross_exposure = projected_gross_exposure - gross_exposure
+            reducing = projected_symbol_exposure <= current_symbol_exposure + 1e-9
+            order_turnover = order_notional / nav if nav > 0.0 else 0.0
+            projected_turnover = gross_turnover + order_turnover
+            participation = compute_participation(order_notional, adv_notional)
+
+            strategy_losses = dict(self._strategy_daily_loss)
             ctx = RiskContext(
                 equity=account.equity,
-                position_quantity=position_qty,
+                position_quantity=current_qty,
                 realized_drawdown_bps=compute_drawdown_bps(
                     self._state.equity or account.equity,
                     self._state.peak_equity or account.equity,
@@ -264,11 +345,45 @@ class LiveRunner:
                 consecutive_rejects=self._state.consecutive_rejects,
                 last_bar_ts=bar.dt.timestamp(),
                 now_ts=ts,
+                order_notional=order_notional,
+                gross_exposure=gross_exposure,
+                projected_gross_exposure=projected_gross_exposure,
+                delta_gross_exposure=delta_gross_exposure,
+                symbol_exposure=current_symbol_exposure,
+                projected_symbol_exposure=projected_symbol_exposure,
+                delta_symbol_exposure=delta_symbol_exposure,
+                asset_class=symbol_class,
+                class_exposure=current_class_exposure,
+                projected_class_exposure=projected_class_exposure,
+                delta_class_exposure=delta_class_exposure,
+                portfolio_drawdown=portfolio_drawdown,
+                daily_portfolio_loss=daily_portfolio_loss,
+                strategy_id=self.loop_config.strategy,
+                strategy_daily_losses=strategy_losses,
+                cooldown_active=cooldown_active,
+                projected_turnover=projected_turnover,
+                order_participation=participation,
+                adv_notional=adv_notional,
+                reducing_risk=reducing,
             )
             decision = check_order_limits(
-                self.loop_config.symbol, signed_qty, bar.close, self.risk_limits, ctx
+                bar.symbol, signed_qty, price, self.risk_limits, ctx
             )
+            if decision.warnings:
+                for warning in decision.warnings:
+                    logger.warning(
+                        "risk_warning code=%s symbol=%s projected_turnover=%.4f participation=%.4f",
+                        warning,
+                        bar.symbol,
+                        projected_turnover,
+                        participation,
+                    )
             if not decision.allowed:
+                if (
+                    decision.reason == "portfolio_drawdown_cap"
+                    and self._cooldown_days_remaining == 0
+                ):
+                    self._cooldown_days_remaining = self.risk_limits.cooldown_days
                 logger.warning("Order rejected by risk: %s", decision.reason)
                 self._state.consecutive_rejects += 1
                 append_event(
@@ -308,6 +423,14 @@ class LiveRunner:
                 self._state.consecutive_rejects += 1
             else:
                 self._state.consecutive_rejects = 0
+                position_qty += signed_qty
+                gross_turnover = projected_turnover
+                self._daily_turnover = projected_turnover
+                current_symbol_exposure = max(projected_symbol_exposure, 0.0)
+                current_class_exposure = max(projected_class_exposure, 0.0)
+                gross_exposure = max(projected_gross_exposure, 0.0)
+                asset_exposures[bar.symbol] = current_symbol_exposure
+                class_exposures[symbol_class] = current_class_exposure
             if order.state in {
                 OrderState.FILLED,
                 OrderState.CANCELED,
@@ -352,6 +475,31 @@ class LiveRunner:
                 order_type=order_type,
             )
         self._update_state_from_broker(bar)
+
+    def _record_volume(self, bar: Bar) -> None:
+        lookback = max(1, self.risk_limits.adv_lookback_days or 20)
+        history = self._volume_history.get(bar.symbol)
+        if history is None or history.maxlen != lookback:
+            existing = list(history) if history is not None else []
+            history = deque(existing, maxlen=lookback)
+            self._volume_history[bar.symbol] = history
+        history.append(float(bar.volume * bar.close))
+
+    def _update_day_metrics(self, day: dt.date, equity: float) -> None:
+        if self._current_day != day:
+            if self._current_day is not None and self._cooldown_days_remaining > 0:
+                self._cooldown_days_remaining = max(
+                    0, self._cooldown_days_remaining - 1
+                )
+            self._current_day = day
+            self._day_open_equity = equity
+            self._daily_turnover = 0.0
+            self._strategy_daily_loss = {}
+        if self._day_open_equity <= 0.0:
+            daily_loss = 0.0
+        else:
+            daily_loss = (equity - self._day_open_equity) / self._day_open_equity
+        self._strategy_daily_loss[self.loop_config.strategy] = daily_loss
 
     def _update_state_from_broker(self, bar: Bar) -> None:
         account = self.broker.get_account()

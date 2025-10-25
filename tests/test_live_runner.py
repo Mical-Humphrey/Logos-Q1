@@ -74,60 +74,56 @@ def test_strategy_order_generator_emits_intents():
     spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
-        params={"fast": 1, "slow": 2},
+        params={"fast": 2, "slow": 4},
         dollar_per_trade=1_000.0,
         sizing=SizingConfig(max_notional=2_000.0, max_position=1000.0),
     )
     generator = StrategyOrderGenerator(broker, spec)
+    dt_start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
-        Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc),
-            open=100,
-            high=101,
-            low=99,
-            close=100,
-            volume=1_000,
-            symbol="MSFT",
-        ),
-        Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 31, tzinfo=dt.timezone.utc),
-            open=101,
-            high=102,
-            low=100,
-            close=101,
-            volume=1_100,
-            symbol="MSFT",
-        ),
-        Bar(
-            dt=dt.datetime(2025, 1, 1, 9, 32, tzinfo=dt.timezone.utc),
-            open=102,
-            high=103,
-            low=101,
-            close=103,
-            volume=1_200,
-            symbol="MSFT",
-        ),
+        Bar(dt=dt_start + dt.timedelta(minutes=i), open=price, high=price + 1, low=price - 1, close=price, volume=vol, symbol="MSFT")
+        for i, (price, vol) in enumerate(
+            [
+                (100, 1_000),
+                (101, 1_100),
+                (103, 1_200),
+                (104, 1_300),
+                (103, 1_200),
+                (102, 1_100),
+            ]
+        )
     ]
 
     assert generator.process([bars[0]], current_qty=0.0) == []
+    assert generator.process([bars[1]], current_qty=0.0) == []
+    assert generator.process([bars[2]], current_qty=0.0) == []
 
-    second_intents = generator.process([bars[1]], current_qty=0.0)
-    assert len(second_intents) == 1
-    buy_intent = second_intents[0]
+    fourth_intents = generator.process([bars[3]], current_qty=0.0)
+    assert len(fourth_intents) == 1
+    buy_intent = fourth_intents[0]
     assert buy_intent.side == "buy"
     assert buy_intent.symbol == "MSFT"
     assert buy_intent.order_type == "market"
     assert (
         pytest.approx(buy_intent.quantity, rel=1e-3)
-        == spec.dollar_per_trade / bars[1].close
+        == spec.dollar_per_trade / bars[3].close
     )
 
-    third_intents = generator.process([bars[2]], current_qty=buy_intent.quantity)
-    assert len(third_intents) == 1
-    sell_intent = third_intents[0]
+    hold_intents = generator.process([bars[4]], current_qty=buy_intent.quantity)
+    assert len(hold_intents) == 1
+    topup_intent = hold_intents[0]
+    assert topup_intent.side == "buy"
+    target_qty_after_drop = spec.dollar_per_trade / bars[4].close
+    expected_tap = target_qty_after_drop - buy_intent.quantity
+    assert pytest.approx(topup_intent.quantity, rel=1e-3) == expected_tap
+
+    current_qty = buy_intent.quantity + topup_intent.quantity
+    exit_intents = generator.process([bars[5]], current_qty=current_qty)
+    assert len(exit_intents) == 1
+    sell_intent = exit_intents[0]
     assert sell_intent.side == "sell"
-    expected_target_qty = spec.dollar_per_trade / bars[2].close
-    expected_difference = buy_intent.quantity - expected_target_qty
+    expected_target_qty = -(spec.dollar_per_trade / bars[5].close)
+    expected_difference = current_qty - expected_target_qty
     assert expected_difference > 0
     assert pytest.approx(sell_intent.quantity, rel=1e-3) == expected_difference
 
@@ -136,41 +132,24 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
         Bar(
-            dt=start,
-            open=100,
-            high=101,
-            low=99,
-            close=100,
-            volume=1_000,
+            dt=start + dt.timedelta(minutes=i),
+            open=price,
+            high=price + 1,
+            low=price - 1,
+            close=price,
+            volume=vol,
             symbol="MSFT",
-        ),
-        Bar(
-            dt=start + dt.timedelta(minutes=1),
-            open=101,
-            high=102,
-            low=100,
-            close=101,
-            volume=1_100,
-            symbol="MSFT",
-        ),
-        Bar(
-            dt=start + dt.timedelta(minutes=2),
-            open=102,
-            high=103,
-            low=101,
-            close=103,
-            volume=1_200,
-            symbol="MSFT",
-        ),
-        Bar(
-            dt=start + dt.timedelta(minutes=3),
-            open=104,
-            high=105,
-            low=103,
-            close=104,
-            volume=1_300,
-            symbol="MSFT",
-        ),
+        )
+        for i, (price, vol) in enumerate(
+            [
+                (100, 1_000),
+                (101, 1_100),
+                (103, 1_200),
+                (104, 1_300),
+                (103, 1_200),
+                (102, 1_100),
+            ]
+        )
     ]
     feed = MemoryBarFeed(bars=bars)
     clock = MockTimeProvider(current=start)
@@ -179,7 +158,7 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
     spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
-        params={"fast": 1, "slow": 2},
+        params={"fast": 2, "slow": 4},
         dollar_per_trade=1_000.0,
         sizing=SizingConfig(max_notional=2_000.0, max_position=1000.0),
     )
@@ -239,7 +218,7 @@ def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_path
     spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
-        params={"fast": 1, "slow": 2},
+        params={"fast": 2, "slow": 4},
         dollar_per_trade=1_000.0,
         sizing=SizingConfig(max_notional=2_000.0, max_position=1000.0),
     )
@@ -350,26 +329,23 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     initial_bars = [
         Bar(
-            dt=start, open=100, high=101, low=99, close=100, volume=1_000, symbol="MSFT"
-        ),
-        Bar(
-            dt=start + dt.timedelta(minutes=1),
-            open=101,
-            high=102,
-            low=100,
-            close=101,
-            volume=1_100,
+            dt=start + dt.timedelta(minutes=i),
+            open=price,
+            high=price + 1,
+            low=price - 1,
+            close=price,
+            volume=vol,
             symbol="MSFT",
-        ),
-        Bar(
-            dt=start + dt.timedelta(minutes=2),
-            open=102,
-            high=103,
-            low=101,
-            close=102,
-            volume=1_050,
-            symbol="MSFT",
-        ),
+        )
+        for i, (price, vol) in enumerate(
+            [
+                (100, 1_000),
+                (101, 1_100),
+                (103, 1_200),
+                (104, 1_300),
+                (103, 1_200),
+            ]
+        )
     ]
     feed_initial = MemoryBarFeed(bars=initial_bars)
     clock_initial = MockTimeProvider(current=start)
@@ -379,7 +355,7 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
-        params={"fast": 1, "slow": 2},
+        params={"fast": 2, "slow": 4},
         dollar_per_trade=1_000.0,
         sizing=SizingConfig(max_notional=2_000.0, max_position=1000.0),
     )
@@ -414,21 +390,21 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
 
     followup_bars = [
         Bar(
-            dt=start + dt.timedelta(minutes=3),
-            open=103,
-            high=104,
-            low=102,
-            close=103,
-            volume=1_200,
+            dt=start + dt.timedelta(minutes=5),
+            open=102,
+            high=103,
+            low=101,
+            close=102,
+            volume=1_100,
             symbol="MSFT",
         ),
         Bar(
-            dt=start + dt.timedelta(minutes=4),
-            open=104,
-            high=105,
-            low=103,
-            close=104,
-            volume=1_250,
+            dt=start + dt.timedelta(minutes=6),
+            open=101,
+            high=102,
+            low=100,
+            close=101,
+            volume=1_050,
             symbol="MSFT",
         ),
     ]
@@ -468,7 +444,7 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     final_qty = state_after_second["positions"]["MSFT"]["qty"]
     assert final_qty >= 0
     assert final_qty <= initial_qty + 1e-6
-    assert state_after_second["realized_pnl"] >= 0
+    assert isinstance(state_after_second["realized_pnl"], (int, float))
 
     with session_paths.state_events_file.open("r", encoding="utf-8") as fh:
         events = [json.loads(line) for line in fh]

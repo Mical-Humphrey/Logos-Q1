@@ -85,7 +85,7 @@ def test_live_paper_smoke(tmp_path, monkeypatch):
     strategy_spec = StrategySpec(
         symbol="MSFT",
         strategy="momentum",
-        params={"fast": 1, "slow": 2},
+        params={"fast": 2, "slow": 3},
         dollar_per_trade=1_000.0,
         sizing=SizingConfig(max_notional=50_000.0, max_position=10_000.0),
     )

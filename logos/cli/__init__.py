@@ -54,6 +54,7 @@ from ..data_loader import SyntheticDataNotAllowed, get_prices, last_price_metada
 from ..window import Window
 from ..strategies import STRATEGIES
 from ..backtest.engine import BacktestResult, run_backtest
+from ..live.risk import RiskLimits
 
 # Strategy function type alias for registry casts
 StrategyFunction = Callable[..., pd.Series]
@@ -93,6 +94,39 @@ def _sorted_strategy_names() -> list[str]:
 
 def _format_strategy_list() -> str:
     return ",".join(_sorted_strategy_names())
+
+
+def _format_class_caps(caps: Dict[str, float]) -> str:
+    if not caps:
+        return ""
+    parts = [f"{key}={value}" for key, value in sorted(caps.items())]
+    return ",".join(parts)
+
+
+def _parse_class_caps_arg(raw: object) -> Dict[str, float]:
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        try:
+            return {str(k).lower(): float(v) for k, v in raw.items()}
+        except (TypeError, ValueError):
+            _usage_error("--portfolio-class-caps requires numeric values")
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        params = parse_params(text)
+        result: Dict[str, float] = {}
+        for key, value in params.items():
+            try:
+                result[str(key).lower()] = float(value)
+            except (TypeError, ValueError):
+                _usage_error(
+                    "--portfolio-class-caps entries must be numeric (e.g. equity=0.3)"
+                )
+        return result
+    _usage_error("--portfolio-class-caps expects comma-delimited k=v pairs")
+    raise AssertionError("unreachable")
 
 
 @dataclass
@@ -354,6 +388,31 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     window_spec = validation.window_spec
     asset_class = (args.asset_class or s.asset_class).lower()
 
+    class_caps_input = _parse_class_caps_arg(getattr(args, "portfolio_class_caps", None))
+    if not class_caps_input:
+        class_caps_input = dict(getattr(s, "portfolio_class_caps", {}))
+    portfolio_nav = float(getattr(args, "portfolio_nav", s.portfolio_nav))
+    risk_limits = RiskLimits(
+        max_notional=s.risk_max_notional,
+        max_position=s.risk_max_position,
+        max_drawdown_bps=s.risk_max_dd_bps,
+        portfolio_gross_cap=getattr(args, "portfolio_gross_cap", s.portfolio_gross_cap),
+    per_asset_cap=getattr(args, "portfolio_asset_cap", s.portfolio_per_asset_cap),
+        asset_class_caps=class_caps_input,
+        per_trade_risk_cap=getattr(args, "portfolio_per_trade_cap", s.portfolio_per_trade_cap),
+        portfolio_drawdown_cap=getattr(args, "portfolio_drawdown_cap", s.portfolio_drawdown_cap),
+        cooldown_days=getattr(args, "portfolio_cooldown_days", s.portfolio_cooldown_days),
+        daily_portfolio_loss_cap=getattr(args, "portfolio_daily_loss_cap", s.portfolio_daily_loss_cap),
+        daily_strategy_loss_cap=getattr(args, "portfolio_strategy_loss_cap", s.portfolio_strategy_loss_cap),
+        capacity_warn_participation=getattr(args, "portfolio_capacity_warn", s.portfolio_capacity_warn),
+        capacity_max_participation=getattr(args, "portfolio_capacity_block", s.portfolio_capacity_block),
+        turnover_warn=getattr(args, "portfolio_turnover_warn", s.portfolio_turnover_warn),
+        turnover_block=getattr(args, "portfolio_turnover_block", s.portfolio_turnover_block),
+        adv_lookback_days=getattr(args, "portfolio_adv_lookback", s.portfolio_adv_lookback),
+        symbol_asset_class={symbol: asset_class},
+        default_asset_class=asset_class,
+    )
+
     allow_synthetic = bool(getattr(args, "allow_synthetic", False))
     if allow_synthetic:
         logger.info("Synthetic data generation permitted via --allow-synthetic flag")
@@ -396,6 +455,9 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             fx_pip_size=args.fx_pip_size,  # fx pip granularity
             asset_class=asset_class,
             periods_per_year=ppy,
+            risk_limits=risk_limits,
+            portfolio_nav=portfolio_nav,
+            strategy_id=args.strategy,
         )
 
         # Console summary
@@ -651,6 +713,91 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--paper", action="store_true", help="Enable paper trading simulation mode"
+    )
+
+    # Portfolio risk overlays
+    p.add_argument(
+        "--portfolio-nav",
+        type=float,
+        default=settings.portfolio_nav,
+        help="Total NAV used for portfolio risk calculations (default from settings)",
+    )
+    p.add_argument(
+        "--portfolio-gross-cap",
+        type=float,
+        default=settings.portfolio_gross_cap,
+        help="Maximum gross exposure as a fraction of NAV (0 disables)",
+    )
+    p.add_argument(
+        "--portfolio-asset-cap",
+        type=float,
+        default=settings.portfolio_per_asset_cap,
+        help="Per-asset exposure cap as a fraction of NAV",
+    )
+    p.add_argument(
+        "--portfolio-class-caps",
+        default=_format_class_caps(settings.portfolio_class_caps),
+        help="Comma list of class caps (e.g. equity=0.3,crypto=0.2)",
+    )
+    p.add_argument(
+        "--portfolio-per-trade-cap",
+        type=float,
+        default=settings.portfolio_per_trade_cap,
+        help="Per-trade notional cap as a fraction of NAV",
+    )
+    p.add_argument(
+        "--portfolio-drawdown-cap",
+        type=float,
+        default=settings.portfolio_drawdown_cap,
+        help="Portfolio drawdown cap before cooldown triggers",
+    )
+    p.add_argument(
+        "--portfolio-cooldown-days",
+        type=int,
+        default=settings.portfolio_cooldown_days,
+        help="Cooldown days enforced after drawdown breach",
+    )
+    p.add_argument(
+        "--portfolio-daily-loss-cap",
+        type=float,
+        default=settings.portfolio_daily_loss_cap,
+        help="Daily portfolio loss cap (fraction)",
+    )
+    p.add_argument(
+        "--portfolio-strategy-loss-cap",
+        type=float,
+        default=settings.portfolio_strategy_loss_cap,
+        help="Per-strategy daily loss cap (fraction)",
+    )
+    p.add_argument(
+        "--portfolio-capacity-warn",
+        type=float,
+        default=settings.portfolio_capacity_warn,
+        help="Participation warning threshold",
+    )
+    p.add_argument(
+        "--portfolio-capacity-block",
+        type=float,
+        default=settings.portfolio_capacity_block,
+        help="Participation hard limit",
+    )
+    p.add_argument(
+        "--portfolio-turnover-warn",
+        type=float,
+        default=settings.portfolio_turnover_warn,
+        help="Gross turnover warning threshold",
+    )
+    p.add_argument(
+        "--portfolio-turnover-block",
+        type=float,
+        default=settings.portfolio_turnover_block,
+        help="Gross turnover block threshold",
+    )
+    p.add_argument(
+        "--portfolio-adv-lookback",
+        type=int,
+        default=settings.portfolio_adv_lookback,
+        help="Lookback window (days) for ADV capacity checks",
     )
 
     # phase 3 commands

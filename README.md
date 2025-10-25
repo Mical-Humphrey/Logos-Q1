@@ -132,7 +132,7 @@ python -m logos.cli backtest --symbol EURUSD --strategy pairs_trading \
 #### Scenario: Synthetic demo dataset regression
 ```bash
 python -m logos.cli backtest --symbol DEMO --strategy mean_reversion \
-  --paper --start 2023-01-01 --end 2023-01-15
+  --paper --start 2023-01-01 --end 2023-02-15
 ```
 **What it does:** runs against bundled fixture data; handy for continuous integration or smoke tests.
 

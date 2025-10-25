@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Mapping, Tuple, Literal, overload
 
 from dotenv import load_dotenv
@@ -50,6 +50,20 @@ class Settings:
     alpaca_base_url: str | None = None
     ib_host: str | None = None
     ib_port: int | None = None
+    portfolio_nav: float = 100_000.0
+    portfolio_gross_cap: float = 0.3
+    portfolio_per_asset_cap: float = 0.2
+    portfolio_class_caps: Dict[str, float] = field(default_factory=dict)
+    portfolio_per_trade_cap: float = 0.1
+    portfolio_drawdown_cap: float = 0.1
+    portfolio_cooldown_days: int = 2
+    portfolio_daily_loss_cap: float = 0.05
+    portfolio_strategy_loss_cap: float = 0.07
+    portfolio_capacity_warn: float = 0.02
+    portfolio_capacity_block: float = 0.05
+    portfolio_turnover_warn: float = 1.0
+    portfolio_turnover_block: float = 1.5
+    portfolio_adv_lookback: int = 20
 
 
 @dataclass(frozen=True)
@@ -133,6 +147,34 @@ def _optional_int_coercer(value: Any, default: Any) -> Tuple[int | None, bool]:
         return default, False
 
 
+def _mapping_float_coercer(value: Any, default: Any) -> Tuple[Dict[str, float], bool]:
+    base: Dict[str, float] = dict(default or {})
+    if value is None:
+        return base, False
+    if isinstance(value, Mapping):
+        try:
+            return ({str(k).lower(): float(v) for k, v in value.items()}, True)
+        except (TypeError, ValueError):
+            return base, False
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return {}, True
+        mapping: Dict[str, float] = {}
+        parts = [segment.strip() for segment in text.split(",") if segment.strip()]
+        for part in parts:
+            key, _, raw_val = part.partition("=")
+            key = key.strip().lower()
+            if not key or not raw_val:
+                return base, False
+            try:
+                mapping[key] = float(raw_val)
+            except ValueError:
+                return base, False
+        return mapping, True
+    return base, False
+
+
 _FIELD_SPECS: Dict[str, _FieldSpec] = {
     "start": _FieldSpec("START_DATE", "2023-01-01", _str_coercer()),
     "end": _FieldSpec("END_DATE", "2025-01-01", _str_coercer()),
@@ -167,6 +209,20 @@ _FIELD_SPECS: Dict[str, _FieldSpec] = {
     "alpaca_base_url": _FieldSpec("ALPACA_BASE_URL", None, _str_coercer(optional=True)),
     "ib_host": _FieldSpec("IB_HOST", None, _str_coercer(optional=True)),
     "ib_port": _FieldSpec("IB_PORT", None, _optional_int_coercer),
+    "portfolio_nav": _FieldSpec("PORTFOLIO_NAV", 100_000.0, _float_coercer),
+    "portfolio_gross_cap": _FieldSpec("PORTFOLIO_GROSS_CAP", 0.3, _float_coercer),
+    "portfolio_per_asset_cap": _FieldSpec("PORTFOLIO_PER_ASSET_CAP", 0.2, _float_coercer),
+    "portfolio_class_caps": _FieldSpec("PORTFOLIO_CLASS_CAPS", {}, _mapping_float_coercer),
+    "portfolio_per_trade_cap": _FieldSpec("PORTFOLIO_PER_TRADE_CAP", 0.1, _float_coercer),
+    "portfolio_drawdown_cap": _FieldSpec("PORTFOLIO_DRAWDOWN_CAP", 0.1, _float_coercer),
+    "portfolio_cooldown_days": _FieldSpec("PORTFOLIO_COOLDOWN_DAYS", 2, _optional_int_coercer),
+    "portfolio_daily_loss_cap": _FieldSpec("PORTFOLIO_DAILY_LOSS_CAP", 0.05, _float_coercer),
+    "portfolio_strategy_loss_cap": _FieldSpec("PORTFOLIO_STRATEGY_LOSS_CAP", 0.07, _float_coercer),
+    "portfolio_capacity_warn": _FieldSpec("PORTFOLIO_CAPACITY_WARN", 0.02, _float_coercer),
+    "portfolio_capacity_block": _FieldSpec("PORTFOLIO_CAPACITY_BLOCK", 0.05, _float_coercer),
+    "portfolio_turnover_warn": _FieldSpec("PORTFOLIO_TURNOVER_WARN", 1.0, _float_coercer),
+    "portfolio_turnover_block": _FieldSpec("PORTFOLIO_TURNOVER_BLOCK", 1.5, _float_coercer),
+    "portfolio_adv_lookback": _FieldSpec("PORTFOLIO_ADV_LOOKBACK", 20, _optional_int_coercer),
 }
 
 
