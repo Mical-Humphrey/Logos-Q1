@@ -11,6 +11,17 @@
 - Monitoring relies on webhook endpoints; operators must supply the integration and rotate secrets externally.
 - Backup cadence defaults to daily archives; adjust intervals for higher-frequency trading workloads if storage budget allows.
 
+## 2025-10-25 — Phase 11 ML Augmentation (Offline, Gated)
+
+### Highlights
+- Added offline advisory modules for regime detection, volatility forecasting, meta allocation, and drift monitoring under `logos/ml/`.
+- Established human-in-the-loop promotion helpers that stamp approver metadata before any advisory output can influence live systems.
+- Authored the ML augmentation playbook (`docs/ML_AUGMENTATION.md`) and accompanying unit tests (`tests/unit/ml/`) to satisfy the gated rollout requirements.
+
+### Known Limitations
+- Thresholds for regime, PSI, and z-score alerts are heuristic and should be reviewed quarterly against fresh walk-forward evidence.
+- Meta allocator state currently tracks approvals in-memory; persist the ledger before integrating with orchestration tooling.
+
 ## 2025-10-20 — Phase 9 Adapter Hardening
 
 ### Highlights
