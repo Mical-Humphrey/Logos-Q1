@@ -1,4 +1,6 @@
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -7,7 +9,7 @@ from logos import data_loader
 from logos.window import Window
 
 
-def _fixture_df():
+def _fixture_df() -> pd.DataFrame:
     dates = pd.date_range("2024-01-01", periods=5, freq="D")
     return pd.DataFrame(
         {
@@ -23,7 +25,7 @@ def _fixture_df():
 
 
 @pytest.fixture
-def raw_dir(tmp_path, monkeypatch):
+def raw_dir() -> Iterator[Path]:
     project_raw = Path("input_data/raw")
     project_raw.mkdir(parents=True, exist_ok=True)
     yield project_raw
@@ -31,7 +33,7 @@ def raw_dir(tmp_path, monkeypatch):
         item.unlink(missing_ok=True)
 
 
-def test_get_prices_reads_from_raw_fixture(raw_dir):
+def test_get_prices_reads_from_raw_fixture(raw_dir: Path) -> None:
     symbol = "UNITTEST_EQ"
     fixture_path = raw_dir / f"{symbol}.csv"
     _fixture_df().to_csv(fixture_path, index_label="Date")
@@ -47,7 +49,9 @@ def test_get_prices_reads_from_raw_fixture(raw_dir):
     fixture_path.unlink()
 
 
-def test_get_prices_writes_cache_in_new_structure(monkeypatch):
+def test_get_prices_writes_cache_in_new_structure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     symbol = "UNITTEST_CACHE"
     cache_file = Path("input_data/cache/equity") / f"{symbol}_1d.csv"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -55,7 +59,7 @@ def test_get_prices_writes_cache_in_new_structure(monkeypatch):
 
     df = _fixture_df()
 
-    def fake_download(*args, **kwargs):
+    def fake_download(*_args: object, **_kwargs: object) -> pd.DataFrame:
         return df
 
     monkeypatch.setattr(data_loader.yf, "download", fake_download)
@@ -69,7 +73,9 @@ def test_get_prices_writes_cache_in_new_structure(monkeypatch):
     cache_file.unlink(missing_ok=True)
 
 
-def test_get_prices_blocks_synthetic_without_flag(monkeypatch, tmp_path):
+def test_get_prices_blocks_synthetic_without_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     symbol = "UNITTEST_SYN"
 
     monkeypatch.setattr(data_loader, "DATA_RAW_DIR", tmp_path / "raw", raising=False)
@@ -94,7 +100,9 @@ def test_get_prices_blocks_synthetic_without_flag(monkeypatch, tmp_path):
         )
 
 
-def test_get_prices_allows_synthetic_with_flag(monkeypatch, tmp_path):
+def test_get_prices_allows_synthetic_with_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     symbol = "UNITTEST_SYN_OK"
 
     monkeypatch.setattr(data_loader, "DATA_RAW_DIR", tmp_path / "raw", raising=False)
@@ -112,7 +120,13 @@ def test_get_prices_allows_synthetic_with_flag(monkeypatch, tmp_path):
 
     called: dict[str, bool] = {"synthetic": False}
 
-    def _fake_synth(sym, start, end, interval, meta=None):
+    def _fake_synth(
+        sym: str,
+        start: pd.Timestamp | str,
+        end: pd.Timestamp | str,
+        interval: str,
+        meta: dict[str, Any] | None = None,
+    ) -> pd.DataFrame:
         called["synthetic"] = True
         if meta is not None:
             meta["synthetic"] = True

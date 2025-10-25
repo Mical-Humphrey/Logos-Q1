@@ -1,6 +1,8 @@
 from __future__ import annotations
 import math
 from math import erf
+from typing import cast
+
 import numpy as np
 import pandas as pd
 
@@ -114,8 +116,8 @@ def probabilistic_sharpe_ratio(
         return 0.0
 
     sr = sharpe(r, periods_per_year=periods_per_year)
-    sample_skew = float(r.skew()) if n > 2 else 0.0
-    sample_kurt = float(r.kurtosis()) if n > 3 else 3.0
+    sample_skew = float(cast(float, r.skew())) if n > 2 else 0.0
+    sample_kurt = float(cast(float, r.kurtosis())) if n > 3 else 3.0
     denom = 1 - sample_skew * sr + ((sample_kurt - 1.0) / 4.0) * (sr**2)
     if denom <= 0:
         return 0.0
@@ -145,8 +147,8 @@ def deflated_sharpe_ratio(
         return 0.0
 
     n_trials = max(int(n_trials), 1)
-    sample_skew = float(r.skew()) if n > 2 else 0.0
-    sample_kurt = float(r.kurtosis()) if n > 3 else 3.0
+    sample_skew = float(cast(float, r.skew())) if n > 2 else 0.0
+    sample_kurt = float(cast(float, r.kurtosis())) if n > 3 else 3.0
 
     sr = sharpe(r, periods_per_year=periods_per_year)
     sigma_sr = math.sqrt(

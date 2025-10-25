@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
+from argparse import Namespace
 
 import pytest
 
@@ -25,7 +25,7 @@ def _limits(**overrides: float) -> dict[str, float]:
 
 
 def test_live_requires_acknowledgement_phrase() -> None:
-    args = SimpleNamespace(live=True, ack_phrase=None, send_orders=False)
+    args = Namespace(live=True, ack_phrase=None, send_orders=False)
     with pytest.raises(SystemExit) as exc:
         live_main._evaluate_live_request(args, _base_settings(), _limits())
     assert "i-understand" in str(exc.value)
@@ -33,23 +33,25 @@ def test_live_requires_acknowledgement_phrase() -> None:
 
 
 def test_live_requires_environment_flag() -> None:
-    args = SimpleNamespace(live=True, ack_phrase="place-live-orders", send_orders=False)
+    args = Namespace(live=True, ack_phrase="place-live-orders", send_orders=False)
     with pytest.raises(SystemExit) as exc:
         live_main._evaluate_live_request(args, _base_settings(mode="paper"), _limits())
     assert "MODE=live" in str(exc.value)
 
 
 def test_live_requires_risk_limits() -> None:
-    args = SimpleNamespace(live=True, ack_phrase="place-live-orders", send_orders=False)
+    args = Namespace(live=True, ack_phrase="place-live-orders", send_orders=False)
     with pytest.raises(SystemExit) as exc:
-        live_main._evaluate_live_request(args, _base_settings(), _limits(max_notional=0.0))
+        live_main._evaluate_live_request(
+            args, _base_settings(), _limits(max_notional=0.0)
+        )
     message = str(exc.value)
     assert "risk.max_notional" in message
     assert "Safety Summary" in message
 
 
 def test_live_gating_returns_live_without_send_orders() -> None:
-    args = SimpleNamespace(
+    args = Namespace(
         live=True,
         ack_phrase="place-live-orders",
         send_orders=False,
@@ -60,7 +62,7 @@ def test_live_gating_returns_live_without_send_orders() -> None:
 
 
 def test_live_gating_returns_live_with_send_orders() -> None:
-    args = SimpleNamespace(
+    args = Namespace(
         live=True,
         ack_phrase="place-live-orders",
         send_orders=True,
@@ -71,7 +73,7 @@ def test_live_gating_returns_live_with_send_orders() -> None:
 
 
 def test_live_absent_flag_defaults_to_paper() -> None:
-    args = SimpleNamespace(live=False, ack_phrase=None, send_orders=False)
+    args = Namespace(live=False, ack_phrase=None, send_orders=False)
     mode, send = live_main._evaluate_live_request(args, _base_settings(), _limits())
     assert mode == "paper"
     assert send is False

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Callable, Dict, Mapping, Optional, Tuple
 
 from logos.portfolio.risk import (
-    PortfolioDecision,
     PortfolioLimitsConfig,
     PortfolioOrderState,
     evaluate_order_limits,

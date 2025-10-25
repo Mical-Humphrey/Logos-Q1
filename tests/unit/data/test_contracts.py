@@ -35,20 +35,26 @@ def test_contract_rejects_unsorted_index():
 def test_time_safe_join(monkeypatch):
     left = pd.DataFrame(
         {
-            "timestamp": pd.to_datetime([
-                "2024-01-01 09:31",
-                "2024-01-01 09:32",
-                "2024-01-01 09:33",
-            ], utc=True),
+            "timestamp": pd.to_datetime(
+                [
+                    "2024-01-01 09:31",
+                    "2024-01-01 09:32",
+                    "2024-01-01 09:33",
+                ],
+                utc=True,
+            ),
             "target": [1, 2, 3],
         }
     )
     right = pd.DataFrame(
         {
-            "timestamp": pd.to_datetime([
-                "2024-01-01 09:30",
-                "2024-01-01 09:31",
-            ], utc=True),
+            "timestamp": pd.to_datetime(
+                [
+                    "2024-01-01 09:30",
+                    "2024-01-01 09:31",
+                ],
+                utc=True,
+            ),
             "feature": [10.0, 11.0],
         }
     )

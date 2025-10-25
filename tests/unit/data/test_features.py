@@ -35,10 +35,14 @@ def test_register_creates_new_version_on_change(tmp_path):
     store = FeatureStore(root=tmp_path / "features")
     contract = DataContract("basic", (ColumnSpec("value", "float"),))
     frame = _build_frame()
-    v1 = store.register("alpha", frame, contract=contract, code_hash="hash1", params={}, sources=[])
+    v1 = store.register(
+        "alpha", frame, contract=contract, code_hash="hash1", params={}, sources=[]
+    )
     frame2 = frame.copy()
     frame2.loc[frame2.index[-1], "value"] = 5.0
-    v2 = store.register("alpha", frame2, contract=contract, code_hash="hash1", params={}, sources=[])
+    v2 = store.register(
+        "alpha", frame2, contract=contract, code_hash="hash1", params={}, sources=[]
+    )
     assert v1.version != v2.version
     latest_frame, meta = store.load("alpha")
     pdt.assert_frame_equal(latest_frame, frame2)

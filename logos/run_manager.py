@@ -192,24 +192,22 @@ def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None
     def _write_rows(fh: Any) -> None:
         if rows and isinstance(rows[0], dict):
             fieldnames = list(rows[0].keys())
-            dict_writer = csv.DictWriter(
-                fh, fieldnames=fieldnames, lineterminator="\n"
-            )
+            dict_writer = csv.DictWriter(fh, fieldnames=fieldnames, lineterminator="\n")
             dict_writer.writeheader()
             for row in rows:
-                sanitized = {
+                sanitized_row = {
                     key: csv_cell_sanitize(row.get(key))  # type: ignore[arg-type]
                     for key in fieldnames
                 }
-                dict_writer.writerow(sanitized)
+                dict_writer.writerow(sanitized_row)
         else:
             row_writer = csv.writer(fh, lineterminator="\n")
             for row in rows:
                 if isinstance(row, (list, tuple)):
-                    sanitized = [csv_cell_sanitize(value) for value in row]
+                    sanitized_values = [csv_cell_sanitize(value) for value in row]
                 else:
-                    sanitized = [csv_cell_sanitize(row)]
-                row_writer.writerow(sanitized)
+                    sanitized_values = [csv_cell_sanitize(row)]
+                row_writer.writerow(sanitized_values)
 
     atomic_write(
         ctx.trades_file,

@@ -1,13 +1,35 @@
 from __future__ import annotations
 
+
 import json
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Deque, Dict, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Deque,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Tuple,
+)
 
 from core.io.atomic_write import atomic_write_text
+
+
+def _as_mapping(value: Any) -> MutableMapping[str, Any]:
+    if isinstance(value, MutableMapping):
+        return value
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
+
+
+JsonDict = Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -60,10 +82,10 @@ class RouterSnapshot:
     next_sequence: int
     halted: bool
     rate_counters: Dict[str, Tuple[str, ...]]
-    inflight: Dict[str, Dict[str, object]]
-    idempotency: Dict[str, Dict[str, object]]
+    inflight: Dict[str, JsonDict]
+    idempotency: Dict[str, JsonDict]
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> JsonDict:
         return {
             "rate_limit_per_sec": self.rate_limit_per_sec,
             "max_inflight": self.max_inflight,
@@ -78,7 +100,7 @@ class RouterSnapshot:
         }
 
     @classmethod
-    def from_dict(cls, payload: Dict[str, object]) -> "RouterSnapshot":
+    def from_dict(cls, payload: Mapping[str, Any]) -> "RouterSnapshot":
         return cls(
             rate_limit_per_sec=int(payload["rate_limit_per_sec"]),
             max_inflight=int(payload["max_inflight"]),
@@ -86,15 +108,15 @@ class RouterSnapshot:
             halted=bool(payload["halted"]),
             rate_counters={
                 key: tuple(str(entry) for entry in value)  # type: ignore[list-item]
-                for key, value in (payload.get("rate_counters", {}) or {}).items()
+                for key, value in _as_mapping(payload.get("rate_counters", {})).items()
             },
             inflight={
-                key: dict(value)
-                for key, value in (payload.get("inflight", {}) or {}).items()
+                key: dict(_as_mapping(value))
+                for key, value in _as_mapping(payload.get("inflight", {})).items()
             },
             idempotency={
-                key: dict(value)
-                for key, value in (payload.get("idempotency", {}) or {}).items()
+                key: dict(_as_mapping(value))
+                for key, value in _as_mapping(payload.get("idempotency", {})).items()
             },
         )
 
@@ -271,7 +293,7 @@ class OrderRouter:
             window.popleft()
 
     @staticmethod
-    def _serialize_request(request: OrderRequest) -> Dict[str, object]:
+    def _serialize_request(request: OrderRequest) -> JsonDict:
         return {
             "strategy_id": request.strategy_id,
             "symbol": request.symbol,
@@ -283,7 +305,7 @@ class OrderRouter:
         }
 
     @staticmethod
-    def _deserialize_request(payload: Dict[str, object]) -> OrderRequest:
+    def _deserialize_request(payload: Mapping[str, Any]) -> OrderRequest:
         timestamp_value = payload.get("timestamp")
         timestamp = (
             datetime.fromisoformat(timestamp_value)
@@ -297,9 +319,7 @@ class OrderRouter:
             symbol=str(payload.get("symbol")),
             quantity=float(payload.get("quantity", 0.0)),
             price=float(payload.get("price", 0.0)),
-            client_order_id=(
-                str(client_order_id) if client_order_id is not None else None
-            ),
+            client_order_id=str(client_order_id) if client_order_id is not None else "",
             idempotency_key=(
                 str(idempotency_key) if idempotency_key is not None else None
             ),
@@ -307,7 +327,7 @@ class OrderRouter:
         )
 
     @staticmethod
-    def _serialize_decision(decision: OrderDecision) -> Dict[str, object]:
+    def _serialize_decision(decision: OrderDecision) -> JsonDict:
         return {
             "accepted": decision.accepted,
             "order_id": decision.order_id,
@@ -315,7 +335,7 @@ class OrderRouter:
         }
 
     @staticmethod
-    def _deserialize_decision(payload: Dict[str, object]) -> OrderDecision:
+    def _deserialize_decision(payload: Mapping[str, Any]) -> OrderDecision:
         return OrderDecision(
             accepted=bool(payload.get("accepted")),
             order_id=(

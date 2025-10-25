@@ -63,7 +63,9 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _default_output(symbol: str, interval: str, asset_class: str, cache_root: Path | None) -> Path:
+def _default_output(
+    symbol: str, interval: str, asset_class: str, cache_root: Path | None
+) -> Path:
     root = cache_root or DATA_CACHE_DIR
     tier = root / asset_class.lower()
     ensure_dir(tier)
@@ -78,7 +80,11 @@ def _serialize_metadata(df: pd.DataFrame, extra: dict[str, Any]) -> dict[str, An
 
 
 def _handle_fetch(args: argparse.Namespace) -> None:
-    window = Window.from_bounds(start=args.start, end=args.end, zone=UTC if args.tz.upper() == "UTC" else args.tz)
+    window = Window.from_bounds(
+        start=args.start,
+        end=args.end,
+        zone=UTC if args.tz.upper() == "UTC" else args.tz,
+    )
     df = get_prices(
         args.symbol,
         window,
@@ -92,10 +98,14 @@ def _handle_fetch(args: argparse.Namespace) -> None:
     # bars deterministically before resampling so we produce sensible
     # intraday OHLCV series instead of empty/aggregated results.
     if output_interval != args.interval:
-        if args.interval.lower().endswith("d") and ("h" in output_interval or "min" in output_interval):
+        if args.interval.lower().endswith("d") and (
+            "h" in output_interval or "min" in output_interval
+        ):
             df = data_loader._expand_daily_to_intraday(df, output_interval)
         df = _resample_bars(df, output_interval)
-    output_path = args.output or _default_output(args.symbol, output_interval, args.asset_class, args.cache_root)
+    output_path = args.output or _default_output(
+        args.symbol, output_interval, args.asset_class, args.cache_root
+    )
     ensure_dir(output_path.parent)
     df.to_csv(output_path, index=True)
     metadata = _serialize_metadata(
@@ -107,7 +117,9 @@ def _handle_fetch(args: argparse.Namespace) -> None:
         },
     )
     meta_path = output_path.with_suffix(".meta.json")
-    meta_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+    meta_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8"
+    )
     print(f"saved {len(df)} rows to {output_path}")
 
 

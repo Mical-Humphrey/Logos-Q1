@@ -7,7 +7,7 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Deque, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Deque, Dict, List, Optional, Sequence, Tuple
 
 from .metrics import MetricsRecorder
 from .router import FillReport, OrderDecision, OrderRequest, OrderRouter
@@ -16,9 +16,9 @@ from .scheduler import Scheduler, StrategySpec
 
 @dataclass
 class SmokeResult:
-    metrics: Dict[str, object]
-    scheduler: Dict[str, object]
-    router: Dict[str, object]
+    metrics: Dict[str, Any]
+    scheduler: Dict[str, Any]
+    router: Dict[str, Any]
     metrics_path: Optional[Path]
     summary_path: Optional[Path]
 
@@ -163,9 +163,15 @@ def run_smoke(
 
     snap = metrics.snapshot(timestamp=end)
     stats = scheduler.stats()
-    executions = sum(int(row["executions"]) for row in stats.values())
-    skips = sum(int(row["skips"]) for row in stats.values())
-    overruns = sum(int(row["overruns"]) for row in stats.values())
+
+    def _as_int(value: Any) -> int:
+        if isinstance(value, (int, float, str)):
+            return int(value)
+        return 0
+
+    executions = sum(_as_int(row.get("executions")) for row in stats.values())
+    skips = sum(_as_int(row.get("skips")) for row in stats.values())
+    overruns = sum(_as_int(row.get("overruns")) for row in stats.values())
     scheduler_payload = {
         "strategies": len(stats),
         "executions": executions,

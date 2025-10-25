@@ -36,8 +36,8 @@ def test_print_status_includes_orchestrator_metrics(tmp_path, capsys) -> None:
         last_updated=datetime(2025, 1, 1, tzinfo=timezone.utc),
         health={"offline_only": False, "stale": False, "open_positions": False},
     )
-    metrics = {"sharpe": 1.23}
-    orchestrator_metrics = {
+    metrics: dict[str, object] = {"sharpe": 1.23}
+    orchestrator_metrics: dict[str, object] = {
         "timestamp": "2025-01-01T00:00:00+00:00",
         "p95_latency_s": 0.04,
         "skip_rate": 0.001,

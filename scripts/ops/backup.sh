@@ -1,39 +1,108 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
-RUNS_DIR="${RUNS_DIR:-${ROOT_DIR}/runs}"
-CONFIGS_DIR="${CONFIGS_DIR:-${ROOT_DIR}/configs}"
-DEST_DIR="${BACKUP_DEST:-${ROOT_DIR}/backups}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../.. && pwd)"
+DEFAULT_RUNS="${REPO_ROOT}/runs"
+DEFAULT_CONFIGS="${REPO_ROOT}/configs"
+
+EFFECTIVE_RUNS="${RUNS_DIR:-${DEFAULT_RUNS}}"
+EFFECTIVE_CONFIGS="${CONFIGS_DIR:-${DEFAULT_CONFIGS}}"
+
+ALLOW_OUTSIDE="${ALLOW_OUTSIDE_BACKUP:-1}"
+
+resolve_abs() {
+  python3 - <<'PY' "$1"
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+RUNS_ABS="$(resolve_abs "${EFFECTIVE_RUNS}")"
+CONFIGS_ABS="$(resolve_abs "${EFFECTIVE_CONFIGS}")"
+
+for dir_path in "${RUNS_ABS}" "${CONFIGS_ABS}"; do
+  if [[ ! -d "${dir_path}" ]]; then
+    echo "[backup] ERROR: directory does not exist: ${dir_path}" >&2
+    exit 1
+  fi
+done
+
+if [[ "${ALLOW_OUTSIDE}" != "1" ]]; then
+  case "${RUNS_ABS}" in
+    ${REPO_ROOT}/*) ;;
+    *)
+      echo "[backup] ERROR: RUNS_DIR outside repo and ALLOW_OUTSIDE_BACKUP!=1: ${RUNS_ABS}" >&2
+      exit 1
+      ;;
+  esac
+  case "${CONFIGS_ABS}" in
+    ${REPO_ROOT}/*) ;;
+    *)
+      echo "[backup] ERROR: CONFIGS_DIR outside repo and ALLOW_OUTSIDE_BACKUP!=1: ${CONFIGS_ABS}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+if [[ "${ALLOW_OUTSIDE}" == "1" ]]; then
+  for dir_path in "${RUNS_ABS}" "${CONFIGS_ABS}"; do
+    case "${dir_path}" in
+      ${REPO_ROOT}/*) ;;
+      *) echo "[backup] NOTICE: including outside-repo path ${dir_path}" >&2 ;;
+    esac
+  done
+fi
+
+OUTPUT_ROOT="${OUT_DIR:-${BACKUP_DEST:-${REPO_ROOT}/backups}}"
+mkdir -p "${OUTPUT_ROOT}"
+
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
-STAMP="$(date +%Y%m%d_%H%M%S)"
-ARCHIVE_NAME="logos_backup_${STAMP}.tar.gz"
-ARCHIVE_PATH="${DEST_DIR}/${ARCHIVE_NAME}"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+ARCHIVE_PATH="${OUTPUT_ROOT}/logos_backup_${STAMP}.tar.gz"
 
-mkdir -p "${DEST_DIR}"
+MANIFEST_FILE="$(mktemp)"
+{
+  echo "stamp=${STAMP}"
+  echo "repo_root=${REPO_ROOT}"
+  echo "runs_abs=${RUNS_ABS}"
+  echo "configs_abs=${CONFIGS_ABS}"
+} >"${MANIFEST_FILE}"
 
-if [[ ! -d "${RUNS_DIR}" ]]; then
-  echo "warning: runs directory '${RUNS_DIR}' missing" >&2
+echo "[backup] archiving"
+echo "  runs:    ${RUNS_ABS}"
+echo "  configs: ${CONFIGS_ABS}"
+echo "  output:  ${ARCHIVE_PATH}"
+
+RUNS_BASE="$(basename "${RUNS_ABS}")"
+RUNS_PARENT="$(dirname "${RUNS_ABS}")"
+CONFIGS_BASE="$(basename "${CONFIGS_ABS}")"
+CONFIGS_PARENT="$(dirname "${CONFIGS_ABS}")"
+MANIFEST_BASE="$(basename "${MANIFEST_FILE}")"
+MANIFEST_PARENT="$(dirname "${MANIFEST_FILE}")"
+
+tar_args=(
+  "--warning=no-file-changed"
+  "-czf" "${ARCHIVE_PATH}"
+)
+
+tar_args+=("--transform" "s|^${RUNS_BASE}/|runs/|")
+tar_args+=("-C" "${RUNS_PARENT}" "${RUNS_BASE}")
+tar_args+=("--transform" "s|^${CONFIGS_BASE}/|configs/|")
+tar_args+=("-C" "${CONFIGS_PARENT}" "${CONFIGS_BASE}")
+tar_args+=("--transform" "s|^${MANIFEST_BASE}$|manifest/manifest.txt|")
+tar_args+=("-C" "${MANIFEST_PARENT}" "${MANIFEST_BASE}")
+
+if ! tar "${tar_args[@]}"; then
+  echo "[backup] ERROR: tar command failed" >&2
+  rm -f "${ARCHIVE_PATH}"
+  rm -f "${MANIFEST_FILE}"
+  exit 1
 fi
-if [[ ! -d "${CONFIGS_DIR}" ]]; then
-  echo "warning: configs directory '${CONFIGS_DIR}' missing" >&2
-fi
 
-pushd "${ROOT_DIR}" >/dev/null
-TARGETS=()
-[[ -d "${RUNS_DIR}" ]] && TARGETS+=("runs")
-[[ -d "${CONFIGS_DIR}" ]] && TARGETS+=("configs")
+rm -f "${MANIFEST_FILE}"
 
-if [[ ${#TARGETS[@]} -eq 0 ]]; then
-  echo "nothing to back up under ${ROOT_DIR}" >&2
-  exit 0
-fi
-
-tar --warning=no-file-changed -czf "${ARCHIVE_PATH}" "${TARGETS[@]}"
-popd >/dev/null
-
-echo "created backup ${ARCHIVE_PATH}"
+echo "[backup] created ${ARCHIVE_PATH}"
 
 if command -v find >/dev/null 2>&1; then
-  find "${DEST_DIR}" -maxdepth 1 -type f -name 'logos_backup_*.tar.gz' -mtime +"${RETENTION_DAYS}" -print -delete
+  find "${OUTPUT_ROOT}" -maxdepth 1 -type f -name 'logos_backup_*.tar.gz' -mtime +"${RETENTION_DAYS}" -print -delete
 fi

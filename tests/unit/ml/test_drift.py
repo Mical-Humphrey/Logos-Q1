@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from logos.ml.drift import DriftReport, detect_feature_drift, detect_pnl_drift
+from logos.ml.drift import detect_feature_drift, detect_pnl_drift
 
 
 def _baseline_frame() -> pd.DataFrame:

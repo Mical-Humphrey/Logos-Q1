@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""Entry point to run the Logos CLI as a standalone command."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+
+def _ensure_project_on_path() -> None:
+    """Prepend the repository root so imports resolve when run from bin/."""
+    project_root = Path(__file__).resolve().parents[1]
+    project_str = str(project_root)
+    if project_str not in sys.path:
+        sys.path.insert(0, project_str)
+
+
+def main() -> None:
+    _ensure_project_on_path()
+    from logos.cli import main as cli_main
+
+    cli_main()
+
+
+if __name__ == "__main__":  # pragma: no cover - script entry
+    main()

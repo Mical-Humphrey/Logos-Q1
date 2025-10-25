@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Offline machine learning advisory utilities (Phase 11).
 
 The modules exposed here generate advisory insights only; application code must
 collect explicit human approval before any recommendation is promoted into live
 allocation or execution paths.
 """
+
+from __future__ import annotations
 
 from .regime import RegimeAdvisor, RegimeReport, classify_regime
 from .vol import VolatilityAdvisor, VolatilityEnvelope

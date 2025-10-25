@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import count
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:  # pragma: no cover - optional dependency
     from alpaca_trade_api.rest import APIError  # type: ignore
@@ -66,7 +66,9 @@ class AlpacaAdapter:
         self._seq = count(1)
         self._logs: List[Dict[str, Any]] = []
 
-    def _log(self, action: str, payload: Dict[str, Any], response: Dict[str, Any]) -> None:
+    def _log(
+        self, action: str, payload: Dict[str, Any], response: Dict[str, Any]
+    ) -> None:
         self._logs.append({"action": action, "payload": payload, "response": response})
 
     @property
@@ -153,10 +155,13 @@ class AlpacaAdapter:
         self._log("cancel_order", {"client_id": client_id}, response)
         return response
 
-    def reconcile(self) -> Dict[str, Iterable[str]]:
+    def reconcile(self) -> Dict[str, List[str]]:
         def op() -> List[Dict[str, Any]]:
             self._ensure_rate_limit()
-            return [_order_to_dict(order) for order in self.client.list_orders(status="open")]
+            return [
+                _order_to_dict(order)
+                for order in self.client.list_orders(status="open")
+            ]
 
         try:
             orders = retry(
@@ -168,7 +173,9 @@ class AlpacaAdapter:
         except AdapterError:
             orders = []
         remote_ids = {
-            order.get("client_order_id") or order.get("clientOrderId") or order.get("id")
+            order.get("client_order_id")
+            or order.get("clientOrderId")
+            or order.get("id")
             for order in orders
         }
         local_ids = set(self._cache.keys())
@@ -176,7 +183,7 @@ class AlpacaAdapter:
         untracked_remote = sorted(
             cid for cid in remote_ids if cid and cid not in local_ids
         )
-        report = {
+        report: Dict[str, List[str]] = {
             "missing_remote": missing_remote,
             "untracked_remote": untracked_remote,
         }

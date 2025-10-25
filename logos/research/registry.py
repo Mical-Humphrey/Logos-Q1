@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 import uuid
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Mapping
 
 from core.io import dirs as core_dirs
 
@@ -19,7 +19,7 @@ class ModelRecord:
     symbol: str
     status: str
     created_at: str
-    params: Dict[str, object]
+    params: Dict[str, Any]
     metrics: Dict[str, float]
     guard_metrics: Dict[str, float]
     stress_metrics: Dict[str, float]
@@ -29,7 +29,7 @@ class ModelRecord:
     version: int = 1
     lineage: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             "model_id": self.model_id,
             "strategy": self.strategy,
@@ -48,7 +48,7 @@ class ModelRecord:
         }
 
     @classmethod
-    def from_dict(cls, payload: Mapping[str, object]) -> "ModelRecord":
+    def from_dict(cls, payload: Mapping[str, Any]) -> "ModelRecord":
         return cls(
             model_id=str(payload.get("model_id")),
             strategy=str(payload.get("strategy")),
@@ -78,7 +78,7 @@ class ModelRegistry:
     def _load(self) -> None:
         if not self.path.exists():
             return
-        raw = json.loads(self.path.read_text())
+        raw: Any = json.loads(self.path.read_text())
         if isinstance(raw, Mapping) and "models" in raw:
             entries = raw["models"]
         else:
@@ -93,7 +93,7 @@ class ModelRegistry:
 
     # ------------------------------------------------------------------
     def _write(self) -> None:
-        payload = {
+        payload: Dict[str, Any] = {
             "models": [record.to_dict() for record in self._records.values()],
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -111,7 +111,7 @@ class ModelRegistry:
         *,
         strategy: str,
         symbol: str,
-        params: Mapping[str, object],
+        params: Mapping[str, Any],
         metrics: Mapping[str, float],
         guard_metrics: Mapping[str, float],
         stress_metrics: Mapping[str, float],

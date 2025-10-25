@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import count
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:  # pragma: no cover - optional dependency
     from oandapyV20.exceptions import V20Error  # type: ignore
@@ -69,7 +69,9 @@ class OandaAdapter:
         self._seq = count(1)
         self._logs: List[Dict[str, Any]] = []
 
-    def _log(self, action: str, payload: Dict[str, Any], response: Dict[str, Any]) -> None:
+    def _log(
+        self, action: str, payload: Dict[str, Any], response: Dict[str, Any]
+    ) -> None:
         self._logs.append({"action": action, "payload": payload, "response": response})
 
     @property
@@ -140,7 +142,11 @@ class OandaAdapter:
         cached = self._cache.get(client_id)
         if cached is None:
             raise FatalAdapterError(f"Unknown client id {client_id}")
-        order_id = cached.get("id") or cached.get("orderId") or cached.get("order", {}).get("id")
+        order_id = (
+            cached.get("id")
+            or cached.get("orderId")
+            or cached.get("order", {}).get("id")
+        )
         if not order_id:
             raise FatalAdapterError("Unable to determine exchange order id for cancel")
 
@@ -156,10 +162,12 @@ class OandaAdapter:
         )
         response.setdefault("client_id", client_id)
         self._cache.update(client_id, response)
-        self._log("cancel_order", {"client_id": client_id, "order_id": order_id}, response)
+        self._log(
+            "cancel_order", {"client_id": client_id, "order_id": order_id}, response
+        )
         return response
 
-    def reconcile(self) -> Dict[str, Iterable[str]]:
+    def reconcile(self) -> Dict[str, List[str]]:
         def op() -> List[Dict[str, Any]]:
             self._ensure_rate_limit()
             pending = self.client.list_pending_orders(self.account_id)
@@ -183,7 +191,7 @@ class OandaAdapter:
         untracked_remote = sorted(
             cid for cid in remote_ids if cid and cid not in local_ids
         )
-        report = {
+        report: Dict[str, List[str]] = {
             "missing_remote": missing_remote,
             "untracked_remote": untracked_remote,
         }

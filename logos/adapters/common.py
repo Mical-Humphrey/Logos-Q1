@@ -4,7 +4,16 @@ import random
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Callable, Deque, Dict, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    Optional,
+    Tuple,
+    TypeVar,
+)
 
 __all__ = [
     "AdapterError",
@@ -48,7 +57,7 @@ class RetryConfig:
     max_delay: float = 5.0
 
     def next_delay(self, attempt: int) -> float:
-        delay = min(self.base_delay * (self.backoff ** attempt), self.max_delay)
+        delay = min(self.base_delay * (self.backoff**attempt), self.max_delay)
         if self.jitter:
             jitter = random.uniform(-self.jitter, self.jitter) * delay
             return max(delay + jitter, 0.0)
@@ -119,11 +128,11 @@ def retry(
 
 @dataclass
 class CacheEntry:
-    payload_hash: Tuple[Tuple[str, object], ...]
-    response: Dict[str, object]
+    payload_hash: Tuple[Tuple[str, Any], ...]
+    response: Dict[str, Any]
 
 
-def _normalize_payload(payload: Dict[str, object]) -> Tuple[Tuple[str, object], ...]:
+def _normalize_payload(payload: Dict[str, Any]) -> Tuple[Tuple[str, Any], ...]:
     return tuple(sorted(payload.items()))
 
 
@@ -136,9 +145,9 @@ class IdempotentCache:
     def remember(
         self,
         client_id: str,
-        payload: Dict[str, object],
-        resolver: Callable[[], Dict[str, object]],
-    ) -> Dict[str, object]:
+        payload: Dict[str, Any],
+        resolver: Callable[[], Dict[str, Any]],
+    ) -> Dict[str, Any]:
         normalized = _normalize_payload(payload)
         if client_id in self._store:
             entry = self._store[client_id]
@@ -151,11 +160,11 @@ class IdempotentCache:
         self._store[client_id] = CacheEntry(payload_hash=normalized, response=response)
         return response
 
-    def get(self, client_id: str) -> Optional[Dict[str, object]]:
+    def get(self, client_id: str) -> Optional[Dict[str, Any]]:
         entry = self._store.get(client_id)
         return dict(entry.response) if entry else None
 
-    def update(self, client_id: str, response: Dict[str, object]) -> None:
+    def update(self, client_id: str, response: Dict[str, Any]) -> None:
         if client_id not in self._store:
             self._store[client_id] = CacheEntry(payload_hash=tuple(), response=response)
         else:

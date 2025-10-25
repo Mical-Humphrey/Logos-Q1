@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import cast
 
 from logos.orchestrator.metrics import MetricsRecorder
 
@@ -18,12 +19,19 @@ def test_metrics_recorder_snapshot() -> None:
     snap = recorder.snapshot(timestamp=stamp)
 
     assert snap["timestamp"] == stamp.isoformat()
-    assert snap["ticks"] == 3
-    assert snap["queue_depth_max"] == 6
-    assert snap["error_counts"] == {"timeout": 1}
-    assert abs(snap["skip_rate"] - (1 / 3)) < 1e-6
-    assert abs(snap["avg_latency_s"] - (0.1 + 0.2 + 0.3) / 3) < 1e-6
-    assert abs(snap["p95_latency_s"] - 0.29) < 1e-2
+    ticks = cast(int, snap["ticks"])
+    queue_depth_max = cast(int, snap["queue_depth_max"])
+    error_counts = cast(dict[str, int], snap["error_counts"])
+    skip_rate = cast(float, snap["skip_rate"])
+    avg_latency = cast(float, snap["avg_latency_s"])
+    p95_latency = cast(float, snap["p95_latency_s"])
+
+    assert ticks == 3
+    assert queue_depth_max == 6
+    assert error_counts == {"timeout": 1}
+    assert abs(skip_rate - (1 / 3)) < 1e-6
+    assert abs(avg_latency - (0.1 + 0.2 + 0.3) / 3) < 1e-6
+    assert abs(p95_latency - 0.29) < 1e-2
 
     # Snapshot should not mutate recorded ticks
     assert len(list(recorder.iter_ticks())) == 3

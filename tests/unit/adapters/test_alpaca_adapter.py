@@ -42,7 +42,9 @@ class DummyAlpacaClient:
     def cancel_order_by_client_order_id(self, client_id: str) -> None:
         self.cancelled.append(client_id)
         self.open_orders = [
-            order for order in self.open_orders if order.get("client_order_id") != client_id
+            order
+            for order in self.open_orders
+            if order.get("client_order_id") != client_id
         ]
 
     def list_orders(self, status: str) -> List[Dict[str, Any]]:
@@ -56,7 +58,9 @@ def test_alpaca_adapter_retries_and_tracks_orders() -> None:
     client = DummyAlpacaClient()
     adapter = AlpacaAdapter(
         client=client,
-        retry_config=RetryConfig(max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=50, period=60.0, time_fn=clock.now),
         sleeper=lambda _: None,
     )
@@ -91,7 +95,9 @@ def test_alpaca_adapter_retries_and_tracks_orders() -> None:
 def test_alpaca_cancel_unknown_client_raises() -> None:
     adapter = AlpacaAdapter(
         client=DummyAlpacaClient(),
-        retry_config=RetryConfig(max_attempts=1, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=1, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=50, period=60.0),
         sleeper=lambda _: None,
     )

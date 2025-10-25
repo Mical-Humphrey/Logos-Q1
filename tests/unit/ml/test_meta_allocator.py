@@ -8,7 +8,9 @@ from logos.ml.meta_allocator import MetaAllocator, MetaAllocatorConfig
 
 
 def test_meta_allocator_generates_shrunk_proposal() -> None:
-    config = MetaAllocatorConfig(shrinkage=0.5, max_active_weight=0.1, cooldown_days=3, min_score=0.05)
+    config = MetaAllocatorConfig(
+        shrinkage=0.5, max_active_weight=0.1, cooldown_days=3, min_score=0.05
+    )
     allocator = MetaAllocator(config)
     baseline = {"strat_a": 0.5, "strat_b": 0.5}
     scores = {"strat_a": 0.3, "strat_b": -0.4}

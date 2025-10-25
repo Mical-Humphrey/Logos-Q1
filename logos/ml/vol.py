@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -46,7 +45,9 @@ class VolatilityAdvisor:
         forecast = annualised * horizon_adjustment
         band = forecast * (self.band_width / np.sqrt(max(self.horizon_days, 1)))
 
-        confidence = min(returns.iloc[-self.halflife :].size / float(self.halflife), 1.0)
+        confidence = min(
+            returns.iloc[-self.halflife :].size / float(self.halflife), 1.0
+        )
         metadata = {
             "halflife": float(self.halflife),
             "band_width": float(self.band_width),
@@ -64,7 +65,9 @@ class VolatilityAdvisor:
         )
 
     @staticmethod
-    def promote(envelope: VolatilityEnvelope, *, approved_by: str) -> VolatilityEnvelope:
+    def promote(
+        envelope: VolatilityEnvelope, *, approved_by: str
+    ) -> VolatilityEnvelope:
         if not approved_by:
             raise ValueError("approved_by must be non-empty")
         meta = dict(envelope.metadata or {})

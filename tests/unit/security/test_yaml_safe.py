@@ -21,7 +21,9 @@ def test_safe_load_rejects_object_apply() -> None:
 
 def test_safe_load_path_wraps_errors(tmp_path: Path) -> None:
     file_path = tmp_path / "config.yaml"
-    file_path.write_text(malicious := "!!python/object/apply:os.system ['echo hi']", encoding="utf-8")
+    file_path.write_text(
+        "!!python/object/apply:os.system ['echo hi']", encoding="utf-8"
+    )
     with pytest.raises(YAMLSafetyError) as exc:
         safe_load_path(file_path)
     assert str(file_path) in str(exc.value)

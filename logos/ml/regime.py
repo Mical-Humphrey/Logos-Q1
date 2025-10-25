@@ -52,7 +52,9 @@ class RegimeAdvisor:
         volatility = returns.rolling(self.vol_lookback).std(ddof=0)
         trend = returns.rolling(self.trend_lookback).mean()
 
-        trend_score = _sharpe_like(trend.iloc[-1], returns.rolling(self.trend_lookback).std(ddof=0).iloc[-1])
+        trend_score = _sharpe_like(
+            trend.iloc[-1], returns.rolling(self.trend_lookback).std(ddof=0).iloc[-1]
+        )
         vol_recent = volatility.iloc[-1]
         vol_long = returns.rolling(self.trend_lookback).std(ddof=0).iloc[-1]
         vol_score = _ratio(vol_recent, vol_long)
@@ -60,8 +62,13 @@ class RegimeAdvisor:
         trend_state = _classify_trend(trend_score, self.trend_threshold)
         vol_state = _classify_vol(vol_score, self.vol_threshold)
 
-        effective_samples = min(returns.iloc[-self.trend_lookback :].size, returns.iloc[-self.vol_lookback :].size)
-        confidence = min(effective_samples / float(max(self.trend_lookback, self.vol_lookback)), 1.0)
+        effective_samples = min(
+            returns.iloc[-self.trend_lookback :].size,
+            returns.iloc[-self.vol_lookback :].size,
+        )
+        confidence = min(
+            effective_samples / float(max(self.trend_lookback, self.vol_lookback)), 1.0
+        )
 
         metadata: Dict[str, float | str] = {
             "trend_lookback": float(self.trend_lookback),
@@ -87,7 +94,9 @@ class RegimeAdvisor:
         augmented_meta = dict(report.metadata)
         augmented_meta.setdefault("promotion_notes", "approved")
         augmented_meta["approved_by"] = approved_by
-        return replace(report, promoted=True, approved_by=approved_by, metadata=augmented_meta)
+        return replace(
+            report, promoted=True, approved_by=approved_by, metadata=augmented_meta
+        )
 
 
 def classify_regime(prices: pd.Series, **kwargs: float) -> RegimeReport:

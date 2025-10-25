@@ -54,7 +54,9 @@ def test_oanda_adapter_generates_signed_units_and_retries() -> None:
     adapter = OandaAdapter(
         client=client,
         account_id="demo-account",
-        retry_config=RetryConfig(max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=120, period=60.0, time_fn=clock.now),
         sleeper=lambda _: None,
     )
@@ -91,7 +93,9 @@ def test_oanda_adapter_cancel_unknown_id_raises() -> None:
     adapter = OandaAdapter(
         client=DummyOandaClient(),
         account_id="demo-account",
-        retry_config=RetryConfig(max_attempts=1, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=1, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=120, period=60.0),
         sleeper=lambda _: None,
     )

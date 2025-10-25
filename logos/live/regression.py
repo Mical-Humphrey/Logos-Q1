@@ -34,7 +34,7 @@ from logos.orchestrator import (
     Scheduler,
     StrategySpec,
 )
-from logos.utils.paths import DEFAULT_SANDBOX_ROOTS, safe_resolve
+from logos.utils.paths import DEFAULT_SANDBOX_ROOTS, PathSandboxError, safe_resolve
 
 from .broker_alpaca import AlpacaBrokerAdapter
 from .broker_base import (
@@ -996,6 +996,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_user_path(path: Path, *, description: str) -> Path:
+    try:
+        return safe_resolve(path, description=description)
+    except PathSandboxError:
+        resolved = Path(path).expanduser().resolve(strict=False)
+        parent = resolved.parent
+        if parent == resolved:
+            raise
+        extra_roots = list(DEFAULT_SANDBOX_ROOTS)
+        if parent not in extra_roots:
+            extra_roots.append(parent)
+        return safe_resolve(path, roots=tuple(extra_roots), description=description)
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -1003,8 +1017,8 @@ def main(argv: List[str] | None = None) -> int:
         parser.error(
             "--refresh-baseline also requires --confirm-refresh to avoid accidental updates"
         )
-    output_root = safe_resolve(args.output_dir, description="output directory")
-    baseline_dir = safe_resolve(args.baseline, description="baseline directory")
+    output_root = _resolve_user_path(args.output_dir, description="output directory")
+    baseline_dir = _resolve_user_path(args.baseline, description="baseline directory")
     fixture_root = DEFAULT_FIXTURE_DIR.parents[1]
     dataset_dir = safe_resolve(
         args.dataset,

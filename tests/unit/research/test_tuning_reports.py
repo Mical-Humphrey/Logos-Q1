@@ -5,6 +5,7 @@ from collections import deque
 
 import numpy as np
 import pandas as pd
+from typing import cast
 
 from logos.research.tune import TuningConfig, tune_parameters
 
@@ -68,7 +69,8 @@ def test_tuning_outputs_and_gates(tmp_path, monkeypatch) -> None:
 
     def fake_backtest(*, prices: pd.DataFrame, **_) -> dict:
         sharpe, maxdd, cagr = plan.popleft()
-        return _result(index=prices.index, sharpe=sharpe, maxdd=maxdd, cagr=cagr)
+        idx = cast(pd.DatetimeIndex, prices.index)
+        return _result(index=idx, sharpe=sharpe, maxdd=maxdd, cagr=cagr)
 
     monkeypatch.setattr("logos.research.tune.run_backtest", fake_backtest)
 

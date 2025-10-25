@@ -25,7 +25,9 @@ _DEFAULT_ROOTS: tuple[Path, ...] = (
     DATA_DIR,
     APP_LOGS_DIR,
 )
-DEFAULT_SANDBOX_ROOTS: tuple[Path, ...] = tuple(root.resolve(strict=False) for root in _DEFAULT_ROOTS)
+DEFAULT_SANDBOX_ROOTS: tuple[Path, ...] = tuple(
+    root.resolve(strict=False) for root in _DEFAULT_ROOTS
+)
 
 
 def _normalize_roots(roots: Iterable[Path] | None) -> Sequence[Path]:
@@ -102,7 +104,5 @@ def safe_resolve(
         if _within(base, resolved):
             return resolved
     roots_desc = ", ".join(str(root) for root in normalized_roots)
-    message = (
-        f"{description} '{candidate}' is outside sandbox roots: {roots_desc}"
-    )
+    message = f"{description} '{candidate}' is outside sandbox roots: {roots_desc}"
     raise PathSandboxError(path=candidate, message=message)

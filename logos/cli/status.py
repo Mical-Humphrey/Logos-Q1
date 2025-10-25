@@ -172,7 +172,6 @@ def _health(snapshot: Dict[str, object], env_values: Dict[str, str]) -> Dict[str
 
 def _build_status(run_dir: Path, env_values: Dict[str, str]) -> StatusPayload:
     snapshot = _load_snapshot(run_dir)
-    metrics = _load_metrics(run_dir)
     account = snapshot.get("account") or {}
     equity = float(account.get("equity", 0.0))
     realized = float(account.get("realized_pnl", 0.0))

@@ -1,4 +1,5 @@
 import datetime as dt
+from collections.abc import Iterator
 
 import pandas as pd
 import pytest
@@ -11,7 +12,7 @@ from logos.live.data_feed import Bar
 
 
 @pytest.fixture()
-def strategy_name(monkeypatch):
+def strategy_name(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     from logos import strategies as strategy_module
 
     def fake_strategy(frame: pd.DataFrame, **_: float) -> pd.Series:
@@ -36,7 +37,7 @@ def _bar(ts: dt.datetime, price: float) -> Bar:
     )
 
 
-def test_generator_quantizes_to_symbol_meta(strategy_name):
+def test_generator_quantizes_to_symbol_meta(strategy_name: str) -> None:
     broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
     broker.set_symbol_meta(
         SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=5, price_precision=2)
@@ -69,7 +70,7 @@ def test_generator_quantizes_to_symbol_meta(strategy_name):
     assert followup[0].side == "buy"
 
 
-def test_generator_clamps_notional(strategy_name):
+def test_generator_clamps_notional(strategy_name: str) -> None:
     broker = PaperBrokerAdapter(slippage_bps=0.0, fee_bps=0.0)
     broker.set_symbol_meta(
         SymbolMeta(symbol="MSFT", quantity_precision=0, step_size=1, price_precision=2)
@@ -96,7 +97,9 @@ def test_generator_clamps_notional(strategy_name):
     assert intent.side == "buy"
 
 
-def test_generator_preserves_sorted_timestamp_index(monkeypatch):
+def test_generator_preserves_sorted_timestamp_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from logos import strategies as strategy_module
 
     captured_indices: list[pd.DatetimeIndex] = []

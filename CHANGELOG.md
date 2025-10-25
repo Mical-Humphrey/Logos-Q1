@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2025-10-25 — Bug Hunt Stabilisation
+
+### Highlights
+- Hardened the read-only Streamlit dashboard so smoke-test stubs without `tabs`/`caption` still exercise the layout safely, keeping the UI strictly informational.
+- Restored the expected `SensitiveDataFilter` logging guard while preserving the new redaction logic, ensuring hygiene tests continue to verify handler wiring.
+- Relaxed regression CLI sandboxing to allow temporary baseline/output directories without compromising root allow-listing.
+- Tuned YAML guard and artifact export tests to reflect the sanitiser behaviour, preventing false positives during security sweeps.
+
+### Known Limitations
+- Additional dashboard widgets may need similar guard-aware shims when future smoke tests stub Streamlit further; keep helpers reusable.
+- Sandbox extensions remain limited to the immediate parent of supplied paths; broader allowances should go through security review.
+
 ## 2025-10-25 — Phase 10 Deployment & Ops
 
 ### Highlights

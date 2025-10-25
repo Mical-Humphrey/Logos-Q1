@@ -5,6 +5,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from typing import Any, Dict, Mapping, cast
 
 from logos.strategy import StrategyContext, StrategyError, StrategyPreset, guard_no_nan
 
@@ -14,7 +15,9 @@ class DummyPreset(StrategyPreset):
 
     def __init__(self, *, exposure_cap: float = 1.0) -> None:
         super().__init__(exposure_cap=exposure_cap)
-        self._pending: tuple[pd.Timestamp, float, dict[str, int]] | None = None
+        self._pending: (
+            tuple[pd.Timestamp, float, Dict[str, float | int | str | None]] | None
+        ) = None
 
     def fit(self, df: pd.DataFrame) -> None:  # type: ignore[override]
         super().fit(df)
@@ -25,7 +28,8 @@ class DummyPreset(StrategyPreset):
         signals = pd.Series(np.linspace(-2, 2, len(df)), index=df.index, dtype=float)
         ts = df.index[-1]
         price = float(df["Close"].iloc[-1])
-        self._pending = (ts, price, {"sentinel": 1})
+        diagnostics: Dict[str, float | int | str | None] = {"sentinel": 1}
+        self._pending = (ts, price, diagnostics)
         return signals
 
     def generate_order_intents(self, signals: pd.Series) -> pd.Series:  # type: ignore[override]
@@ -66,9 +70,11 @@ def test_generate_order_intents_clamps_and_records_context() -> None:
     clipped = preset.generate_order_intents(raw)
     assert clipped.max() <= 0.5
     assert clipped.min() >= -0.5
-    explain = preset.explain()
-    assert explain["signal"]["value"] == pytest.approx(clipped.iloc[-1])
-    assert "sentinel" in explain.get("diagnostics", {})
+    explain = cast(Dict[str, Any], preset.explain())
+    signal_section = cast(Mapping[str, Any], explain["signal"])
+    assert signal_section["value"] == pytest.approx(clipped.iloc[-1])
+    diagnostics_section = cast(Mapping[str, Any], explain.get("diagnostics", {}))
+    assert "sentinel" in diagnostics_section
 
 
 def test_generate_order_intents_rejects_nans() -> None:

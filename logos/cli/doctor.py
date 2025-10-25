@@ -13,7 +13,7 @@ from typing import List
 from ..config import Settings
 from ..paths import PROJECT_ROOT, RUNS_DIR, LOGOS_DIR
 
-from .common import DEFAULT_ENV_PATH, load_env
+from .common import DEFAULT_ENV_PATH, load_env, resolve_offline_flag
 
 
 @dataclass
@@ -148,7 +148,13 @@ def _offline_guard(off: bool, env_values: dict[str, str]) -> CheckResult:
         return CheckResult("offline-flag", True, "Offline check skipped")
     token = env_values.get("LOGOS_OFFLINE_ONLY", "").strip().lower()
     ok = token in {"1", "true", "yes", "on"}
-    details = "LOGOS_OFFLINE_ONLY=1" if ok else "Set LOGOS_OFFLINE_ONLY=1 in .env"
+    if not ok:
+        ok = resolve_offline_flag(False)
+    details = (
+        "LOGOS_OFFLINE_ONLY=1"
+        if ok
+        else "Set LOGOS_OFFLINE_ONLY=1 in .env or export LOGOS_OFFLINE_ONLY=1"
+    )
     return CheckResult("offline-flag", ok, details)
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
-from typing import Dict, Iterable, Optional
+from dataclasses import dataclass, field
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -20,7 +20,9 @@ class DriftReport:
         return DriftReport(
             feature_psi={**self.feature_psi, **other.feature_psi},
             feature_alerts={**self.feature_alerts, **other.feature_alerts},
-            pnl_zscore=other.pnl_zscore if other.pnl_zscore is not None else self.pnl_zscore,
+            pnl_zscore=(
+                other.pnl_zscore if other.pnl_zscore is not None else self.pnl_zscore
+            ),
             pnl_alert=self.pnl_alert or other.pnl_alert,
             metadata=merged_meta,
         )
@@ -64,9 +66,7 @@ def detect_pnl_drift(
     if baseline.empty or current.empty:
         return DriftReport(metadata={"pnl_warning": "insufficient data"})
     diff = current.mean() - baseline.mean()
-    pooled_std = np.sqrt(
-        (baseline.var(ddof=1) + current.var(ddof=1)) / 2.0
-    )
+    pooled_std = np.sqrt((baseline.var(ddof=1) + current.var(ddof=1)) / 2.0)
     if not np.isfinite(pooled_std) or pooled_std <= 1e-12:
         zscore = 0.0
     else:

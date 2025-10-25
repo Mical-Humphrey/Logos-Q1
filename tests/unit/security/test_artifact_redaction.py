@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from logos.run_manager import RunContext, write_config, write_metrics, write_provenance, write_trades
+from logos.run_manager import (
+    RunContext,
+    write_config,
+    write_metrics,
+    write_provenance,
+    write_trades,
+)
 
 
 def _ctx(tmp_path: Path) -> RunContext:
@@ -52,7 +58,8 @@ def test_write_trades_sanitizes_rows(tmp_path: Path) -> None:
     write_trades(ctx, pd.DataFrame([["=SUM(A1:A2)"]], columns=["note"]))
     csv_text = ctx.trades_file.read_text(encoding="utf-8")
     assert "'=SUM" in csv_text
-    assert "=SUM" not in csv_text.splitlines()[1]
+    sanitized_row = csv_text.splitlines()[1]
+    assert sanitized_row.startswith("'")
 
 
 def test_write_provenance_masks_sensitive_fields(tmp_path: Path) -> None:

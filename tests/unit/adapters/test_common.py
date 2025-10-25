@@ -48,7 +48,9 @@ def test_retry_retries_retryable_errors() -> None:
 
     result = retry(
         flaky_operation,
-        retry_config=RetryConfig(max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         classify=lambda exc: exc,
         sleeper=lambda _: None,
     )

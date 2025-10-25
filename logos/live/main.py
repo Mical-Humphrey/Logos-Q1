@@ -73,7 +73,9 @@ def _parse_class_caps_arg(raw: str | None) -> Dict[str, float] | None:
     return caps
 
 
-def _resolve_risk_limits(args: argparse.Namespace, settings: Settings) -> Dict[str, float]:
+def _resolve_risk_limits(
+    args: argparse.Namespace, settings: Settings
+) -> Dict[str, float]:
     def _pick(value: float | None, fallback: float) -> float:
         return float(value) if value is not None else float(fallback)
 
@@ -277,9 +279,7 @@ def _build_parser() -> argparse.ArgumentParser:
     trade.add_argument(
         "--params", help="Strategy parameters as JSON or key=value pairs"
     )
-    trade.add_argument(
-        "--live", action="store_true", help="Request live trading mode"
-    )
+    trade.add_argument("--live", action="store_true", help="Request live trading mode")
     trade.add_argument(
         "--i-understand",
         metavar="PHRASE",

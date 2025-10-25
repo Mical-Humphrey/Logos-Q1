@@ -72,7 +72,9 @@ def test_ccxt_adapter_retries_and_enforces_idempotency() -> None:
     clock = FakeClock()
     adapter = CCXTHardenedAdapter(
         client=DummyCCXTClient(),
-        retry_config=RetryConfig(max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=3, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=10, period=1.0, time_fn=clock.now),
         sleeper=lambda _: None,
     )
@@ -114,7 +116,9 @@ def test_ccxt_adapter_cancel_and_reconcile_tracks_state() -> None:
     client = DummyCCXTClient()
     adapter = CCXTHardenedAdapter(
         client=client,
-        retry_config=RetryConfig(max_attempts=2, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0),
+        retry_config=RetryConfig(
+            max_attempts=2, base_delay=0.0, backoff=1.0, jitter=0.0, max_delay=0.0
+        ),
         rate_limiter=RateLimiter(max_calls=10, period=1.0, time_fn=clock.now),
         sleeper=lambda _: None,
     )

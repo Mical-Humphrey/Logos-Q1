@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Hardened broker adapter implementations.
 
 This namespace holds concrete connectors for supported venues.  The adapters
@@ -7,6 +5,8 @@ embed retry/backoff semantics, per-venue rate limiting, and idempotent order
 tracking so orchestration code can remain small and deterministic during paper
 soaks.
 """
+
+from __future__ import annotations
 
 from .common import (
     AdapterError,

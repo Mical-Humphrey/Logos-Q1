@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 
-import pytest
 
 from logos.portfolio.risk import (
     PortfolioDecision,

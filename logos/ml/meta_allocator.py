@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, Optional
 
@@ -54,9 +54,13 @@ class MetaAllocator:
                 messages.append(f"{strategy}: score {score:.3f} below min_score")
             else:
                 cooldown_until = self._last_promoted.get(strategy)
-                if cooldown_until and as_of - cooldown_until < timedelta(days=self.config.cooldown_days):
+                if cooldown_until and as_of - cooldown_until < timedelta(
+                    days=self.config.cooldown_days
+                ):
                     active_delta = 0.0
-                    remaining = timedelta(days=self.config.cooldown_days) - (as_of - cooldown_until)
+                    remaining = timedelta(days=self.config.cooldown_days) - (
+                        as_of - cooldown_until
+                    )
                     messages.append(
                         f"{strategy}: cooldown active ({remaining.days}d remaining)"
                     )

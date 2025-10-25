@@ -58,7 +58,11 @@ class DataContract:
             joined = ", ".join(missing)
             raise SchemaViolationError(f"missing columns: {joined}")
         if not self.allow_extra:
-            extras = [col for col in frame.columns if col not in {spec.name for spec in self.columns}]
+            extras = [
+                col
+                for col in frame.columns
+                if col not in {spec.name for spec in self.columns}
+            ]
             if extras:
                 joined = ", ".join(extras)
                 raise SchemaViolationError(f"unexpected columns: {joined}")

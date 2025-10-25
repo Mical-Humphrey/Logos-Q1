@@ -8,12 +8,12 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 DEFAULT_ALERT_TEMPLATE = "[{channel}] {message}"
 
 
-def _load_state(path: Path) -> Dict[str, object]:
+def _load_state(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
     try:
@@ -22,7 +22,7 @@ def _load_state(path: Path) -> Dict[str, object]:
         return {}
 
 
-def _save_state(path: Path, data: Dict[str, object]) -> None:
+def _save_state(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
 
@@ -47,7 +47,9 @@ def _send_alert(message: str) -> None:
 
 def _check_sentinel(now: float) -> List[str]:
     issues: List[str] = []
-    sentinel_path = Path(os.getenv("LOGOS_SENTINEL_FILE", "/app/logs/live/heartbeat.json"))
+    sentinel_path = Path(
+        os.getenv("LOGOS_SENTINEL_FILE", "/app/logs/live/heartbeat.json")
+    )
     stale_seconds = float(os.getenv("LOGOS_SENTINEL_STALE_SECONDS", "900"))
     if not sentinel_path.exists():
         issues.append(f"sentinel file missing at {sentinel_path}")
@@ -64,19 +66,24 @@ def _check_disk() -> List[str]:
     issues: List[str] = []
     target = Path(os.getenv("LOGOS_DISK_PATH", "/app"))
     threshold = float(os.getenv("LOGOS_DISK_THRESHOLD", "90"))
-    usage = shutil.disk_usage(target)
-    percent = (usage.used / usage.total) * 100
+    try:
+        usage = shutil.disk_usage(target)
+    except FileNotFoundError:
+        issues.append(f"disk path invalid: {target}")
+        return issues
+    percent = (usage.used / usage.total) * 100 if usage.total else 0.0
     if percent >= threshold:
         issues.append(f"disk usage {percent:.1f}% on {target} exceeds {threshold}%")
     return issues
 
 
-def _check_errors(state: Dict[str, object]) -> List[str]:
+def _check_errors(state: Dict[str, Any]) -> List[str]:
     issues: List[str] = []
     log_path = Path(os.getenv("LOGOS_ERROR_LOG", "/app/logs/run.log"))
     if not log_path.exists():
         return issues
-    last_size = int(state.get("error_log_size", 0))
+    recorded = state.get("error_log_size", 0)
+    last_size = int(recorded) if isinstance(recorded, (int, float, str)) else 0
     current_size = log_path.stat().st_size
     if current_size <= last_size:
         state["error_log_size"] = current_size
@@ -105,7 +112,9 @@ def _run_checks(state_path: Path) -> None:
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Logos deployment monitor")
     parser.add_argument("--loop", action="store_true", help="Run continuously")
-    parser.add_argument("--interval", type=int, default=300, help="Sleep seconds when looping")
+    parser.add_argument(
+        "--interval", type=int, default=300, help="Sleep seconds when looping"
+    )
     args = parser.parse_args(argv)
     state_path = Path(os.getenv("LOGOS_MONITOR_STATE", "/app/logs/monitor_state.json"))
     if not args.loop:

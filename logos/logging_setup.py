@@ -11,6 +11,14 @@ from core.io.dirs import ensure_dir
 from .paths import APP_LOG_FILE, LIVE_LOG_FILE
 from .utils.security import RedactingFilter
 
+
+class SensitiveDataFilter(RedactingFilter):
+    """Backward-compatible wrapper that redacts sensitive tokens."""
+
+    # Intentionally empty; behaviour inherited from RedactingFilter.
+    pass
+
+
 _configured = False
 _live_handler: Optional[logging.Handler] = None
 
@@ -47,7 +55,7 @@ def setup_app_logging(level: Union[str, int] = "INFO") -> None:
         stream_handler = StreamHandler()
         stream_handler.setFormatter(Formatter(LOG_FORMAT))
         stream_handler.setLevel(resolved)
-        stream_handler.addFilter(RedactingFilter())
+        stream_handler.addFilter(SensitiveDataFilter())
         root.addHandler(file_handler)
         root.addHandler(stream_handler)
         _configured = True
@@ -98,7 +106,7 @@ def _build_rotating_handler(path: Path, level: Optional[int] = None) -> Handler:
         backupCount=LOG_BACKUPS,
     )
     handler.setFormatter(Formatter(LOG_FORMAT))
-    handler.addFilter(RedactingFilter())
+    handler.addFilter(SensitiveDataFilter())
     if level is not None:
         handler.setLevel(level)
     return handler
