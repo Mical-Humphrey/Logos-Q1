@@ -69,12 +69,12 @@ You MUST provide the exact command that starts a paper session, unless the defau
 
 - Default used by the harness:
 ```bash
-python -m logos.cli run --mode paper --config configs/paper.yaml
+python -m logos.cli quickstart --offline
 ```
 
 - If your command differs, you can either export it:
 ```bash
-export RUN_CMD="python -m logos.cli run --mode paper --config configs/paper.yaml"
+export RUN_CMD="python -m logos.cli quickstart --offline"
 ```
 …or pass it inline via `--run-cmd "…"` when invoking the script.
 
@@ -97,7 +97,7 @@ Option A — If your command matches the default:
 
 Option B — Specify your command inline:
 ```bash
-./scripts/test_2_week.sh --run-cmd "python -m logos.cli run --mode paper --config configs/paper.yaml"
+./scripts/test_2_week.sh --run-cmd "python -m logos.cli quickstart --offline"
 ```
 
 Check the report:
@@ -118,14 +118,14 @@ Run the harness for 14 days x 24h per day. You can run it directly or inside tmu
 
 Minimal, foreground:
 ```bash
-./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli run --mode paper --config configs/paper.yaml"
+./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli quickstart --offline"
 ```
 
 Recommended (wrap in tmux so your SSH disconnects don’t stop the orchestrator):
 ```bash
 tmux new -s logos-soak
 source .venv/bin/activate
-./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli run --mode paper --config configs/paper.yaml"
+./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli quickstart --offline"
 # Detach from tmux: Ctrl-b then d
 # Reattach later: tmux attach -t logos-soak
 ```

@@ -25,7 +25,7 @@
 #   -h|--help                show help
 #
 # Example RUN_CMD:
-#   export RUN_CMD="python -m logos.cli run --mode paper --config configs/paper.yaml"
+#   export RUN_CMD="python -m logos.cli quickstart --offline"
 
 set -euo pipefail
 
@@ -45,7 +45,7 @@ USE_TMUX="${USE_TMUX:-1}"
 NO_ARTIFACTS_TAR="${NO_ARTIFACTS_TAR:-0}"
 
 # Sensible default RUN_CMD (can be overridden by env or --run-cmd)
-RUN_CMD="${RUN_CMD:-python -m logos.cli run --mode paper --config configs/paper.yaml}"
+RUN_CMD="${RUN_CMD:-python -m logos.cli quickstart --offline}"
 
 # --------------- Helpers ---------------
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
