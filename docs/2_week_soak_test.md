@@ -1,23 +1,27 @@
 How to run this on your Linux server (super explicit)
 
-SSH to the server.
-Create the working directory:
+SSH to the server. Create the working directory:
 sudo mkdir -p /opt/Logos-Q1
-sudo chown -R "USER" /opt/Logos-Q1
+sudo chown -R "USER" /opt/Logos-Q1   #USER is the username of what you're going to run it as
+
 Clone, create venv, install:
 cd /opt/Logos-Q1
 git clone https://github.com/Mical-Humphrey/Logos-Q1.git .
+cd /opt/Logos-Q1/Logos-Q1            # kinda dumb I know lol
 python3 -m venv .venv && source .venv/bin/activate
-pip install -U pip && pip install -e .
-Add the two files above to scripts/ and tools/ (copy/paste them).
-Make them executable:
+pip install -U pip && pip install -r requirements.txt && pip install -r requirements/dev.txt
+
+Make the 2 soak test files executable:
 chmod +x scripts/test_2_week.sh tools/soak_report.py
+
 Decide the exact paper-run command and export RUN_CMD:
 export RUN_CMD="python -m logos.cli run --mode paper --config configs/paper.yaml"
+
 Quick dry run (5 minutes):
 export SOAK_DAYS=1; export DAY_RUNTIME_SEC=300; export USE_TMUX=1
 ./scripts/test_2_week.sh
 Check runs/soak/reports/YYYY-MM-DD/report.md
+
 Start the full 2-week soak in tmux:
 tmux new -s logos-soak
 source .venv/bin/activate
@@ -25,6 +29,7 @@ export RUN_CMD="..." (your command)
 unset SOAK_DAYS; unset DAY_RUNTIME_SEC; export USE_TMUX=1
 ./scripts/test_2_week.sh
 Detach: Ctrl+B then D
+
 Check daily:
 tail -n 200 runs/soak/logs/$(date -u +%F).log
 sed -n '1,120p' runs/soak/reports/$(date -u +%F)/report.md
