@@ -17,3 +17,5 @@
   - Adapter go-live: `docs/ADAPTERS.md` provides the activation checklist and paper soak plan for Phase 9 venues
   - Deploy & ops: `docs/OPS.md` covers compose usage, monitoring, and backup drills for Phase 10
   - ML augmentation: `docs/ML_AUGMENTATION.md` outlines the offline advisory models and promotion gates (Phase 11)
+  - Presets library: `docs/PRESETS.md` catalogues conservative/balanced/aggressive bundles
+  - Learning path: `docs/LEARNING_PATH.md` details the onboarding quests and accessibility checkpoints

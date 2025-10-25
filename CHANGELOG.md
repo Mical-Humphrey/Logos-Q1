@@ -22,6 +22,17 @@
 - Thresholds for regime, PSI, and z-score alerts are heuristic and should be reviewed quarterly against fresh walk-forward evidence.
 - Meta allocator state currently tracks approvals in-memory; persist the ledger before integrating with orchestration tooling.
 
+## 2025-10-25 — Phase 12 UX Polish & Preset Library
+
+### Highlights
+- Authored the preset catalogue (`docs/PRESETS.md`) with conservative/balanced/aggressive bundles and safe usage guidance.
+- Expanded the Streamlit dashboard with read-only portfolio and per-strategy panels (`logos/ui/streamlit/{portfolio.py,strategies.py}`) while keeping the main app strictly informational.
+- Published the guided learning path (`docs/LEARNING_PATH.md`) and linked documentation updates to speed onboarding and record accessibility checks.
+
+### Known Limitations
+- Dashboard assumes presence of `metrics.json`/`equity.csv`; legacy runs without these artifacts will show informational messages only.
+- Accessibility audit relies on manual verification; schedule quarterly reviews to keep pace with Streamlit theme updates.
+
 ## 2025-10-20 — Phase 9 Adapter Hardening
 
 ### Highlights

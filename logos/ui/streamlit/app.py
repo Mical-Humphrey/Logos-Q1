@@ -9,6 +9,8 @@ import streamlit as st
 
 from logos.paths import RUNS_DIR
 from . import configure_streamlit_binding
+from .portfolio import render_portfolio_overview
+from .strategies import render_provenance_panel, render_strategy_panels
 
 configure_streamlit_binding()
 
@@ -45,14 +47,29 @@ def render_dashboard() -> None:
         return
     metrics_path = selection / "metrics.json"
     metrics = _load_json(metrics_path)
-    if metrics is not None:
-        st.subheader("Metrics")
-        st.json(metrics)
     provenance_path = selection / "provenance.json"
     provenance = _load_json(provenance_path)
-    if provenance is not None:
-        st.subheader("Provenance")
-        st.json(provenance)
+
+    overview_tab, strategies_tab, artifacts_tab = st.tabs(
+        ["Portfolio", "Strategies", "Artifacts"]
+    )
+
+    with overview_tab:
+        st.caption("All panels are informational only; no orders can be placed here.")
+        render_portfolio_overview(selection, metrics)
+        if provenance:
+            st.caption("Run Metadata")
+            st.json(provenance)
+
+    with strategies_tab:
+        render_strategy_panels(metrics)
+
+    with artifacts_tab:
+        st.subheader("Artifact Preview", divider="gray")
+        if metrics is not None:
+            st.caption("Metrics JSON")
+            st.json(metrics)
+        render_provenance_panel(selection)
 
 
 def main() -> None:
