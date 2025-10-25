@@ -34,3 +34,4 @@ Thumbs.db
 
 # Spec-kit local state (AI cache)
 #.specify
+specs/
