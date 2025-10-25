@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2025-10-25 — Phase 10 Deployment & Ops
+
+### Highlights
+- Introduced docker-compose stack with services for the runner, monitoring loop, scheduled backups, and janitor cleanup (`deploy/docker-compose.yml`).
+- Added operational scripts for backups, restores, janitorial retention, and monitoring (`scripts/ops/`).
+- Published deployment runbook (`docs/OPS.md`) detailing compose workflows, alerting thresholds, and drill procedures.
+
+### Known Limitations
+- Monitoring relies on webhook endpoints; operators must supply the integration and rotate secrets externally.
+- Backup cadence defaults to daily archives; adjust intervals for higher-frequency trading workloads if storage budget allows.
+
 ## 2025-10-20 — Phase 9 Adapter Hardening
 
 ### Highlights
