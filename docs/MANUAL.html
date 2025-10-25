@@ -130,13 +130,14 @@ Each module (Math, Finance, Manual, System Design) is self-contained and styled 
   --interval 1m --params '{"fast":10,"slow":30}' --risk.max-dd-bps 400 \
   --kill-switch-file /tmp/logos.kill</code></pre>
   </li>
-  <li><b>Enable live orders</b> only after supervision is ready: add <code>--live</code> and <code>--i-acknowledge-risk</code>. The CLI refuses to submit if acknowledgement is missing.</li>
+  <li><b>Enable live orders</b> only after supervision is ready: add <code>--live</code>, acknowledge with <code>--i-understand &quot;place-live-orders&quot;</code>, and append <code>--send-orders</code> only when ready to dispatch real orders.</li>
 </ol>
 <p><b>Safety controls</b> are enforced ahead of every order:</p>
 <table>
   <tr><th>Control</th><th>Flag / Setting</th><th>Description</th></tr>
   <tr><td>Mode gate</td><td><code>MODE=paper|live</code></td><td>Environment variable that prevents accidental live orders.</td></tr>
-  <tr><td>Acknowledgement</td><td><code>--i-acknowledge-risk</code></td><td>Required whenever <code>--live</code> is used.</td></tr>
+  <tr><td>Acknowledgement</td><td><code>--i-understand &quot;place-live-orders&quot;</code></td><td>Phrase required whenever <code>--live</code> is requested.</td></tr>
+  <tr><td>Order dispatch</td><td><code>--send-orders</code></td><td>Allows the runner to place orders after safety gates pass.</td></tr>
   <tr><td>Notional limit</td><td><code>--max-notional</code> / <code>RISK_MAX_NOTIONAL</code></td><td>Caps order size in currency terms.</td></tr>
   <tr><td>Position cap</td><td><code>--risk.max-position</code> / <code>RISK_MAX_POSITION</code></td><td>Restricts net exposure.</td></tr>
   <tr><td>Drawdown breaker</td><td><code>--risk.max-dd-bps</code></td><td>Stops the loop when equity drawdown exceeds your threshold.</td></tr>
@@ -215,7 +216,7 @@ python -m logos.live.regression --adapter-mode adapter --adapter alpaca \
 <h2>9) Safety Checklist & Guard Order</h2>
 <div class="card">
 <ol>
-  <li>Confirm <code>MODE=paper</code> (or explicit <code>--live --i-acknowledge-risk</code> combo).</li>
+  <li>Confirm <code>MODE=paper</code> (or explicit <code>--live --i-understand &quot;place-live-orders&quot;</code> combo with <code>--send-orders</code> when dispatching).</li>
   <li>Run <code>python -m logos.config_validate</code> to catch misconfigurations.</li>
   <li>Provision the kill switch file and monitor <code>logos/logs/live.log</code>.</li>
   <li>Launch the runner; guards execute in this priority: notional &rsaquo; per-symbol exposure &rsaquo; drawdown &rsaquo; consecutive rejects &rsaquo; stale data &rsaquo; kill switch.</li>

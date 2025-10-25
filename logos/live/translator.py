@@ -11,8 +11,6 @@ from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from pathlib import Path
 from typing import Dict
 
-import yaml
-
 from logos.live.types import (
     Account,
     OrderIntent,
@@ -21,6 +19,7 @@ from logos.live.types import (
     SizingInstruction,
     SymbolMetadata,
 )
+from logos.utils.yaml_safe import safe_load_path
 
 
 class SymbolMetadataRegistry:
@@ -38,7 +37,7 @@ class SymbolMetadataRegistry:
     def from_yaml(cls, path: Path) -> "SymbolMetadataRegistry":
         """Load metadata records from a YAML payload."""
 
-        payload = yaml.safe_load(path.read_text()) or {}
+        payload = safe_load_path(path) or {}
         entries: Dict[str, SymbolMetadata] = {}
 
         for symbol, raw in payload.items():

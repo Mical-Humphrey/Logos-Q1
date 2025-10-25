@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .broker_base import (
     AccountSnapshot,
@@ -23,7 +23,7 @@ class IBBrokerAdapter(BrokerAdapter):
     host: str
     port: int
     client_id: int = 999
-    time_provider: TimeProvider = SystemTimeProvider()
+    time_provider: TimeProvider = field(default_factory=SystemTimeProvider)
 
     def get_symbol_meta(self, symbol: str) -> SymbolMeta:
         return SymbolMeta(symbol=symbol)

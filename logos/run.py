@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from logos.live import regression
+from logos.utils.paths import DEFAULT_SANDBOX_ROOTS, safe_resolve
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -69,6 +70,14 @@ def _checksums(paths: Iterable[Path | None]) -> Iterator[tuple[Path, str]]:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    fixture_root = regression.DEFAULT_FIXTURE_DIR.parents[1]
+    dataset_dir = safe_resolve(
+        args.dataset,
+        roots=(*DEFAULT_SANDBOX_ROOTS, fixture_root),
+        description="dataset path",
+    )
+    output_root = safe_resolve(args.output_dir, description="output directory")
+    baseline_dir = safe_resolve(args.baseline_dir, description="baseline directory")
 
     seed_env = os.getenv("LOGOS_SEED")
     try:
@@ -82,9 +91,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--adapter is required when --mode adapter")
 
     result = regression.run_regression(
-        output_root=args.output_dir,
-        baseline_dir=args.baseline_dir,
-        dataset_dir=args.dataset,
+        output_root=output_root,
+        baseline_dir=baseline_dir,
+        dataset_dir=dataset_dir,
         symbol=args.symbol,
         seed=seed,
         label=args.label,

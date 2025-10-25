@@ -8,6 +8,7 @@ from typing import Iterable, List, Sequence
 from core.io.dirs import ensure_dir
 
 from logos.live import regression
+from logos.utils.paths import safe_resolve
 
 
 @dataclass(frozen=True)
@@ -185,6 +186,10 @@ def main(argv: List[str] | None = None) -> int:
     parser = _build_parser()
     try:
         args = parser.parse_args(argv)
+        args.output_dir = safe_resolve(args.output_dir, description="output directory")
+        args.baseline_root = safe_resolve(
+            args.baseline_root, description="baseline directory"
+        )
         matrix_results = _run_matrix(args)
     except Exception as exc:  # pragma: no cover - defensive error formatting
         parser.error(str(exc))

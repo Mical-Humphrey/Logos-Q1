@@ -165,12 +165,13 @@ The live runner coordinates data feeds, broker adapters, and risk gates. Paper m
      --interval 1m --params '{"fast":10,"slow":30}' --risk.max-dd-bps 400 \
      --kill-switch-file /tmp/logos.kill
    ```
-4. **Go live intentionally:** add `--live --i-acknowledge-risk` only when supervision and risk controls are ready.
+4. **Go live intentionally:** add `--live --i-understand "place-live-orders"` and only include `--send-orders` when supervision and risk controls are ready for real execution.
 
 #### Safety Controls
 | Guardrail | Flag / Setting | Purpose |
 | --- | --- | --- |
-| Acknowledgement | `--i-acknowledge-risk` | Opt-in required before sending real orders. |
+| Acknowledgement | `--i-understand "place-live-orders"` | Required phrase before live mode unlocks. |
+| Order dispatch | `--send-orders` | Enables actual broker order submission once safeguards pass. |
 | Mode gate | `MODE=paper|live` | Prevents accidental live trading without environment toggle. |
 | Notional cap | `--max-notional` / `RISK_MAX_NOTIONAL` | Limits order size by dollar value. |
 | Position cap | `--risk.max-position` / `RISK_MAX_POSITION` | Controls net exposure in units. |

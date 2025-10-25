@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import re
-from logging import Filter, Handler, Formatter, StreamHandler, getLogger
+from logging import Handler, Formatter, StreamHandler, getLogger
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Union
@@ -10,6 +9,7 @@ from typing import Optional, Union
 from core.io.dirs import ensure_dir
 
 from .paths import APP_LOG_FILE, LIVE_LOG_FILE
+from .utils.security import RedactingFilter
 
 _configured = False
 _live_handler: Optional[logging.Handler] = None
@@ -17,42 +17,6 @@ _live_handler: Optional[logging.Handler] = None
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 MAX_LOG_BYTES = 5 * 1024 * 1024
 LOG_BACKUPS = 3
-
-
-class SensitiveDataFilter(Filter):
-    """Redact common secret patterns from log messages."""
-
-    _KEY_VALUE_PATTERN = re.compile(
-        r"(?i)(apikey|api_key|api-key|secret|token|password|passphrase|key)\s*[:=]\s*([^\s,;]+)"
-    )
-    _BEARER_PATTERN = re.compile(r"(?i)Bearer\s+[A-Za-z0-9._\-]+")
-
-    def filter(self, record: logging.LogRecord) -> bool:  # pragma: no cover - thin shim
-        message = record.getMessage()
-        redacted, changed = self._redact(message)
-        if changed:
-            record.msg = redacted
-            record.args = ()
-        return True
-
-    @classmethod
-    def _redact(cls, message: str) -> tuple[str, bool]:
-        changed = False
-
-        def key_repl(match: re.Match[str]) -> str:
-            nonlocal changed
-            changed = True
-            return f"{match.group(1)}=<redacted>"
-
-        message = cls._KEY_VALUE_PATTERN.sub(key_repl, message)
-
-        def bearer_repl(match: re.Match[str]) -> str:
-            nonlocal changed
-            changed = True
-            return "Bearer <redacted>"
-
-        message = cls._BEARER_PATTERN.sub(bearer_repl, message)
-        return message, changed
 
 
 def _resolve_level(level: Union[str, int, None]) -> int:
@@ -83,7 +47,7 @@ def setup_app_logging(level: Union[str, int] = "INFO") -> None:
         stream_handler = StreamHandler()
         stream_handler.setFormatter(Formatter(LOG_FORMAT))
         stream_handler.setLevel(resolved)
-        stream_handler.addFilter(SensitiveDataFilter())
+        stream_handler.addFilter(RedactingFilter())
         root.addHandler(file_handler)
         root.addHandler(stream_handler)
         _configured = True
@@ -134,7 +98,7 @@ def _build_rotating_handler(path: Path, level: Optional[int] = None) -> Handler:
         backupCount=LOG_BACKUPS,
     )
     handler.setFormatter(Formatter(LOG_FORMAT))
-    handler.addFilter(SensitiveDataFilter())
+    handler.addFilter(RedactingFilter())
     if level is not None:
         handler.setLevel(level)
     return handler

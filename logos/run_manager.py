@@ -26,10 +26,12 @@ from .paths import (
 )
 from .logging_setup import attach_run_file_handler, detach_handler
 from .window import Window
+from .utils.security import csv_cell_sanitize, redact_text, scrub_artifact
 
 # Timestamp format: 2025-10-19_1702
 TS_FMT = "%Y-%m-%d_%H%M%S"
 REPO_ROOT = Path(__file__).resolve().parent.parent
+MAX_TRADE_ROWS = 100_000
 
 
 @dataclass
@@ -136,6 +138,7 @@ def write_config(
     payload = {"config": config}
     if env:
         payload["env"] = env
+    payload = scrub_artifact(payload)
     atomic_write_text(
         ctx.config_file,
         yaml.safe_dump(payload, sort_keys=False),
@@ -152,33 +155,68 @@ def write_metrics(
     }
     if provenance:
         serializable["provenance"] = provenance
+    serializable = scrub_artifact(serializable)
     atomic_write_text(
         ctx.metrics_file, json.dumps(serializable, indent=2), encoding="utf-8"
     )
 
 
 def write_trades(ctx: RunContext, trades: Union[DataFrame, list, tuple]) -> None:
+    def _enforce_cap(count: int) -> None:
+        if count > MAX_TRADE_ROWS:
+            raise ValueError(
+                f"trade export exceeds limit of {MAX_TRADE_ROWS} rows; got {count}"
+            )
+
     if isinstance(trades, pd.DataFrame):
+        _enforce_cap(len(trades))
 
         def _write_frame(fh: Any) -> None:
-            trades.to_csv(fh, index=False)
+            frame = trades.copy()
+            for column in frame.columns:
+                if frame[column].dtype == object:
+                    frame[column] = frame[column].map(csv_cell_sanitize)
+            frame.to_csv(fh, index=False, lineterminator="\n")
 
-        atomic_write(ctx.trades_file, _write_frame, newline="")
+        atomic_write(
+            ctx.trades_file,
+            _write_frame,
+            newline="\n",
+            encoding="utf-8",
+        )
         return
 
-    rows = trades if isinstance(trades, (list, tuple)) else []
+    rows = list(trades if isinstance(trades, (list, tuple)) else [])
+    _enforce_cap(len(rows))
 
     def _write_rows(fh: Any) -> None:
         if rows and isinstance(rows[0], dict):
             fieldnames = list(rows[0].keys())
-            dict_writer = csv.DictWriter(fh, fieldnames=fieldnames)
+            dict_writer = csv.DictWriter(
+                fh, fieldnames=fieldnames, lineterminator="\n"
+            )
             dict_writer.writeheader()
-            dict_writer.writerows(rows)  # type: ignore[arg-type]
+            for row in rows:
+                sanitized = {
+                    key: csv_cell_sanitize(row.get(key))  # type: ignore[arg-type]
+                    for key in fieldnames
+                }
+                dict_writer.writerow(sanitized)
         else:
-            row_writer = csv.writer(fh)
-            row_writer.writerows(rows)  # type: ignore[arg-type]
+            row_writer = csv.writer(fh, lineterminator="\n")
+            for row in rows:
+                if isinstance(row, (list, tuple)):
+                    sanitized = [csv_cell_sanitize(value) for value in row]
+                else:
+                    sanitized = [csv_cell_sanitize(row)]
+                row_writer.writerow(sanitized)
 
-    atomic_write(ctx.trades_file, _write_rows, newline="")
+    atomic_write(
+        ctx.trades_file,
+        _write_rows,
+        newline="\n",
+        encoding="utf-8",
+    )
 
 
 def write_provenance(
@@ -218,7 +256,11 @@ def write_provenance(
                 "tz": maybe_window.get("tz") or maybe_window.get("timezone") or "UTC",
             }
     path = ctx.run_dir / "provenance.json"
-    atomic_write_text(path, json.dumps(serializable, indent=2), encoding="utf-8")
+    atomic_write_text(
+        path,
+        json.dumps(scrub_artifact(serializable), indent=2),
+        encoding="utf-8",
+    )
     return path
 
 
@@ -226,7 +268,7 @@ def write_session_markdown(ctx: RunContext, lines: list[str]) -> Path:
     """Write a concise markdown summary for the run."""
     path = ctx.run_dir / "session.md"
     content = "\n".join(lines).rstrip() + "\n"
-    atomic_write_text(path, content, encoding="utf-8")
+    atomic_write_text(path, redact_text(content), encoding="utf-8")
     return path
 
 

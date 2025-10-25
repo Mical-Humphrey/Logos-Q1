@@ -33,7 +33,7 @@ Follow-up TODOs:
 
 ### Safety First for Live Trading
 - All strategy changes MUST pass paper trading via `python -m logos.live trade` without `--live` before any real-order attempt.
-- Live mode submission MUST require both `--live` and `--i-acknowledge-risk`, plus a documented risk checklist in the PR description.
+- Live mode submission MUST require `MODE=live`, `--live`, the acknowledgement `--i-understand "place-live-orders"`, and a documented risk checklist in the PR description; real order dispatch additionally requires `--send-orders`.
 - Brokers, risk guards, and kill switches configured in `.env` MUST be validated through `python -m logos.config_validate` prior to live execution.
 **Rationale**: Paper-first rehearsals and explicit acknowledgements reduce the risk of accidental capital deployment and keep the educational mission aligned with responsible trading.
 

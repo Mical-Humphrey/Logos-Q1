@@ -11,7 +11,6 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Dict
 
-from ..logging_setup import setup_app_logging
 from ..paths import ensure_dirs as _ensure_dirs
 
 __all__ = ["ensure_dirs", "setup_logging", "parse_params"]
@@ -25,6 +24,7 @@ def ensure_dirs(extra: Iterable[Path] | None = None) -> None:
 
 def setup_logging(level: str = "INFO") -> None:
     """Proxy to the shared logging configurator for legacy callers."""
+    from ..logging_setup import setup_app_logging
 
     setup_app_logging(level)
 

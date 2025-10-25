@@ -34,6 +34,7 @@ from logos.orchestrator import (
     Scheduler,
     StrategySpec,
 )
+from logos.utils.paths import DEFAULT_SANDBOX_ROOTS, safe_resolve
 
 from .broker_alpaca import AlpacaBrokerAdapter
 from .broker_base import (
@@ -1002,12 +1003,20 @@ def main(argv: List[str] | None = None) -> int:
         parser.error(
             "--refresh-baseline also requires --confirm-refresh to avoid accidental updates"
         )
+    output_root = safe_resolve(args.output_dir, description="output directory")
+    baseline_dir = safe_resolve(args.baseline, description="baseline directory")
+    fixture_root = DEFAULT_FIXTURE_DIR.parents[1]
+    dataset_dir = safe_resolve(
+        args.dataset,
+        roots=(*DEFAULT_SANDBOX_ROOTS, fixture_root),
+        description="dataset directory",
+    )
     result = run_regression(
-        output_root=args.output_dir,
-        baseline_dir=args.baseline,
+        output_root=output_root,
+        baseline_dir=baseline_dir,
         update_baseline=args.refresh_baseline,
         allow_refresh=args.confirm_refresh,
-        dataset_dir=args.dataset,
+        dataset_dir=dataset_dir,
         symbol=args.symbol,
         seed=args.seed,
         label=args.label,
