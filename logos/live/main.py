@@ -176,7 +176,9 @@ def main(argv: list[str] | None = None) -> None:
     class_caps = (
         class_caps_override
         if class_caps_override is not None
-        else {str(k).lower(): float(v) for k, v in settings.portfolio_class_caps.items()}
+        else {
+            str(k).lower(): float(v) for k, v in settings.portfolio_class_caps.items()
+        }
     )
     feed_path = args.feed_file or live_cache_path(
         asset_class, args.symbol, args.interval
@@ -313,6 +315,13 @@ def main(argv: list[str] | None = None) -> None:
                     str(args.kill_switch_file) if args.kill_switch_file else None
                 ),
                 max_loops=args.max_loops,
+                orchestrator_time_budget_fraction=settings.orchestrator_time_budget_fraction,
+                orchestrator_jitter_seconds=settings.orchestrator_jitter_seconds,
+                orchestrator_router_rate_limit=settings.orchestrator_router_rate_limit,
+                orchestrator_router_max_inflight=settings.orchestrator_router_max_inflight,
+                orchestrator_metrics_window=settings.orchestrator_metrics_window,
+                orchestrator_snapshot_interval_s=settings.orchestrator_snapshot_interval_s,
+                orchestrator_scheduler_seed=settings.orchestrator_scheduler_seed,
             ),
         )
         runner.run()

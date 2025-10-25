@@ -8,8 +8,17 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
-from .allocators import AllocatorConfig, risk_budget_allocation, volatility_parity_allocation
-from .risk import PortfolioDecision, PortfolioLimitsConfig, PortfolioOrderState, evaluate_order_limits
+from .allocators import (
+    AllocatorConfig,
+    risk_budget_allocation,
+    volatility_parity_allocation,
+)
+from .risk import (
+    PortfolioDecision,
+    PortfolioLimitsConfig,
+    PortfolioOrderState,
+    evaluate_order_limits,
+)
 
 
 @dataclass(slots=True)
@@ -64,9 +73,9 @@ def run_smoke() -> SmokeResult:
 
     limits = PortfolioLimitsConfig(
         gross_cap=1.0,
-    per_asset_cap=0.6,
-    class_caps={"crypto": 0.6, "equity": 0.5, "forex": 0.5},
-    per_trade_cap=0.10,
+        per_asset_cap=0.6,
+        class_caps={"crypto": 0.6, "equity": 0.5, "forex": 0.5},
+        per_trade_cap=0.10,
         drawdown_cap=0.12,
         cooldown_days=5,
         daily_portfolio_loss_cap=0.02,
@@ -79,9 +88,13 @@ def run_smoke() -> SmokeResult:
 
     decision = evaluate_order_limits(order_state, limits)
     if not decision.allowed:
-        raise RuntimeError(f"portfolio smoke unexpectedly rejected order: {decision.reason}")
+        raise RuntimeError(
+            f"portfolio smoke unexpectedly rejected order: {decision.reason}"
+        )
 
-    return SmokeResult(weights_vol=weights_vol, weights_risk=weights_risk, decision=decision)
+    return SmokeResult(
+        weights_vol=weights_vol, weights_risk=weights_risk, decision=decision
+    )
 
 
 def main() -> None:

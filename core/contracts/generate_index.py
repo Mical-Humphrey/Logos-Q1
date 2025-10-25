@@ -106,7 +106,7 @@ class StrategyDescriptor:
 
 
 def _collect_strategies(
-    strategies: Mapping[str, Callable[..., Any]] | None = None
+    strategies: Mapping[str, Callable[..., Any]] | None = None,
 ) -> list[StrategyDescriptor]:
     source = strategies or STRATEGIES
     items = [

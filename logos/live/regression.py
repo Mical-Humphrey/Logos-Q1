@@ -26,6 +26,14 @@ from typing import Any, Dict, Iterable, List, Mapping, Protocol, Sequence, Tuple
 from core.io.atomic_write import atomic_write_text
 from core.io.dirs import ensure_dir
 from logos.window import Window, UTC
+from logos.orchestrator import (
+    MetricsRecorder,
+    OrderRouter,
+    OrderRequest,
+    FillReport,
+    Scheduler,
+    StrategySpec,
+)
 
 from .broker_alpaca import AlpacaBrokerAdapter
 from .broker_base import (
@@ -106,6 +114,8 @@ class RegressionArtifacts:
     provenance: Path
     session: Path
     adapter_logs: Path | None = None
+    orchestrator_metrics: Path | None = None
+    router_state: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -225,7 +235,9 @@ class AdapterLike(Protocol):
     def on_market_data(self, symbol: str, price: float, ts: float) -> None: ...
 
 
-def _to_broker_intent(intent: StrategyOrderIntent) -> BrokerOrderIntent:
+def _to_broker_intent(
+    intent: StrategyOrderIntent, *, client_order_id: str | None = None
+) -> BrokerOrderIntent:
     limit_price = intent.price.limit if intent.price else None
     return BrokerOrderIntent(
         symbol=intent.metadata.symbol,
@@ -233,6 +245,7 @@ def _to_broker_intent(intent: StrategyOrderIntent) -> BrokerOrderIntent:
         quantity=float(intent.quantity),
         order_type="limit" if limit_price is not None else "market",
         limit_price=float(limit_price) if limit_price is not None else None,
+        client_order_id=client_order_id,
     )
 
 
@@ -383,6 +396,68 @@ def _run_pipeline(
         raise RuntimeError(f"Regression guard rejected order: {decision.reason}")
 
     adapter_mode_label, adapter_name, adapter = _select_adapter(config, clock)
+
+    cadence = bars[1].dt - bars[0].dt if len(bars) > 1 else dt.timedelta(minutes=1)
+    if cadence <= dt.timedelta(0):
+        cadence = dt.timedelta(minutes=1)
+    time_budget = max(dt.timedelta(milliseconds=50), cadence * 0.25)
+    heartbeat_timeout = cadence * 3
+    strategy_id = paths.run_id
+    scheduler = Scheduler(now=clock_origin, seed=config.seed)
+    scheduler.register(
+        StrategySpec(
+            name=strategy_id,
+            cadence=cadence,
+            time_budget=time_budget,
+            jitter=dt.timedelta(0),
+            heartbeat_timeout=heartbeat_timeout,
+        ),
+        start_at=clock_origin,
+    )
+    metrics_window = max(8, len(bars))
+    metrics = MetricsRecorder(window=metrics_window)
+    router = OrderRouter(rate_limit_per_sec=5, max_inflight=32)
+    next_run_at = scheduler.next_run(strategy_id)
+    due = scheduler.due(next_run_at)
+    metrics.record_queue_depth(len(due))
+    scheduler.mark_start(strategy_id, next_run_at)
+    signed_qty = (
+        broker_intent.quantity
+        if broker_intent.side == "buy"
+        else -broker_intent.quantity
+    )
+    client_reference = f"{strategy_id}-000001"
+    order_price = (
+        broker_intent.limit_price
+        if broker_intent.limit_price is not None
+        else float(signal_price)
+    )
+    router_request = OrderRequest(
+        strategy_id=strategy_id,
+        symbol=broker_intent.symbol,
+        quantity=signed_qty,
+        price=order_price,
+        client_order_id=client_reference,
+        idempotency_key=f"{strategy_id}:{client_reference}",
+        timestamp=next_run_at,
+    )
+    router_decision = router.submit(router_request, now=next_run_at)
+    if not router_decision.accepted:
+        reason = router_decision.reason or "router_rejected"
+        metrics.record_error(reason)
+        metrics.record_tick(strategy_id, latency_s=0.0, skipped=True)
+        scheduler.mark_finish(strategy_id, next_run_at)
+        scheduler.record_heartbeat(strategy_id, next_run_at)
+        snapshot = metrics.snapshot(timestamp=next_run_at)
+        atomic_write_text(
+            paths.orchestrator_metrics_file,
+            json.dumps(snapshot, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        router.save(paths.router_state_file)
+        raise RuntimeError(f"Router rejected regression order: {reason}")
+
+    broker_intent.client_order_id = router_decision.order_id
     adapter_logs: List[Dict[str, object]] = []
     equity_curve: List[Dict[str, object]]
     exposures: List[float]
@@ -390,6 +465,7 @@ def _run_pipeline(
     trade_payloads: List[Dict[str, object]]
     account_payload: Mapping[str, float]
     positions_payload: Mapping[str, Mapping[str, float]]
+    router_reports: List[FillReport] = []
 
     if adapter_mode_label == "paper":
         broker = _configure_paper_broker(metadata, account, config.symbol, clock)
@@ -436,6 +512,14 @@ def _run_pipeline(
                         "qty": round(fill.quantity, 6),
                         "price": round(fill.price, 6),
                     }
+                )
+                router_reports.append(
+                    FillReport(
+                        order_id=fill.order_id,
+                        status="filled",
+                        filled_qty=fill.quantity,
+                        timestamp=fill_dt,
+                    )
                 )
 
         final_snapshot = broker.get_account()
@@ -488,6 +572,31 @@ def _run_pipeline(
             for symbol, pos in account.positions.items()
         }
         adapter_logs.extend(_drain_adapter_logs(adapter))
+
+    reconciliation = router.reconcile(router_reports)
+    if reconciliation.unknown_fills:
+        raise RuntimeError(
+            f"Router reconciliation reported unknown fills: {reconciliation.unknown_fills}"
+        )
+    if router.halted():
+        raise RuntimeError("Router halted during regression replay")
+    router.save(paths.router_state_file)
+
+    orchestrator_runtime = dt.timedelta(milliseconds=1)
+    finish_time = next_run_at + orchestrator_runtime
+    scheduler.mark_finish(strategy_id, finish_time)
+    scheduler.record_heartbeat(strategy_id, finish_time)
+    metrics.record_tick(
+        strategy_id,
+        latency_s=orchestrator_runtime.total_seconds(),
+        skipped=False,
+    )
+    metrics_snapshot = metrics.snapshot(timestamp=finish_time)
+    atomic_write_text(
+        paths.orchestrator_metrics_file,
+        json.dumps(metrics_snapshot, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     config_payload = {
         "symbol": config.symbol,
@@ -597,6 +706,8 @@ def _run_pipeline(
         provenance=paths.provenance_file,
         session=paths.session_file,
         adapter_logs=adapter_log_path,
+        orchestrator_metrics=paths.orchestrator_metrics_file,
+        router_state=paths.router_state_file,
     )
 
 
@@ -833,6 +944,10 @@ def run_regression(
     }
     if artifacts.adapter_logs is not None:
         tracked["adapter_logs"] = artifacts.adapter_logs
+    if artifacts.orchestrator_metrics is not None:
+        tracked["orchestrator_metrics"] = artifacts.orchestrator_metrics
+    if artifacts.router_state is not None:
+        tracked["router_state"] = artifacts.router_state
 
     diff_map: Dict[str, str] = {}
     for name, artifact in tracked.items():
@@ -908,6 +1023,10 @@ def main(argv: List[str] | None = None) -> int:
     ]
     if result.artifacts.adapter_logs is not None:
         tracked.append(("adapter_logs", result.artifacts.adapter_logs))
+    if result.artifacts.orchestrator_metrics is not None:
+        tracked.append(("orchestrator_metrics", result.artifacts.orchestrator_metrics))
+    if result.artifacts.router_state is not None:
+        tracked.append(("router_state", result.artifacts.router_state))
     for name, artifact in tracked:
         digest = _checksum(artifact)
         print(f"{name}: {artifact}")

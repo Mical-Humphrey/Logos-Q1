@@ -5,7 +5,12 @@ from typing import Any, Dict, Mapping
 
 import pandas as pd
 
-from logos.strategy import StrategyContext, StrategyError, StrategyPreset, ensure_price_frame
+from logos.strategy import (
+    StrategyContext,
+    StrategyError,
+    StrategyPreset,
+    ensure_price_frame,
+)
 
 
 class MeanReversionPreset(StrategyPreset):
@@ -142,7 +147,9 @@ def generate_signals(
     z_entry: float = 2.0,
     exposure_cap: float = 1.0,
 ) -> pd.Series:
-    strat = _build_strategy(df, lookback=lookback, z_entry=z_entry, exposure_cap=exposure_cap)
+    strat = _build_strategy(
+        df, lookback=lookback, z_entry=z_entry, exposure_cap=exposure_cap
+    )
     raw = strat.predict(df)
     clipped = strat.generate_order_intents(raw)
     return clipped.round().astype(int)
@@ -168,7 +175,9 @@ def explain(
         if frame.empty:
             raise StrategyError("timestamp requested is before available history")
 
-    strat = _build_strategy(frame, lookback=lookback, z_entry=z_entry, exposure_cap=exposure_cap)
+    strat = _build_strategy(
+        frame, lookback=lookback, z_entry=z_entry, exposure_cap=exposure_cap
+    )
     signals = strat.predict(frame)
     strat.generate_order_intents(signals)
 

@@ -36,6 +36,8 @@ class SessionPaths:
     account_file: Path
     session_report: Path
     latest_file: Path
+    orchestrator_metrics_file: Path
+    router_state_file: Path
 
 
 def _write_header(path: Path, header: str) -> None:
@@ -81,6 +83,8 @@ def create_session(
     positions_file = base_dir / "positions.csv"
     account_file = base_dir / "account.csv"
     session_report = base_dir / "session.md"
+    orchestrator_metrics_file = base_dir / "orchestrator_metrics.jsonl"
+    router_state_file = base_dir / "router_state.json"
     latest_file = RUNS_LIVE_LATEST_LINK
 
     _write_header(
@@ -115,5 +119,7 @@ def create_session(
         account_file=account_file,
         session_report=session_report,
         latest_file=latest_file,
+        orchestrator_metrics_file=orchestrator_metrics_file,
+        router_state_file=router_state_file,
     )
     return paths, handler

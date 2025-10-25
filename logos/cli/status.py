@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from ..config import Settings
 from ..paths import RUNS_LIVE_SESSIONS_DIR, RUNS_LIVE_LATEST_LINK
@@ -94,6 +94,29 @@ def _load_metrics(run_dir: Path) -> Dict[str, object]:
     return json.loads(metrics_path.read_text(encoding="utf-8"))
 
 
+def _load_orchestrator_metrics(run_dir: Path) -> Optional[Dict[str, object]]:
+    metrics_path = run_dir / "orchestrator_metrics.jsonl"
+    if not metrics_path.exists():
+        return None
+    last_entry: Optional[str] = None
+    try:
+        with metrics_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                stripped = line.strip()
+                if stripped:
+                    last_entry = stripped
+    except OSError as exc:
+        raise SystemExit(f"Failed to read orchestrator metrics: {exc}") from exc
+    if not last_entry:
+        return None
+    try:
+        return json.loads(last_entry)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"Invalid JSON in orchestrator metrics ({metrics_path}): {exc}"
+        ) from exc
+
+
 def _infer_signal(snapshot: Dict[str, object]) -> str:
     fills = snapshot.get("fills") or []
     if fills:
@@ -134,7 +157,12 @@ def _health(snapshot: Dict[str, object], env_values: Dict[str, str]) -> Dict[str
     else:
         last_ts = last_ts.astimezone(timezone.utc)
     age = (ref_ts - last_ts).total_seconds()
-    offline = env_values.get("LOGOS_OFFLINE_ONLY", "0").strip().lower() in {"1", "true", "yes", "on"}
+    offline = env_values.get("LOGOS_OFFLINE_ONLY", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     return {
         "offline_only": offline,
         "stale": age > 3600,
@@ -178,7 +206,12 @@ def _build_status(run_dir: Path, env_values: Dict[str, str]) -> StatusPayload:
     )
 
 
-def _print_status(run_dir: Path, payload: StatusPayload, metrics: Dict[str, object]) -> None:
+def _print_status(
+    run_dir: Path,
+    payload: StatusPayload,
+    metrics: Dict[str, object],
+    orchestrator_metrics: Optional[Dict[str, object]] = None,
+) -> None:
     print(f"Run: {payload.run_id}")
     print(f"Location: {run_dir}")
     print(f"Last Updated: {payload.last_updated.isoformat()}")
@@ -196,8 +229,27 @@ def _print_status(run_dir: Path, payload: StatusPayload, metrics: Dict[str, obje
             print(f"  - {symbol}: qty={qty:.6f} avg=${avg:.2f}")
     else:
         print("Positions: None")
-    flags = ", ".join(f"{key}={'yes' if value else 'no'}" for key, value in payload.health.items())
+    flags = ", ".join(
+        f"{key}={'yes' if value else 'no'}" for key, value in payload.health.items()
+    )
     print(f"Health: {flags}")
+    if orchestrator_metrics:
+        p95 = orchestrator_metrics.get("p95_latency_s")
+        skip_rate = orchestrator_metrics.get("skip_rate")
+        queue_depth = orchestrator_metrics.get("queue_depth_max")
+        ticks = orchestrator_metrics.get("ticks")
+        timestamp = orchestrator_metrics.get("timestamp")
+        print("Orchestrator Metrics:")
+        if timestamp:
+            print(f"  - Timestamp: {timestamp}")
+        if isinstance(p95, (int, float)):
+            print(f"  - p95 latency (s): {float(p95):.3f}")
+        if isinstance(skip_rate, (int, float)):
+            print(f"  - Skip rate: {float(skip_rate):.4f}")
+        if isinstance(queue_depth, (int, float)):
+            print(f"  - Queue depth max: {int(queue_depth)}")
+        if isinstance(ticks, (int, float)):
+            print(f"  - Tick samples: {int(ticks)}")
 
 
 def run(args: argparse.Namespace, *, settings: Settings | None = None) -> int:
@@ -205,5 +257,6 @@ def run(args: argparse.Namespace, *, settings: Settings | None = None) -> int:
     run_dir = _resolve_run_dir(args)
     payload = _build_status(run_dir, env_values)
     metrics = _load_metrics(run_dir)
-    _print_status(run_dir, payload, metrics)
+    orchestrator_metrics = _load_orchestrator_metrics(run_dir)
+    _print_status(run_dir, payload, metrics, orchestrator_metrics)
     return 0

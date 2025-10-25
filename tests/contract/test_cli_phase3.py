@@ -36,7 +36,9 @@ def test_quickstart_creates_session(tmp_path: Path, tmp_env: Path) -> None:
     exit_code = quickstart.run(args, settings=None)
     assert exit_code == 0
 
-    session_dirs = [path for path in runs_dir.iterdir() if (path / "snapshot.json").exists()]
+    session_dirs = [
+        path for path in runs_dir.iterdir() if (path / "snapshot.json").exists()
+    ]
     assert session_dirs, "quickstart did not create a session directory"
     session_dir = session_dirs[0]
 
@@ -89,7 +91,9 @@ def test_status_reports_positions(tmp_path: Path, tmp_env: Path, capsys) -> None
         seed=41,
     )
     quickstart.run(args, settings=None)
-    session_dir = next(path for path in runs_dir.iterdir() if (path / "snapshot.json").exists())
+    session_dir = next(
+        path for path in runs_dir.iterdir() if (path / "snapshot.json").exists()
+    )
 
     status_args = Namespace(
         run_id=None,

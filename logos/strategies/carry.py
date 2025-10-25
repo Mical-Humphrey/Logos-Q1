@@ -6,7 +6,12 @@ from typing import Any, Dict, Mapping
 import pandas as pd
 import numpy as np
 
-from logos.strategy import StrategyContext, StrategyError, StrategyPreset, ensure_price_frame
+from logos.strategy import (
+    StrategyContext,
+    StrategyError,
+    StrategyPreset,
+    ensure_price_frame,
+)
 
 
 class CarryPreset(StrategyPreset):
@@ -22,7 +27,9 @@ class CarryPreset(StrategyPreset):
         exposure_cap: float = 1.0,
     ) -> None:
         self.lookback = self._validate_window("lookback", lookback)
-        self.entry_threshold = self._validate_non_negative("entry_threshold", entry_threshold)
+        self.entry_threshold = self._validate_non_negative(
+            "entry_threshold", entry_threshold
+        )
         super().__init__(exposure_cap=exposure_cap)
         self._pending_context: tuple[pd.Timestamp, float, Dict[str, Any]] | None = None
 
@@ -141,7 +148,12 @@ def generate_signals(
     entry_threshold: float = 0.01,
     exposure_cap: float = 1.0,
 ) -> pd.Series:
-    strat = _build_strategy(df, lookback=lookback, entry_threshold=entry_threshold, exposure_cap=exposure_cap)
+    strat = _build_strategy(
+        df,
+        lookback=lookback,
+        entry_threshold=entry_threshold,
+        exposure_cap=exposure_cap,
+    )
     raw = strat.predict(df)
     clipped = strat.generate_order_intents(raw)
     return clipped.round().astype(int)

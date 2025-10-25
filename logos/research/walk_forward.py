@@ -108,7 +108,9 @@ class WalkForwardReport:
 
     def guard_failures(self) -> Dict[str, int]:
         return {
-            "oos_failures": sum(0 if window.passed_oos else 1 for window in self.windows),
+            "oos_failures": sum(
+                0 if window.passed_oos else 1 for window in self.windows
+            ),
             "stress_failures": sum(
                 0 if window.passed_stress else 1 for window in self.windows
             ),

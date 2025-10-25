@@ -174,7 +174,9 @@ def run_backtest(
             cooldown_days_remaining = risk_limits.cooldown_days
         cooldown_active = cooldown_days_remaining > 0
         daily_portfolio_loss = (
-            0.0 if day_open_equity <= 0 else (equity - day_open_equity) / day_open_equity
+            0.0
+            if day_open_equity <= 0
+            else (equity - day_open_equity) / day_open_equity
         )
 
         nav_denom = nav_base if nav_base > 0 else max(abs(equity), 1.0)

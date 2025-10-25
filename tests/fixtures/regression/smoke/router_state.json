@@ -1,0 +1,19 @@
+{
+  "rate_limit_per_sec": 5,
+  "max_inflight": 32,
+  "next_sequence": 2,
+  "halted": false,
+  "rate_counters": {
+    "0007-regression-smoke": [
+      "2024-01-01T09:33:00+00:00"
+    ]
+  },
+  "inflight": {},
+  "idempotency": {
+    "0007-regression-smoke:0007-regression-smoke-000001": {
+      "accepted": true,
+      "order_id": "ROUTER-00000001",
+      "reason": "filled"
+    }
+  }
+}

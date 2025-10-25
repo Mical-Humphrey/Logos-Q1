@@ -58,7 +58,9 @@ def register(
         help=argparse.SUPPRESS,
     )
     for key in CLI_DEFAULTS:
-        parser.add_argument(f"--{key.replace('_', '-')}", default=None, help=argparse.SUPPRESS)
+        parser.add_argument(
+            f"--{key.replace('_', '-')}", default=None, help=argparse.SUPPRESS
+        )
     return parser
 
 

@@ -51,6 +51,10 @@ def test_regression_matches_smoke_baseline(tmp_path: Path) -> None:
     assert result.artifacts.metrics.exists()
     assert result.artifacts.provenance.exists()
     assert result.artifacts.session.exists()
+    assert result.artifacts.orchestrator_metrics is not None
+    assert result.artifacts.orchestrator_metrics.exists()
+    assert result.artifacts.router_state is not None
+    assert result.artifacts.router_state.exists()
 
     metrics_payload = json.loads(result.artifacts.metrics.read_text(encoding="utf-8"))
     assert metrics_payload["provenance"]["dataset"].endswith("regression_default")

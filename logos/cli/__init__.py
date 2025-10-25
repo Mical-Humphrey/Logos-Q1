@@ -388,7 +388,9 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
     window_spec = validation.window_spec
     asset_class = (args.asset_class or s.asset_class).lower()
 
-    class_caps_input = _parse_class_caps_arg(getattr(args, "portfolio_class_caps", None))
+    class_caps_input = _parse_class_caps_arg(
+        getattr(args, "portfolio_class_caps", None)
+    )
     if not class_caps_input:
         class_caps_input = dict(getattr(s, "portfolio_class_caps", {}))
     portfolio_nav = float(getattr(args, "portfolio_nav", s.portfolio_nav))
@@ -399,16 +401,36 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         portfolio_gross_cap=getattr(args, "portfolio_gross_cap", s.portfolio_gross_cap),
         per_asset_cap=getattr(args, "portfolio_asset_cap", s.portfolio_per_asset_cap),
         asset_class_caps=class_caps_input,
-        per_trade_risk_cap=getattr(args, "portfolio_per_trade_cap", s.portfolio_per_trade_cap),
-        portfolio_drawdown_cap=getattr(args, "portfolio_drawdown_cap", s.portfolio_drawdown_cap),
-        cooldown_days=getattr(args, "portfolio_cooldown_days", s.portfolio_cooldown_days),
-        daily_portfolio_loss_cap=getattr(args, "portfolio_daily_loss_cap", s.portfolio_daily_loss_cap),
-        daily_strategy_loss_cap=getattr(args, "portfolio_strategy_loss_cap", s.portfolio_strategy_loss_cap),
-        capacity_warn_participation=getattr(args, "portfolio_capacity_warn", s.portfolio_capacity_warn),
-        capacity_max_participation=getattr(args, "portfolio_capacity_block", s.portfolio_capacity_block),
-        turnover_warn=getattr(args, "portfolio_turnover_warn", s.portfolio_turnover_warn),
-        turnover_block=getattr(args, "portfolio_turnover_block", s.portfolio_turnover_block),
-        adv_lookback_days=getattr(args, "portfolio_adv_lookback", s.portfolio_adv_lookback),
+        per_trade_risk_cap=getattr(
+            args, "portfolio_per_trade_cap", s.portfolio_per_trade_cap
+        ),
+        portfolio_drawdown_cap=getattr(
+            args, "portfolio_drawdown_cap", s.portfolio_drawdown_cap
+        ),
+        cooldown_days=getattr(
+            args, "portfolio_cooldown_days", s.portfolio_cooldown_days
+        ),
+        daily_portfolio_loss_cap=getattr(
+            args, "portfolio_daily_loss_cap", s.portfolio_daily_loss_cap
+        ),
+        daily_strategy_loss_cap=getattr(
+            args, "portfolio_strategy_loss_cap", s.portfolio_strategy_loss_cap
+        ),
+        capacity_warn_participation=getattr(
+            args, "portfolio_capacity_warn", s.portfolio_capacity_warn
+        ),
+        capacity_max_participation=getattr(
+            args, "portfolio_capacity_block", s.portfolio_capacity_block
+        ),
+        turnover_warn=getattr(
+            args, "portfolio_turnover_warn", s.portfolio_turnover_warn
+        ),
+        turnover_block=getattr(
+            args, "portfolio_turnover_block", s.portfolio_turnover_block
+        ),
+        adv_lookback_days=getattr(
+            args, "portfolio_adv_lookback", s.portfolio_adv_lookback
+        ),
         symbol_asset_class={symbol: asset_class},
         default_asset_class=asset_class,
         stale_data_threshold_s=0.0,

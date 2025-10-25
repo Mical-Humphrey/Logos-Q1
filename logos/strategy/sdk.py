@@ -238,6 +238,4 @@ def ensure_bounds(sequence: Iterable[float], *, cap: float) -> None:
     _validate_cap(cap)
     for item in sequence:
         if abs(float(item)) > cap + 1e-9:
-            raise StrategyError(
-                f"signal value {item} exceeds exposure cap ±{cap}"
-            )
+            raise StrategyError(f"signal value {item} exceeds exposure cap ±{cap}")

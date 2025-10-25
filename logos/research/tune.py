@@ -17,7 +17,7 @@ from core.io import dirs as core_dirs
 from logos.backtest.engine import run_backtest
 from logos.cli import periods_per_year
 from logos.data_loader import get_prices
-from logos.metrics import (deflated_sharpe_ratio, probabilistic_sharpe_ratio)
+from logos.metrics import deflated_sharpe_ratio, probabilistic_sharpe_ratio
 from logos.paths import RUNS_DIR, safe_slug
 from logos.research.registry import ModelRegistry
 from logos.strategies import STRATEGIES
@@ -108,7 +108,9 @@ class TuningResult:
             frame.to_csv(output_dir / "trials.csv", index=False)
             sharpe_col = "oos_Sharpe"
             if sharpe_col in frame.columns and self.config.top_n > 0:
-                top = frame.sort_values(sharpe_col, ascending=False).head(self.config.top_n)
+                top = frame.sort_values(sharpe_col, ascending=False).head(
+                    self.config.top_n
+                )
                 top.to_csv(output_dir / "trials_top.csv", index=False)
         payload = {
             "config": asdict(self.config),

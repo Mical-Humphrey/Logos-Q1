@@ -136,7 +136,9 @@ def _retention_policy(env_values: dict[str, str]) -> CheckResult:
     max_days = env_values.get("LOGOS_RETENTION_MAX_DAYS", "").strip()
     ok = max_days.isdigit() and int(max_days) > 0
     details = (
-        f"Retention enabled with max days={max_days}" if ok else "Retention enabled without LOGOS_RETENTION_MAX_DAYS"
+        f"Retention enabled with max days={max_days}"
+        if ok
+        else "Retention enabled without LOGOS_RETENTION_MAX_DAYS"
     )
     return CheckResult("retention", ok, details)
 

@@ -64,6 +64,13 @@ class Settings:
     portfolio_turnover_warn: float = 1.0
     portfolio_turnover_block: float = 1.5
     portfolio_adv_lookback: int = 20
+    orchestrator_time_budget_fraction: float = 0.25
+    orchestrator_router_rate_limit: int = 5
+    orchestrator_router_max_inflight: int = 256
+    orchestrator_metrics_window: int = 512
+    orchestrator_snapshot_interval_s: int = 30
+    orchestrator_jitter_seconds: float = 0.0
+    orchestrator_scheduler_seed: int | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +182,20 @@ def _mapping_float_coercer(value: Any, default: Any) -> Tuple[Dict[str, float], 
     return base, False
 
 
+def _int_coercer(value: Any, default: Any) -> Tuple[int, bool]:
+    if value is None:
+        return int(default), False
+    token = value
+    if isinstance(token, str):
+        token = token.strip()
+        if token == "":
+            return int(default), False
+    try:
+        return int(token), True
+    except (TypeError, ValueError):
+        return int(default), False
+
+
 _FIELD_SPECS: Dict[str, _FieldSpec] = {
     "start": _FieldSpec("START_DATE", "2023-01-01", _str_coercer()),
     "end": _FieldSpec("END_DATE", "2025-01-01", _str_coercer()),
@@ -211,18 +232,59 @@ _FIELD_SPECS: Dict[str, _FieldSpec] = {
     "ib_port": _FieldSpec("IB_PORT", None, _optional_int_coercer),
     "portfolio_nav": _FieldSpec("PORTFOLIO_NAV", 100_000.0, _float_coercer),
     "portfolio_gross_cap": _FieldSpec("PORTFOLIO_GROSS_CAP", 0.3, _float_coercer),
-    "portfolio_per_asset_cap": _FieldSpec("PORTFOLIO_PER_ASSET_CAP", 0.2, _float_coercer),
-    "portfolio_class_caps": _FieldSpec("PORTFOLIO_CLASS_CAPS", {}, _mapping_float_coercer),
-    "portfolio_per_trade_cap": _FieldSpec("PORTFOLIO_PER_TRADE_CAP", 0.1, _float_coercer),
+    "portfolio_per_asset_cap": _FieldSpec(
+        "PORTFOLIO_PER_ASSET_CAP", 0.2, _float_coercer
+    ),
+    "portfolio_class_caps": _FieldSpec(
+        "PORTFOLIO_CLASS_CAPS", {}, _mapping_float_coercer
+    ),
+    "portfolio_per_trade_cap": _FieldSpec(
+        "PORTFOLIO_PER_TRADE_CAP", 0.1, _float_coercer
+    ),
     "portfolio_drawdown_cap": _FieldSpec("PORTFOLIO_DRAWDOWN_CAP", 0.1, _float_coercer),
-    "portfolio_cooldown_days": _FieldSpec("PORTFOLIO_COOLDOWN_DAYS", 2, _optional_int_coercer),
-    "portfolio_daily_loss_cap": _FieldSpec("PORTFOLIO_DAILY_LOSS_CAP", 0.05, _float_coercer),
-    "portfolio_strategy_loss_cap": _FieldSpec("PORTFOLIO_STRATEGY_LOSS_CAP", 0.07, _float_coercer),
-    "portfolio_capacity_warn": _FieldSpec("PORTFOLIO_CAPACITY_WARN", 0.02, _float_coercer),
-    "portfolio_capacity_block": _FieldSpec("PORTFOLIO_CAPACITY_BLOCK", 0.05, _float_coercer),
-    "portfolio_turnover_warn": _FieldSpec("PORTFOLIO_TURNOVER_WARN", 1.0, _float_coercer),
-    "portfolio_turnover_block": _FieldSpec("PORTFOLIO_TURNOVER_BLOCK", 1.5, _float_coercer),
-    "portfolio_adv_lookback": _FieldSpec("PORTFOLIO_ADV_LOOKBACK", 20, _optional_int_coercer),
+    "portfolio_cooldown_days": _FieldSpec(
+        "PORTFOLIO_COOLDOWN_DAYS", 2, _optional_int_coercer
+    ),
+    "portfolio_daily_loss_cap": _FieldSpec(
+        "PORTFOLIO_DAILY_LOSS_CAP", 0.05, _float_coercer
+    ),
+    "portfolio_strategy_loss_cap": _FieldSpec(
+        "PORTFOLIO_STRATEGY_LOSS_CAP", 0.07, _float_coercer
+    ),
+    "portfolio_capacity_warn": _FieldSpec(
+        "PORTFOLIO_CAPACITY_WARN", 0.02, _float_coercer
+    ),
+    "portfolio_capacity_block": _FieldSpec(
+        "PORTFOLIO_CAPACITY_BLOCK", 0.05, _float_coercer
+    ),
+    "portfolio_turnover_warn": _FieldSpec(
+        "PORTFOLIO_TURNOVER_WARN", 1.0, _float_coercer
+    ),
+    "portfolio_turnover_block": _FieldSpec(
+        "PORTFOLIO_TURNOVER_BLOCK", 1.5, _float_coercer
+    ),
+    "portfolio_adv_lookback": _FieldSpec(
+        "PORTFOLIO_ADV_LOOKBACK", 20, _optional_int_coercer
+    ),
+    "orchestrator_time_budget_fraction": _FieldSpec(
+        "ORCH_TIME_BUDGET_FRACTION", 0.25, _float_coercer
+    ),
+    "orchestrator_router_rate_limit": _FieldSpec(
+        "ORCH_ROUTER_RATE_LIMIT", 5, _int_coercer
+    ),
+    "orchestrator_router_max_inflight": _FieldSpec(
+        "ORCH_ROUTER_MAX_INFLIGHT", 256, _int_coercer
+    ),
+    "orchestrator_metrics_window": _FieldSpec("ORCH_METRICS_WINDOW", 512, _int_coercer),
+    "orchestrator_snapshot_interval_s": _FieldSpec(
+        "ORCH_SNAPSHOT_INTERVAL_S", 30, _int_coercer
+    ),
+    "orchestrator_jitter_seconds": _FieldSpec(
+        "ORCH_JITTER_SECONDS", 0.0, _float_coercer
+    ),
+    "orchestrator_scheduler_seed": _FieldSpec(
+        "ORCH_SCHEDULER_SEED", None, _optional_int_coercer
+    ),
 }
 
 

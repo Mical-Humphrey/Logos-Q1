@@ -5,7 +5,12 @@ from typing import Any, Dict, Mapping
 
 import pandas as pd
 
-from logos.strategy import StrategyContext, StrategyError, StrategyPreset, ensure_price_frame
+from logos.strategy import (
+    StrategyContext,
+    StrategyError,
+    StrategyPreset,
+    ensure_price_frame,
+)
 
 
 class MomentumPreset(StrategyPreset):
@@ -60,9 +65,11 @@ class MomentumPreset(StrategyPreset):
         diagnostics: Dict[str, Any] = {
             "fast_ma": float(fast_ma.iloc[-1]) if pd.notna(fast_ma.iloc[-1]) else None,
             "slow_ma": float(slow_ma.iloc[-1]) if pd.notna(slow_ma.iloc[-1]) else None,
-            "spread": float(fast_ma.iloc[-1] - slow_ma.iloc[-1])
-            if pd.notna(fast_ma.iloc[-1]) and pd.notna(slow_ma.iloc[-1])
-            else None,
+            "spread": (
+                float(fast_ma.iloc[-1] - slow_ma.iloc[-1])
+                if pd.notna(fast_ma.iloc[-1]) and pd.notna(slow_ma.iloc[-1])
+                else None
+            ),
             "fast": self.fast,
             "slow": self.slow,
         }

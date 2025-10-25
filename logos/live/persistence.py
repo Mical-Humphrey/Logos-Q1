@@ -39,6 +39,8 @@ class SeededRunPaths:
     metrics_file: Path
     provenance_file: Path
     session_file: Path
+    orchestrator_metrics_file: Path
+    router_state_file: Path
 
 
 def run_id_from_seed(seed: int, label: str) -> str:
@@ -65,6 +67,8 @@ def prepare_seeded_run_paths(
     metrics_file = artifacts_dir / "metrics.json"
     provenance_file = run_dir / "provenance.json"
     session_file = run_dir / "session.md"
+    orchestrator_metrics_file = run_dir / "orchestrator_metrics.jsonl"
+    router_state_file = run_dir / "router_state.json"
 
     return SeededRunPaths(
         seed=seed,
@@ -78,6 +82,8 @@ def prepare_seeded_run_paths(
         metrics_file=metrics_file,
         provenance_file=provenance_file,
         session_file=session_file,
+        orchestrator_metrics_file=orchestrator_metrics_file,
+        router_state_file=router_state_file,
     )
 
 

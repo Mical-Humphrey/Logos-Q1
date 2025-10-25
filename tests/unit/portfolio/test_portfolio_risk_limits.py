@@ -71,7 +71,9 @@ def test_per_trade_cap_blocks_excessive_risk():
 
 
 def test_exposure_reduction_allowed_when_over_cap():
-    config = PortfolioLimitsConfig(per_asset_cap=0.2, gross_cap=0.4, class_caps={"equity": 0.3})
+    config = PortfolioLimitsConfig(
+        per_asset_cap=0.2, gross_cap=0.4, class_caps={"equity": 0.3}
+    )
     state = _base_state(
         projected_asset_exposure=0.25,
         delta_asset_exposure=-0.05,

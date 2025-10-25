@@ -19,7 +19,9 @@ def test_volatility_parity_equal_volatility_allocates_evenly():
         ["A", "B", "C"],
         [[0.01, 0.01, 0.01]] * 30,
     )
-    weights = volatility_parity_allocation(returns, AllocatorConfig(vol_lookback_days=30))
+    weights = volatility_parity_allocation(
+        returns, AllocatorConfig(vol_lookback_days=30)
+    )
     assert weights.index.tolist() == ["A", "B", "C"]
     assert np.allclose(weights.to_numpy(), np.full(3, 1 / 3), atol=1e-6)
 

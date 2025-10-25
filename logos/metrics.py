@@ -105,7 +105,9 @@ def probabilistic_sharpe_ratio(
 ) -> float:
     """Probability that the observed Sharpe ratio exceeds the benchmark."""
 
-    require_datetime_index(returns, context="metrics.probabilistic_sharpe_ratio(returns)")
+    require_datetime_index(
+        returns, context="metrics.probabilistic_sharpe_ratio(returns)"
+    )
     r = _clean_returns(returns)
     n = len(r)
     if n == 0:
@@ -114,7 +116,7 @@ def probabilistic_sharpe_ratio(
     sr = sharpe(r, periods_per_year=periods_per_year)
     sample_skew = float(r.skew()) if n > 2 else 0.0
     sample_kurt = float(r.kurtosis()) if n > 3 else 3.0
-    denom = 1 - sample_skew * sr + ((sample_kurt - 1.0) / 4.0) * (sr ** 2)
+    denom = 1 - sample_skew * sr + ((sample_kurt - 1.0) / 4.0) * (sr**2)
     if denom <= 0:
         return 0.0
 
@@ -148,7 +150,7 @@ def deflated_sharpe_ratio(
 
     sr = sharpe(r, periods_per_year=periods_per_year)
     sigma_sr = math.sqrt(
-        max(1e-12, (1 - sample_skew * sr + ((sample_kurt - 1) / 4.0) * sr ** 2) / (n - 1))
+        max(1e-12, (1 - sample_skew * sr + ((sample_kurt - 1) / 4.0) * sr**2) / (n - 1))
     )
 
     if n_trials > 1:

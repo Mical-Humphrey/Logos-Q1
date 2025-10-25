@@ -63,7 +63,11 @@ def _relative_to_project(path: Path) -> str:
         return str(path.resolve())
 
 
-def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser], *, settings: Settings | None = None) -> argparse.ArgumentParser:
+def register(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+    *,
+    settings: Settings | None = None,
+) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(
         "quickstart",
         help="Run the deterministic quickstart paper session (offline)",
@@ -142,7 +146,9 @@ def _load_fixture_dir(path: Path | None) -> Path:
     return directory
 
 
-def _default_symbol(settings: Settings | None, env_values: Dict[str, str]) -> Tuple[str, str, str]:
+def _default_symbol(
+    settings: Settings | None, env_values: Dict[str, str]
+) -> Tuple[str, str, str]:
     symbol = DEFAULT_SYMBOL
     asset_class = DEFAULT_ASSET_CLASS
     interval = DEFAULT_INTERVAL
@@ -174,7 +180,9 @@ def _infer_window(index: pd.DatetimeIndex) -> Window:
     return Window.from_bounds(start=start_dt, end=end_dt, zone=timezone.utc)
 
 
-def _bars_dataframe(bars: Sequence[Tuple[datetime, float, float, float, float, float]]) -> pd.DataFrame:
+def _bars_dataframe(
+    bars: Sequence[Tuple[datetime, float, float, float, float, float]],
+) -> pd.DataFrame:
     df = pd.DataFrame(
         bars,
         columns=["dt", "Open", "High", "Low", "Close", "Volume"],
@@ -190,12 +198,16 @@ def _bars_dataframe(bars: Sequence[Tuple[datetime, float, float, float, float, f
     return df
 
 
-def _fetch_bars(symbol: str, fixture_dir: Path) -> Tuple[pd.DataFrame, List[Dict[str, object]]]:
+def _fetch_bars(
+    symbol: str, fixture_dir: Path
+) -> Tuple[pd.DataFrame, List[Dict[str, object]]]:
     bars_path = fixture_dir / BARS_FILENAME
     raw = pd.read_csv(bars_path, parse_dates=["dt"])  # type: ignore[arg-type]
     raw = raw[raw["symbol"] == symbol]
     if raw.empty:
-        available = sorted(set(str(token) for token in pd.read_csv(bars_path)["symbol"].unique()))
+        available = sorted(
+            set(str(token) for token in pd.read_csv(bars_path)["symbol"].unique())
+        )
         raise SystemExit(
             f"fixture {bars_path} has no rows for symbol {symbol}. Available: {', '.join(available)}"
         )
@@ -366,10 +378,12 @@ def _format_explanation(payload: Dict[str, float | str]) -> str:
     if direction == "short":
         comparison = "above" if z_score >= threshold else "below"
     price_token = f" @ ${price:.2f}" if isinstance(price, (int, float)) else ""
-    mean_token = f" (mean ${mean:.2f}, std {std:.3f})" if isinstance(mean, (int, float)) and isinstance(std, (int, float)) else ""
-    return (
-        f"Mean reversion signalled a {direction} entry: z={z_score:.2f} {comparison} threshold {threshold:.2f}{price_token}{mean_token}."
+    mean_token = (
+        f" (mean ${mean:.2f}, std {std:.3f})"
+        if isinstance(mean, (int, float)) and isinstance(std, (int, float))
+        else ""
     )
+    return f"Mean reversion signalled a {direction} entry: z={z_score:.2f} {comparison} threshold {threshold:.2f}{price_token}{mean_token}."
 
 
 def _ensure_env_defaults(
@@ -426,15 +440,19 @@ def run(args: argparse.Namespace, *, settings: Settings | None = None) -> int:
 
     signals = generate_signals(df, lookback=lookback, z_entry=z_entry)
     if (signals != 0).sum() == 0:
-        raise SystemExit("quickstart fixture did not trigger a trade; adjust parameters")
+        raise SystemExit(
+            "quickstart fixture did not trigger a trade; adjust parameters"
+        )
 
-    equity_rows, exposures, fills, trades, account_payload, positions_payload = _simulate_session(
-        df,
-        signals,
-        symbol=symbol,
-        notional=notional,
-        fee_bps=fee_bps,
-        starting_cash=account_defaults["cash"],
+    equity_rows, exposures, fills, trades, account_payload, positions_payload = (
+        _simulate_session(
+            df,
+            signals,
+            symbol=symbol,
+            notional=notional,
+            fee_bps=fee_bps,
+            starting_cash=account_defaults["cash"],
+        )
     )
 
     fill_ts = None

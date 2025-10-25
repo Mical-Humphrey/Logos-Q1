@@ -81,7 +81,15 @@ def test_strategy_order_generator_emits_intents():
     generator = StrategyOrderGenerator(broker, spec)
     dt_start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
     bars = [
-        Bar(dt=dt_start + dt.timedelta(minutes=i), open=price, high=price + 1, low=price - 1, close=price, volume=vol, symbol="MSFT")
+        Bar(
+            dt=dt_start + dt.timedelta(minutes=i),
+            open=price,
+            high=price + 1,
+            low=price - 1,
+            close=price,
+            volume=vol,
+            symbol="MSFT",
+        )
         for i, (price, vol) in enumerate(
             [
                 (100, 1_000),
@@ -196,6 +204,8 @@ def test_live_runner_generates_trades(tmp_path, monkeypatch, patch_live_paths):
     with session_paths.state_file.open("r", encoding="utf-8") as fh:
         state_contents = fh.read()
     assert "equity" in state_contents
+    assert session_paths.orchestrator_metrics_file.exists()
+    assert session_paths.router_state_file.exists()
 
 
 def test_live_runner_halts_on_kill_switch(tmp_path, monkeypatch, patch_live_paths):

@@ -369,3 +369,17 @@
 2025-10-25 11:45:02,431 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
 2025-10-25 11:45:03,422 | INFO | core.io.dirs | created dir path=/home/mical/code/chat_solution_system/Logos-Q1/runs/2025-10-25_114503_DEMO_mean_reversion/logs rel=runs/2025-10-25_114503_DEMO_mean_reversion/logs mode=0750 source=auto component=core.io created=true mode_applied=true
 2025-10-25 11:45:03,424 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-25 14:08:46,995 | INFO | logos.cli | Using dates from environment: START=2024-01-01T00:00:00+00:00, END=2024-02-01T00:00:00+00:00
+2025-10-25 14:08:46,999 | INFO | logos.cli | Starting backtest via CLI
+2025-10-25 14:08:46,999 | INFO | logos.cli | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-25 14:08:46,999 | INFO | logos.symbols | symbol_normalized input=DEMO canonical=DEMO asset=equity source=data_loader.get_prices
+2025-10-25 14:08:47,010 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-25 14:08:48,106 | INFO | core.io.dirs | created dir path=/home/mical/code/chat_solution_system/Logos-Q1/runs/2025-10-25_140848_DEMO_mean_reversion/logs rel=runs/2025-10-25_140848_DEMO_mean_reversion/logs mode=0750 source=auto component=core.io created=true mode_applied=true
+2025-10-25 14:08:48,108 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted
+2025-10-25 14:13:43,523 | INFO | logos.cli | Using dates from environment: START=2024-01-01T00:00:00+00:00, END=2024-02-01T00:00:00+00:00
+2025-10-25 14:13:43,526 | INFO | logos.cli | Starting backtest via CLI
+2025-10-25 14:13:43,526 | INFO | logos.cli | Synthetic data generation permitted via --allow-synthetic flag
+2025-10-25 14:13:43,526 | INFO | logos.symbols | symbol_normalized input=DEMO canonical=DEMO asset=equity source=data_loader.get_prices
+2025-10-25 14:13:43,536 | INFO | logos.data_loader | Downloading DEMO [1d] from Yahoo Finance
+2025-10-25 14:13:45,240 | INFO | core.io.dirs | created dir path=/home/mical/code/chat_solution_system/Logos-Q1/runs/2025-10-25_141345_DEMO_mean_reversion/logs rel=runs/2025-10-25_141345_DEMO_mean_reversion/logs mode=0750 source=auto component=core.io created=true mode_applied=true
+2025-10-25 14:13:45,242 | INFO | logos.cli | Paper trading mode enabled: no live broker interactions will be attempted

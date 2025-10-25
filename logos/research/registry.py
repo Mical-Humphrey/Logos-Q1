@@ -159,7 +159,9 @@ class ModelRegistry:
         if drawdown is None or drawdown < max_oos_drawdown:
             raise ValueError("Model does not satisfy drawdown promotion threshold")
 
-        prior_champions = [rec for rec in self._records.values() if rec.status == "champion"]
+        prior_champions = [
+            rec for rec in self._records.values() if rec.status == "champion"
+        ]
         for champ in prior_champions:
             champ.status = "archived"
             champ.lineage.append(record.model_id)
