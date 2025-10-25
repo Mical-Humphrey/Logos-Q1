@@ -1,0 +1,36 @@
+name: Phase 5 Research Smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  research-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      LOGOS_OFFLINE_ONLY: "1"
+      LIVE_DISABLE_NETWORK: "1"
+      MPLBACKEND: Agg
+      TZ: UTC
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          if [ -f requirements/dev.txt ]; then python -m pip install -r requirements/dev.txt; fi
+
+      - name: Phase 5 research smoke
+        run: make phase5-smoke

@@ -10,3 +10,5 @@
   - Global logs: `logos/logs/app.log`
   - Per-run: `runs/<id>/{config.yaml, metrics.json, provenance.json, session.md, trades.csv, equity.png, logs/run.log}`
   - Lessons: `runs/lessons/<lesson>/<timestamp>/{transcript.txt, glossary.json, plots/*.png}`
+  - Research workflows: see `docs/WALK_FORWARD.md` for walk-forward & tuning guidance
+  - CI smoke: run `make phase5-smoke` (and see workflow `Phase 5 Research Smoke`) for walk-forward/tuning fixtures

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import math
+from math import erf
 import numpy as np
 import pandas as pd
 
@@ -94,3 +95,71 @@ def hit_rate(trade_returns: pd.Series) -> float:
         return 0.0
     wins = (trade_returns > 0).sum()
     return float(wins / len(trade_returns))
+
+
+def probabilistic_sharpe_ratio(
+    returns: pd.Series,
+    *,
+    benchmark: float = 0.0,
+    periods_per_year: int = TRADING_DAYS,
+) -> float:
+    """Probability that the observed Sharpe ratio exceeds the benchmark."""
+
+    require_datetime_index(returns, context="metrics.probabilistic_sharpe_ratio(returns)")
+    r = _clean_returns(returns)
+    n = len(r)
+    if n == 0:
+        return 0.0
+
+    sr = sharpe(r, periods_per_year=periods_per_year)
+    sample_skew = float(r.skew()) if n > 2 else 0.0
+    sample_kurt = float(r.kurtosis()) if n > 3 else 3.0
+    denom = 1 - sample_skew * sr + ((sample_kurt - 1.0) / 4.0) * (sr ** 2)
+    if denom <= 0:
+        return 0.0
+
+    sigma_sr = math.sqrt(denom / (n - 1)) if n > 1 else 0.0
+    if sigma_sr <= 0:
+        return 0.0
+
+    z = (sr - benchmark) / sigma_sr
+    prob = 0.5 * (1 + erf(z / math.sqrt(2.0)))
+    return float(max(0.0, min(1.0, prob)))
+
+
+def deflated_sharpe_ratio(
+    returns: pd.Series,
+    *,
+    periods_per_year: int = TRADING_DAYS,
+    benchmark: float = 0.0,
+    n_trials: int = 1,
+) -> float:
+    """Deflated Sharpe ratio following Bailey et al. (2014)."""
+
+    require_datetime_index(returns, context="metrics.deflated_sharpe_ratio(returns)")
+    r = _clean_returns(returns)
+    n = len(r)
+    if n <= 1:
+        return 0.0
+
+    n_trials = max(int(n_trials), 1)
+    sample_skew = float(r.skew()) if n > 2 else 0.0
+    sample_kurt = float(r.kurtosis()) if n > 3 else 3.0
+
+    sr = sharpe(r, periods_per_year=periods_per_year)
+    sigma_sr = math.sqrt(
+        max(1e-12, (1 - sample_skew * sr + ((sample_kurt - 1) / 4.0) * sr ** 2) / (n - 1))
+    )
+
+    if n_trials > 1:
+        emax = sigma_sr * math.sqrt(2.0 * math.log(n_trials))
+    else:
+        emax = 0.0
+
+    adjusted_benchmark = benchmark + emax
+    if sigma_sr <= 0:
+        return 0.0
+
+    z = (sr - adjusted_benchmark) / sigma_sr
+    prob = 0.5 * (1 + erf(z / math.sqrt(2.0)))
+    return float(max(0.0, min(1.0, prob)))
