@@ -35,6 +35,8 @@ now backstop live and paper trading sessions.
   the risk layer and records cooldown state.
 - `logos/live/risk.py` shells the raw `RiskLimits` configuration into portfolio
   decisions and relays warnings back to the runner.
+- `logos/live/main.py` mirrors the backtest CLI with `--portfolio-*` overrides
+  so paper/live runs honour the same caps and cooldown knobs.
 - `logos/portfolio/smoke.py` offers a synthetic sanity check that the allocator
   outputs and risk overlays are internally consistent.
 

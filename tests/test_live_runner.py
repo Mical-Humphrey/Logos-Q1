@@ -408,6 +408,7 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
             symbol="MSFT",
         ),
     ]
+
     feed_followup = MemoryBarFeed(bars=followup_bars)
     clock_followup = MockTimeProvider(current=start + dt.timedelta(minutes=3))
     broker_followup = PaperBrokerAdapter(
@@ -486,6 +487,75 @@ def test_live_runner_persists_and_recovers_state(tmp_path, patch_live_paths):
     assert summary_lines[0] == f"# Session {session_paths.session_id}"
     assert any(line.startswith("- Halt Reason:") for line in summary_lines)
     assert any(line.startswith("- Window:") for line in summary_lines)
+
+
+def test_live_runner_blocks_orders_when_per_trade_cap_breached(patch_live_paths):
+    start = dt.datetime(2025, 1, 1, 9, 30, tzinfo=dt.timezone.utc)
+    bars = [
+        Bar(
+            dt=start + dt.timedelta(minutes=i),
+            open=price,
+            high=price + 1,
+            low=price - 1,
+            close=price,
+            volume=vol,
+            symbol="MSFT",
+        )
+        for i, (price, vol) in enumerate(
+            [
+                (100, 1_000),
+                (101, 1_050),
+                (102, 1_100),
+            ]
+        )
+    ]
+    feed = MemoryBarFeed(bars=bars)
+    clock = MockTimeProvider(current=start)
+    broker = PaperBrokerAdapter(time_provider=clock, slippage_bps=0.0, fee_bps=0.0)
+
+    spec = StrategySpec(
+        symbol="MSFT",
+        strategy="momentum",
+        params={"fast": 2, "slow": 4},
+        dollar_per_trade=1_000.0,
+        sizing=SizingConfig(max_notional=2_000.0, max_position=1_000.0),
+    )
+    generator = StrategyOrderGenerator(broker, spec)
+    risk_limits = RiskLimits(
+        max_notional=2_000.0,
+        max_position=1_000.0,
+        per_trade_risk_cap=0.0001,
+        portfolio_gross_cap=1.0,
+        symbol_asset_class={"MSFT": "equity"},
+        default_asset_class="equity",
+    )
+
+    session_paths, handler = create_session("MSFT", "momentum")
+    try:
+        runner = LiveRunner(
+            broker=broker,
+            feed=feed,
+            order_generator=generator.process,
+            session=session_paths,
+            risk_limits=risk_limits,
+            time_provider=clock,
+            loop_config=LoopConfig(
+                symbol="MSFT",
+                strategy="momentum",
+                interval="1m",
+                window=_day_window(start),
+                max_loops=5,
+            ),
+        )
+        runner.run()
+    finally:
+        detach_handler(handler)
+
+    trades = load_trades(session_paths.trades_file)
+    assert trades.empty
+
+    orders = load_orders(session_paths.orders_file)
+    assert orders.empty
 
 
 def test_live_runner_drawdown_breaker(tmp_path, patch_live_paths):

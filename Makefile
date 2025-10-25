@@ -3,7 +3,7 @@
 .RECIPEPREFIX := >
 PYTHON_BIN ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; elif command -v python3 >/dev/null 2>&1; then command -v python3; else command -v python; fi)
 
-.PHONY: phase2-qa phase2-smoke phase2-refresh-smoke phase2-refresh-matrix phase5-smoke
+.PHONY: phase2-qa phase2-smoke phase2-refresh-smoke phase2-refresh-matrix phase5-smoke phase6-smoke
 
 # Run local QA stack quickly
 phase2-qa:
@@ -62,3 +62,7 @@ phase5-smoke:
 >  --top-n 2 \
 >  --allow-synthetic \
 >  --output-dir runs/research/_ci/tuning_smoke
+
+# Phase 6 portfolio risk smoke: allocator + overlay sanity check
+phase6-smoke:
+>LOGOS_OFFLINE_ONLY=1 MPLBACKEND=Agg TZ=UTC $(PYTHON_BIN) -m logos.portfolio.smoke

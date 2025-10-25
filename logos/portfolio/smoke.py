@@ -64,9 +64,9 @@ def run_smoke() -> SmokeResult:
 
     limits = PortfolioLimitsConfig(
         gross_cap=1.0,
-        per_asset_cap=0.5,
-        class_caps={"crypto": 0.35, "equity": 0.5, "forex": 0.5},
-        per_trade_cap=0.0025,
+    per_asset_cap=0.6,
+    class_caps={"crypto": 0.6, "equity": 0.5, "forex": 0.5},
+    per_trade_cap=0.10,
         drawdown_cap=0.12,
         cooldown_days=5,
         daily_portfolio_loss_cap=0.02,

@@ -397,7 +397,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         max_position=s.risk_max_position,
         max_drawdown_bps=s.risk_max_dd_bps,
         portfolio_gross_cap=getattr(args, "portfolio_gross_cap", s.portfolio_gross_cap),
-    per_asset_cap=getattr(args, "portfolio_asset_cap", s.portfolio_per_asset_cap),
+        per_asset_cap=getattr(args, "portfolio_asset_cap", s.portfolio_per_asset_cap),
         asset_class_caps=class_caps_input,
         per_trade_risk_cap=getattr(args, "portfolio_per_trade_cap", s.portfolio_per_trade_cap),
         portfolio_drawdown_cap=getattr(args, "portfolio_drawdown_cap", s.portfolio_drawdown_cap),
@@ -411,6 +411,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
         adv_lookback_days=getattr(args, "portfolio_adv_lookback", s.portfolio_adv_lookback),
         symbol_asset_class={symbol: asset_class},
         default_asset_class=asset_class,
+        stale_data_threshold_s=0.0,
     )
 
     allow_synthetic = bool(getattr(args, "allow_synthetic", False))
@@ -458,6 +459,7 @@ def cmd_backtest(args: argparse.Namespace, settings: Settings | None = None) -> 
             risk_limits=risk_limits,
             portfolio_nav=portfolio_nav,
             strategy_id=args.strategy,
+            symbol=symbol,
         )
 
         # Console summary

@@ -6,6 +6,8 @@ import argparse
 import json
 import logging
 from pathlib import Path
+from typing import Dict
+
 from logos.config import Settings, load_settings
 from logos.logging_setup import detach_handler, setup_app_logging
 from logos.paths import live_cache_path
@@ -36,6 +38,29 @@ def _parse_params(raw: str | None) -> dict:
     if raw.startswith("{"):
         return json.loads(raw)
     return parse_param_string(raw)
+
+
+def _parse_class_caps_arg(raw: str | None) -> Dict[str, float] | None:
+    if raw is None:
+        return None
+    text = raw.strip()
+    if not text:
+        return {}
+    try:
+        params = parse_param_string(text)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise SystemExit(
+            "--portfolio-class-caps must be comma-delimited key=value pairs"
+        ) from exc
+    caps: Dict[str, float] = {}
+    for key, value in params.items():
+        try:
+            caps[str(key).lower()] = float(value)
+        except (TypeError, ValueError) as exc:
+            raise SystemExit(
+                "--portfolio-class-caps values must be numeric (e.g. equity=0.3)"
+            ) from exc
+    return caps
 
 
 def _build_broker(args: argparse.Namespace, settings: Settings) -> BrokerAdapter:
@@ -91,6 +116,22 @@ def _build_parser() -> argparse.ArgumentParser:
     trade.add_argument(
         "--risk.max-rejects", dest="risk_max_rejects", type=int, default=5
     )
+    trade.add_argument("--portfolio-gross-cap", type=float)
+    trade.add_argument("--portfolio-asset-cap", type=float)
+    trade.add_argument(
+        "--portfolio-class-caps",
+        help="Comma list of asset-class caps (e.g. equity=0.4,crypto=0.2)",
+    )
+    trade.add_argument("--portfolio-per-trade-cap", type=float)
+    trade.add_argument("--portfolio-drawdown-cap", type=float)
+    trade.add_argument("--portfolio-cooldown-days", type=int)
+    trade.add_argument("--portfolio-daily-loss-cap", type=float)
+    trade.add_argument("--portfolio-strategy-loss-cap", type=float)
+    trade.add_argument("--portfolio-capacity-warn", type=float)
+    trade.add_argument("--portfolio-capacity-block", type=float)
+    trade.add_argument("--portfolio-turnover-warn", type=float)
+    trade.add_argument("--portfolio-turnover-block", type=float)
+    trade.add_argument("--portfolio-adv-lookback", type=int)
     trade.add_argument(
         "--feed-file", type=Path, help="Optional CSV to tail for live bars"
     )
@@ -131,6 +172,12 @@ def main(argv: list[str] | None = None) -> None:
 
     broker = _build_broker(args, settings)
     asset_class = (args.asset_class or settings.asset_class).lower()
+    class_caps_override = _parse_class_caps_arg(args.portfolio_class_caps)
+    class_caps = (
+        class_caps_override
+        if class_caps_override is not None
+        else {str(k).lower(): float(v) for k, v in settings.portfolio_class_caps.items()}
+    )
     feed_path = args.feed_file or live_cache_path(
         asset_class, args.symbol, args.interval
     )
@@ -186,6 +233,69 @@ def main(argv: list[str] | None = None) -> None:
             ),
             max_consecutive_rejects=args.risk_max_rejects,
             kill_switch_file=args.kill_switch_file,
+            portfolio_gross_cap=(
+                args.portfolio_gross_cap
+                if args.portfolio_gross_cap is not None
+                else settings.portfolio_gross_cap
+            ),
+            per_asset_cap=(
+                args.portfolio_asset_cap
+                if args.portfolio_asset_cap is not None
+                else settings.portfolio_per_asset_cap
+            ),
+            asset_class_caps=class_caps,
+            per_trade_risk_cap=(
+                args.portfolio_per_trade_cap
+                if args.portfolio_per_trade_cap is not None
+                else settings.portfolio_per_trade_cap
+            ),
+            portfolio_drawdown_cap=(
+                args.portfolio_drawdown_cap
+                if args.portfolio_drawdown_cap is not None
+                else settings.portfolio_drawdown_cap
+            ),
+            cooldown_days=(
+                args.portfolio_cooldown_days
+                if args.portfolio_cooldown_days is not None
+                else settings.portfolio_cooldown_days
+            ),
+            daily_portfolio_loss_cap=(
+                args.portfolio_daily_loss_cap
+                if args.portfolio_daily_loss_cap is not None
+                else settings.portfolio_daily_loss_cap
+            ),
+            daily_strategy_loss_cap=(
+                args.portfolio_strategy_loss_cap
+                if args.portfolio_strategy_loss_cap is not None
+                else settings.portfolio_strategy_loss_cap
+            ),
+            capacity_warn_participation=(
+                args.portfolio_capacity_warn
+                if args.portfolio_capacity_warn is not None
+                else settings.portfolio_capacity_warn
+            ),
+            capacity_max_participation=(
+                args.portfolio_capacity_block
+                if args.portfolio_capacity_block is not None
+                else settings.portfolio_capacity_block
+            ),
+            turnover_warn=(
+                args.portfolio_turnover_warn
+                if args.portfolio_turnover_warn is not None
+                else settings.portfolio_turnover_warn
+            ),
+            turnover_block=(
+                args.portfolio_turnover_block
+                if args.portfolio_turnover_block is not None
+                else settings.portfolio_turnover_block
+            ),
+            adv_lookback_days=(
+                args.portfolio_adv_lookback
+                if args.portfolio_adv_lookback is not None
+                else settings.portfolio_adv_lookback
+            ),
+            symbol_asset_class={args.symbol: asset_class},
+            default_asset_class=asset_class,
         )
         runner = LiveRunner(
             broker=broker,
