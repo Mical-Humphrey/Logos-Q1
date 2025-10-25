@@ -1,0 +1,10 @@
+strategy: carry
+symbol: EURUSD=X
+asset_class: forex
+interval: 4h
+start: 2023-01-01
+end: 2023-04-01
+params:
+  lookback: 30
+  entry_threshold: 0.003
+  exposure_cap: 0.5

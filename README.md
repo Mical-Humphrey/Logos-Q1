@@ -374,6 +374,7 @@ The following matrix links Phase 2 requirements to operating procedures and evid
 | `docs/MANUAL.html` | Operations manual with install steps, backtests, and live workflow walk-throughs. |
 | `docs/MATH.html` | Mathematical derivations for indicators and metrics. |
 | `docs/FINANCE.html` | Market intuition, case studies, and playbooks. |
+| `docs/SDK_PRESETS.md` | Strategy SDK HOWTO covering preset usage, parameters, and explain output. |
 | `docs/SYSTEM_DESIGN.html` | Architecture diagrams, module responsibilities, and roadmap context. |
 
 ---

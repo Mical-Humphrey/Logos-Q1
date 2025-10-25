@@ -4,34 +4,33 @@ import math
 from typing import Any, Dict, Mapping
 
 import pandas as pd
+import numpy as np
 
 from logos.strategy import StrategyContext, StrategyError, StrategyPreset, ensure_price_frame
 
 
-class MomentumPreset(StrategyPreset):
-    """Momentum preset via simple moving-average crossover."""
+class CarryPreset(StrategyPreset):
+    """Simple carry preset using rolling percentage change as proxy."""
 
-    name = "momentum"
+    name = "carry"
 
     def __init__(
         self,
         *,
-        fast: int = 20,
-        slow: int = 50,
+        lookback: int = 30,
+        entry_threshold: float = 0.01,
         exposure_cap: float = 1.0,
     ) -> None:
-        self.fast = self._validate_window("fast", fast)
-        self.slow = self._validate_window("slow", slow)
-        if self.fast >= self.slow:
-            raise StrategyError("fast window must be < slow window")
+        self.lookback = self._validate_window("lookback", lookback)
+        self.entry_threshold = self._validate_non_negative("entry_threshold", entry_threshold)
         super().__init__(exposure_cap=exposure_cap)
         self._pending_context: tuple[pd.Timestamp, float, Dict[str, Any]] | None = None
 
     # ------------------------------------------------------------------
     def params(self) -> Mapping[str, object]:  # type: ignore[override]
         return {
-            "fast": self.fast,
-            "slow": self.slow,
+            "lookback": self.lookback,
+            "entry_threshold": self.entry_threshold,
             "exposure_cap": self.exposure_cap,
         }
 
@@ -46,25 +45,26 @@ class MomentumPreset(StrategyPreset):
         ensure_price_frame(df, context=f"{self.name}.predict")
 
         close = df["Close"].astype(float)
-        fast_ma = self._rolling_mean(close, self.fast)
-        slow_ma = self._rolling_mean(close, self.slow)
+        shifted = close.shift(self.lookback)
+        carry_series = (close / shifted) - 1.0
+        carry_series = carry_series.replace([np.inf, -np.inf], pd.NA)
+        carry_ma = carry_series.rolling(self.lookback, min_periods=self.lookback).mean()
 
-        if fast_ma.isna().all() or slow_ma.isna().all():
-            raise StrategyError(f"{self.name}: insufficient data for moving averages")
+        if carry_ma.isna().all():
+            raise StrategyError(f"{self.name}: insufficient data to compute carry")
 
-        raw = (fast_ma > slow_ma).astype(float) - (fast_ma < slow_ma).astype(float)
-        signals = raw.reindex(df.index).fillna(0.0)
+        signals = pd.Series(0.0, index=df.index, dtype=float)
+        signals.loc[carry_ma >= self.entry_threshold] = 1.0
+        signals.loc[carry_ma <= -self.entry_threshold] = -1.0
 
-        price = float(close.iloc[-1])
         ts = df.index[-1]
+        price = float(close.iloc[-1])
+        carry_value = carry_ma.iloc[-1]
+
         diagnostics: Dict[str, Any] = {
-            "fast_ma": float(fast_ma.iloc[-1]) if pd.notna(fast_ma.iloc[-1]) else None,
-            "slow_ma": float(slow_ma.iloc[-1]) if pd.notna(slow_ma.iloc[-1]) else None,
-            "spread": float(fast_ma.iloc[-1] - slow_ma.iloc[-1])
-            if pd.notna(fast_ma.iloc[-1]) and pd.notna(slow_ma.iloc[-1])
-            else None,
-            "fast": self.fast,
-            "slow": self.slow,
+            "carry": float(carry_value) if pd.notna(carry_value) else None,
+            "lookback": self.lookback,
+            "entry_threshold": self.entry_threshold,
         }
 
         self._pending_context = (ts, price, diagnostics)
@@ -91,30 +91,23 @@ class MomentumPreset(StrategyPreset):
         if resolved is None:
             return super().explain(ctx)
 
+        carry_value = None
         diagnostics = resolved.diagnostics
-        fast_ma = diagnostics.get("fast_ma") if diagnostics else None
-        slow_ma = diagnostics.get("slow_ma") if diagnostics else None
-        spread = diagnostics.get("spread") if diagnostics else None
+        if diagnostics:
+            carry_value = diagnostics.get("carry")
 
-        reason = "Moving averages aligned; staying flat."
-        if isinstance(fast_ma, (int, float)) and isinstance(slow_ma, (int, float)):
-            if fast_ma > slow_ma:
-                reason = "Fast MA above slow MA; trend up."
-            elif fast_ma < slow_ma:
-                reason = "Fast MA below slow MA; trend down."
-        elif isinstance(spread, (int, float)) and math.isfinite(spread):
-            if spread > 0:
-                reason = "Positive MA spread; trend up."
-            elif spread < 0:
-                reason = "Negative MA spread; trend down."
-            else:
-                reason = "Zero MA spread; staying flat."
+        reason = "Carry near zero; staying flat."
+        if isinstance(carry_value, (int, float)) and math.isfinite(carry_value):
+            if carry_value >= self.entry_threshold:
+                reason = f"Carry {carry_value:.4f} >= {self.entry_threshold:.4f}; favoring long."
+            elif carry_value <= -self.entry_threshold:
+                reason = f"Carry {carry_value:.4f} <= -{self.entry_threshold:.4f}; favoring short."
         else:
-            reason = "MA spread unavailable; staying flat."
+            reason = "Carry unavailable; staying flat."
 
         thresholds = {
-            "fast_window": self.fast,
-            "slow_window": self.slow,
+            "entry_long": self.entry_threshold,
+            "entry_short": -self.entry_threshold,
         }
 
         return self._build_payload(
@@ -128,11 +121,15 @@ class MomentumPreset(StrategyPreset):
 def _build_strategy(
     df: pd.DataFrame,
     *,
-    fast: int = 20,
-    slow: int = 50,
+    lookback: int = 30,
+    entry_threshold: float = 0.01,
     exposure_cap: float = 1.0,
-) -> MomentumPreset:
-    strat = MomentumPreset(fast=fast, slow=slow, exposure_cap=exposure_cap)
+) -> CarryPreset:
+    strat = CarryPreset(
+        lookback=lookback,
+        entry_threshold=entry_threshold,
+        exposure_cap=exposure_cap,
+    )
     strat.fit(df)
     return strat
 
@@ -140,11 +137,11 @@ def _build_strategy(
 # ----------------------------------------------------------------------
 def generate_signals(
     df: pd.DataFrame,
-    fast: int = 20,
-    slow: int = 50,
+    lookback: int = 30,
+    entry_threshold: float = 0.01,
     exposure_cap: float = 1.0,
 ) -> pd.Series:
-    strat = _build_strategy(df, fast=fast, slow=slow, exposure_cap=exposure_cap)
+    strat = _build_strategy(df, lookback=lookback, entry_threshold=entry_threshold, exposure_cap=exposure_cap)
     raw = strat.predict(df)
     clipped = strat.generate_order_intents(raw)
     return clipped.round().astype(int)
@@ -155,8 +152,8 @@ def explain(
     df: pd.DataFrame,
     *,
     timestamp: pd.Timestamp | str | None = None,
-    fast: int = 20,
-    slow: int = 50,
+    lookback: int = 30,
+    entry_threshold: float = 0.01,
     exposure_cap: float = 1.0,
     direction: str | int | None = None,
 ) -> Dict[str, Any]:
@@ -170,7 +167,12 @@ def explain(
         if frame.empty:
             raise StrategyError("timestamp requested is before available history")
 
-    strat = _build_strategy(frame, fast=fast, slow=slow, exposure_cap=exposure_cap)
+    strat = _build_strategy(
+        frame,
+        lookback=lookback,
+        entry_threshold=entry_threshold,
+        exposure_cap=exposure_cap,
+    )
     signals = strat.predict(frame)
     strat.generate_order_intents(signals)
 

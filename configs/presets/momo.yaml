@@ -1,0 +1,10 @@
+strategy: momentum
+symbol: MSFT
+asset_class: equity
+interval: 1h
+start: 2023-06-01
+end: 2023-08-31
+params:
+  fast: 20
+  slow: 60
+  exposure_cap: 1.0

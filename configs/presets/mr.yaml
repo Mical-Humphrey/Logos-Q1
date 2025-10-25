@@ -1,0 +1,10 @@
+strategy: mean_reversion
+symbol: DEMO
+asset_class: equity
+interval: 1d
+start: 2023-01-01
+end: 2023-03-31
+params:
+  lookback: 40
+  z_entry: 2.0
+  exposure_cap: 1.0
