@@ -1,0 +1,22 @@
+[Unit]
+Description=Logos-Q1 Paper Soak (2 weeks)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/Logos-Q1
+Environment=RUN_CMD=python -m logos.cli run --mode paper --config configs/paper.yaml
+Environment=USE_TMUX=0
+Environment=SOAK_DAYS=14
+Environment=DAY_RUNTIME_SEC=86400
+ExecStart=/bin/bash -lc "./scripts/test_2_week.sh"
+Restart=always
+RestartSec=10
+User=logos
+Group=logos
+LimitNOFILE=65536
+StandardOutput=append:/var/log/logos/soak.service.log
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target
