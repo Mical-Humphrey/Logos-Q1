@@ -48,9 +48,13 @@ def _pointer_contents(session_dir: Path) -> str:
     return str(session_dir.resolve())
 
 
-def _update_latest_pointer(session_dir: Path, *, latest_path: Path | None = None) -> None:
+def _update_latest_pointer(
+    session_dir: Path, *, latest_path: Path | None = None
+) -> None:
     latest = (
-        Path(latest_path).expanduser() if latest_path is not None else runs_live_latest_symlink()
+        Path(latest_path).expanduser()
+        if latest_path is not None
+        else runs_live_latest_symlink()
     )
     ensure_dir(latest.parent)
     atomic_write_text(latest, _pointer_contents(session_dir), encoding="utf-8")
@@ -67,19 +71,29 @@ def create_session(
     """Allocate a new session directory tree and logging handler."""
 
     when = when or dt.datetime.now(dt.timezone.utc)
-    session_id = f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+    session_id = (
+        f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+    )
 
     base_root = (
-        Path(sessions_dir).expanduser() if sessions_dir is not None else RUNS_LIVE_SESSIONS_DIR
+        Path(sessions_dir).expanduser()
+        if sessions_dir is not None
+        else RUNS_LIVE_SESSIONS_DIR
     )
     base_dir = base_root / session_id
     logs_dir = base_dir / "logs"
 
     # Allow alternate run modes (e.g. paper soak tests) to colocate their artefacts.
-    trades_root = RUNS_LIVE_TRADES_DIR if sessions_dir is None else base_root.parent / "trades"
-    reports_root = RUNS_LIVE_REPORTS_DIR if sessions_dir is None else base_root.parent / "reports"
+    trades_root = (
+        RUNS_LIVE_TRADES_DIR if sessions_dir is None else base_root.parent / "trades"
+    )
+    reports_root = (
+        RUNS_LIVE_REPORTS_DIR if sessions_dir is None else base_root.parent / "reports"
+    )
 
-    ensure_dirs([(base_root, True), (logs_dir, True), (trades_root, True), (reports_root, True)])
+    ensure_dirs(
+        [(base_root, True), (logs_dir, True), (trades_root, True), (reports_root, True)]
+    )
 
     state_file = base_dir / "state.json"
     state_events_file = base_dir / "state.jsonl"

@@ -5,10 +5,8 @@ import json
 import os
 import signal
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from ..config import Settings
 from ..paths import RUNS_PAPER_LATEST_LINK, RUNS_PAPER_SESSIONS_DIR
@@ -117,7 +115,12 @@ def run(args: argparse.Namespace, *, settings: Settings | None = None) -> int:
         # Emit a JSONL heartbeat to orchestrator_metrics as well
         try:
             with paths.orchestrator_metrics_file.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps({"ts": started.isoformat(), "event": "start", "pid": pid}) + "\n")
+                fh.write(
+                    json.dumps(
+                        {"ts": started.isoformat(), "event": "start", "pid": pid}
+                    )
+                    + "\n"
+                )
         except Exception:
             pass
 
@@ -137,8 +140,19 @@ def run(args: argparse.Namespace, *, settings: Settings | None = None) -> int:
                 }
                 _write_json(metrics_path, payload)
                 try:
-                    with paths.orchestrator_metrics_file.open("a", encoding="utf-8") as fh:
-                        fh.write(json.dumps({"ts": payload["ts"], "event": "heartbeat", "uptime_sec": uptime}) + "\n")
+                    with paths.orchestrator_metrics_file.open(
+                        "a", encoding="utf-8"
+                    ) as fh:
+                        fh.write(
+                            json.dumps(
+                                {
+                                    "ts": payload["ts"],
+                                    "event": "heartbeat",
+                                    "uptime_sec": uptime,
+                                }
+                            )
+                            + "\n"
+                        )
                 except Exception:
                     pass
                 next_beat = now + heartbeat
