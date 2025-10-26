@@ -1,7 +1,7 @@
 # 2‑Week Paper Soak — Super Explicit Linux Guide
 
 This soak harness will paper‑trade and generate a daily report (`runs/soak/reports/YYYY‑MM‑DD/report.md`).  
-By default it runs a quick 5‑minute test; pass `--full` to run 14 days x 24h.
+By default it runs a quick 5 minute test; pass `--full` to run 14 days x 24h.
 
 What you’ll run:
 - Orchestrator: `scripts/test_2_week.sh`
@@ -65,21 +65,19 @@ chmod +x scripts/test_2_week.sh tools/soak_report.py
 
 ## 3) Check the CLI entrypoint
 
-Before wiring the soak harness to anything, make sure the current CLI exposes the subcommand you expect. Activate the virtualenv and confirm that `python -m logos.cli` lists `quickstart` (and that the subcommand advertises `--offline`).
+Before wiring the soak harness to anything, make sure the current CLI exposes the subcommand you expect. Activate the virtualenv and confirm that `python -m logos.cli` lists `paper`.
 
 ```bash
 source .venv/bin/activate
 python -m logos.cli --help | head -n 20
-python -m logos.cli quickstart --help
+python -m logos.cli paper --help
 ```
 
-The quick 5-minute soak uses the exact invocation below. Run it once to ensure it succeeds and writes to `runs/` (typically under `runs/live/sessions/…`).
+You can test a short 10-second paper run manually to see a heartbeat session under `runs/paper/sessions/...`:
 
 ```bash
-python -m logos.cli quickstart --offline
+python -m logos.cli paper --offline --duration-sec 10 --heartbeat-sec 2
 ```
-
-If you maintain a custom paper command, substitute it here and verify it completes.
 
 ## 4) Decide your paper‑run command
 
@@ -87,12 +85,12 @@ You MUST provide the exact command that starts a paper session, unless the defau
 
 - Default used by the harness:
 ```bash
-python -m logos.cli quickstart --offline
+python -m logos.cli paper --offline --duration-sec ${DAY_RUNTIME_SEC}
 ```
 
 - If your command differs, you can either export it:
 ```bash
-export RUN_CMD="python -m logos.cli quickstart --offline"
+export RUN_CMD="python -m logos.cli paper --offline --duration-sec 300"
 ```
 …or pass it inline via `--run-cmd "…"` when invoking the script.
 
@@ -115,7 +113,7 @@ Option A — If your command matches the default:
 
 Option B — Specify your command inline:
 ```bash
-./scripts/test_2_week.sh --run-cmd "python -m logos.cli quickstart --offline"
+./scripts/test_2_week.sh --run-cmd "python -m logos.cli paper --offline --duration-sec 300"
 ```
 
 Check the report:
@@ -136,14 +134,14 @@ Run the harness for 14 days x 24h per day. You can run it directly or inside tmu
 
 Minimal, foreground:
 ```bash
-./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli quickstart --offline"
+./scripts/test_2_week.sh --full
 ```
 
 Recommended (wrap in tmux so your SSH disconnects don’t stop the orchestrator):
 ```bash
 tmux new -s logos-soak
 source .venv/bin/activate
-./scripts/test_2_week.sh --full --run-cmd "python -m logos.cli quickstart --offline"
+./scripts/test_2_week.sh --full
 # Detach from tmux: Ctrl-b then d
 # Reattach later: tmux attach -t logos-soak
 ```

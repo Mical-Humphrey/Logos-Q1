@@ -78,13 +78,14 @@ ERROR_START_BEFORE_END = "Start date is not before end date"
 
 
 def _extra_commands() -> Dict[str, ModuleType]:
-    from . import quickstart, configure, doctor, status
+    from . import quickstart, configure, doctor, status, paper
 
     return {
         "quickstart": quickstart,
         "configure": configure,
         "doctor": doctor,
         "status": status,
+        "paper": paper,
     }
 
 
@@ -827,7 +828,7 @@ def build_parser(settings: Settings) -> argparse.ArgumentParser:
     # phase 3 commands
     commands = _extra_commands()
     # ensure deterministic order for help output
-    for name in ("quickstart", "configure", "doctor", "status"):
+    for name in ("quickstart", "configure", "doctor", "status", "paper"):
         module = commands.get(name)
         if module is None:
             continue

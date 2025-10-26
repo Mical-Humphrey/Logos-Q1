@@ -45,7 +45,8 @@ USE_TMUX="${USE_TMUX:-1}"
 NO_ARTIFACTS_TAR="${NO_ARTIFACTS_TAR:-0}"
 
 # Sensible default RUN_CMD (can be overridden by env or --run-cmd)
-RUN_CMD="${RUN_CMD:-python -m logos.cli quickstart --offline}"
+# Default uses long-running paper CLI for the day window.
+RUN_CMD="${RUN_CMD:-python -m logos.cli paper --offline --duration-sec ${DAY_RUNTIME_SEC}}"
 
 # --------------- Helpers ---------------
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
