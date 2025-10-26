@@ -9,10 +9,8 @@ from pathlib import Path
 
 from core.io.atomic_write import atomic_write_text
 from core.io.dirs import ensure_dir, ensure_dirs
-
 from logos.logging_setup import attach_run_file_handler
 from logos.paths import (
-    RUNS_LIVE_LATEST_LINK,
     RUNS_LIVE_REPORTS_DIR,
     RUNS_LIVE_SESSIONS_DIR,
     RUNS_LIVE_TRADES_DIR,
@@ -50,31 +48,38 @@ def _pointer_contents(session_dir: Path) -> str:
     return str(session_dir.resolve())
 
 
-def _update_latest_pointer(session_dir: Path) -> None:
-    latest = runs_live_latest_symlink()
+def _update_latest_pointer(session_dir: Path, *, latest_path: Path | None = None) -> None:
+    latest = (
+        Path(latest_path).expanduser() if latest_path is not None else runs_live_latest_symlink()
+    )
     ensure_dir(latest.parent)
     atomic_write_text(latest, _pointer_contents(session_dir), encoding="utf-8")
 
 
 def create_session(
-    symbol: str, strategy: str, when: dt.datetime | None = None
+    symbol: str,
+    strategy: str,
+    when: dt.datetime | None = None,
+    *,
+    sessions_dir: Path | None = None,
+    latest_link: Path | None = None,
 ) -> tuple[SessionPaths, logging.Handler]:
     """Allocate a new session directory tree and logging handler."""
 
     when = when or dt.datetime.now(dt.timezone.utc)
-    session_id = (
-        f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+    session_id = f"{when.strftime('%Y-%m-%d_%H%M')}_{safe_slug(symbol)}_{safe_slug(strategy)}"
+
+    base_root = (
+        Path(sessions_dir).expanduser() if sessions_dir is not None else RUNS_LIVE_SESSIONS_DIR
     )
-    base_dir = RUNS_LIVE_SESSIONS_DIR / session_id
+    base_dir = base_root / session_id
     logs_dir = base_dir / "logs"
-    ensure_dirs(
-        [
-            (RUNS_LIVE_SESSIONS_DIR, True),
-            (logs_dir, True),
-            (RUNS_LIVE_TRADES_DIR, True),
-            (RUNS_LIVE_REPORTS_DIR, True),
-        ]
-    )
+
+    # Allow alternate run modes (e.g. paper soak tests) to colocate their artefacts.
+    trades_root = RUNS_LIVE_TRADES_DIR if sessions_dir is None else base_root.parent / "trades"
+    reports_root = RUNS_LIVE_REPORTS_DIR if sessions_dir is None else base_root.parent / "reports"
+
+    ensure_dirs([(base_root, True), (logs_dir, True), (trades_root, True), (reports_root, True)])
 
     state_file = base_dir / "state.json"
     state_events_file = base_dir / "state.jsonl"
@@ -85,7 +90,11 @@ def create_session(
     session_report = base_dir / "session.md"
     orchestrator_metrics_file = base_dir / "orchestrator_metrics.jsonl"
     router_state_file = base_dir / "router_state.json"
-    latest_file = RUNS_LIVE_LATEST_LINK
+    latest_file = (
+        Path(latest_link).expanduser()
+        if latest_link is not None
+        else runs_live_latest_symlink()
+    )
 
     _write_header(
         trades_file,
@@ -104,7 +113,7 @@ def create_session(
         "# v1 account\nts,session_id,symbol,strategy,cash,equity,buying_power,currency",
     )
 
-    _update_latest_pointer(base_dir)
+    _update_latest_pointer(base_dir, latest_path=latest_file)
     handler = attach_run_file_handler(logs_dir / "run.log")
 
     paths = SessionPaths(

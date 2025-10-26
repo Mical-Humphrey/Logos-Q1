@@ -33,6 +33,10 @@ RUNS_LIVE_TRADES_DIR = RUNS_LIVE_DIR / "trades"
 RUNS_LIVE_REPORTS_DIR = RUNS_LIVE_DIR / "reports"
 RUNS_LIVE_LATEST_LINK = RUNS_LIVE_DIR / "latest_session"
 
+RUNS_PAPER_DIR = RUNS_DIR / "paper"
+RUNS_PAPER_SESSIONS_DIR = RUNS_PAPER_DIR / "sessions"
+RUNS_PAPER_LATEST_LINK = RUNS_PAPER_DIR / "latest_session"
+
 LOGS_DIR = LOGOS_DIR / "logs"
 APP_LOGS_DIR = LOGOS_DIR / "logs"
 APP_LOG_FILE = APP_LOGS_DIR / "app.log"
@@ -60,6 +64,8 @@ def _default_dirs() -> list[Path]:
         RUNS_LIVE_SESSIONS_DIR,
         RUNS_LIVE_TRADES_DIR,
         RUNS_LIVE_REPORTS_DIR,
+        RUNS_PAPER_DIR,
+        RUNS_PAPER_SESSIONS_DIR,
     ]
 
 
@@ -101,6 +107,10 @@ def runs_latest_symlink() -> Path:
 
 def runs_live_latest_symlink() -> Path:
     return RUNS_LIVE_LATEST_LINK
+
+
+def runs_paper_latest_symlink() -> Path:
+    return RUNS_PAPER_LATEST_LINK
 
 
 def env_seed(default: int = 7) -> int:

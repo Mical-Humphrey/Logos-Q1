@@ -63,7 +63,25 @@ chmod +x scripts/test_2_week.sh tools/soak_report.py
 
 ---
 
-## 3) Decide your paper‑run command
+## 3) Check the CLI entrypoint
+
+Before wiring the soak harness to anything, make sure the current CLI exposes the subcommand you expect. Activate the virtualenv and confirm that `python -m logos.cli` lists `quickstart` (and that the subcommand advertises `--offline`).
+
+```bash
+source .venv/bin/activate
+python -m logos.cli --help | head -n 20
+python -m logos.cli quickstart --help
+```
+
+The quick 5-minute soak uses the exact invocation below. Run it once to ensure it succeeds and writes to `runs/` (typically under `runs/live/sessions/…`).
+
+```bash
+python -m logos.cli quickstart --offline
+```
+
+If you maintain a custom paper command, substitute it here and verify it completes.
+
+## 4) Decide your paper‑run command
 
 You MUST provide the exact command that starts a paper session, unless the default suits you.
 
@@ -86,7 +104,7 @@ bash -lc "$RUN_CMD"
 
 ---
 
-## 4) Quick dry run (5 minutes, default)
+## 5) Quick dry run (5 minutes, default)
 
 This verifies the harness and your command on this machine.
 
@@ -112,7 +130,7 @@ What “good” looks like:
 
 ---
 
-## 5) Full 2‑week soak
+## 6) Full 2‑week soak
 
 Run the harness for 14 days x 24h per day. You can run it directly or inside tmux.
 
@@ -136,7 +154,7 @@ Notes:
 
 ---
 
-## 6) Useful flags and environment overrides
+## 7) Useful flags and environment overrides
 
 - `--full`                     Run 14 days x 24h
 - `--days N`                   Custom number of days (default 1)
@@ -160,7 +178,7 @@ export PYTHON_BIN=python3
 
 ---
 
-## 7) Daily check and stopping
+## 8) Daily check and stopping
 
 Check today’s orchestrator log and report:
 ```bash
@@ -181,7 +199,7 @@ What is rotated:
 
 ---
 
-## 8) Notes and assumptions
+## 9) Notes and assumptions
 
 - “Logos‑aware but tolerant”: If your app writes `metrics.json` files into `runs/`, the report aggregates them. If not, you still get orchestrator stats.
 - No network or disk failure injections are performed unless you explicitly enable them (advanced; disabled by default).
@@ -190,7 +208,7 @@ What is rotated:
 
 ---
 
-## 9) Troubleshooting
+## 10) Troubleshooting
 
 - “No metrics.json found” in report:
   - Ensure your paper run writes metrics under `runs/` on that day.
