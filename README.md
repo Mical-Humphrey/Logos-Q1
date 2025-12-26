@@ -1,4 +1,4 @@
-# Logos-Q1
+# Logos-Q1, an educational experiment with spec driven development
 
 > "Learn like a student. Trade like a professional."
 
